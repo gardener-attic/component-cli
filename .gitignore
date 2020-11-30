@@ -1,0 +1,14 @@
+# development directories
+dev
+tmp
+
+# code editor files
+.idea
+.vscode
+
+# golang generated artifacts
+*.report
+**/gomock_reflect_*
+
+# os specific
+.DS_Store

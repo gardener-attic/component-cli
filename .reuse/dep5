@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: github.com/gardener/components-cli
+Upstream-Contact: SAP SE or an SAP affiliate company and Gardener contributors <>
+Source: https://github.com/gardener/component-cli
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
