@@ -20,9 +20,11 @@ component-cli:
     steps:
       verify:
         image: 'eu.gcr.io/gardener-project/3rd/golang:1.15.5'
-      publish-helm-charts:
-        depends:
-        - verify
+      build:
+        image: 'eu.gcr.io/gardener-project/3rd/golang:1.15.5'
+        execute: 'build'
+        output_dir: 'out'
+        timeout: '5m'
 
   jobs:
     head-update:
@@ -31,7 +33,6 @@ component-cli:
     pull-request:
       traits:
         pull-request: ~
-        draft_release: ~
     release:
       traits:
         version:
@@ -45,3 +46,10 @@ component-cli:
               target: 'cli'
               tag_as_latest: true
               image: eu.gcr.io/gardener-project/component/cli
+      steps:
+        update-release:
+          execute: 'update-release.py'
+          depends:
+          - 'release'
+          inputs:
+            OUT_PATH: 'out_path'

@@ -13,6 +13,12 @@ import (
 // CliHomeEnvName is the name of the environment variable that configures the component cli home directory.
 const CliHomeEnvName = "COMPONENT_CLI_HOME"
 
+// ComponentDescriptorPathEnvName is the name of the environment variable that contains the absolute file path to output the final descriptor to.
+const ComponentDescriptorPathEnvName = "COMPONENT_DESCRIPTOR_PATH"
+
+// BaseDefinitionPathEnvName is the name of the environment variable that contains the absolute file path to the base component descriptor
+const BaseDefinitionPathEnvName = "BASE_DEFINITION_PATH"
+
 // CliHomeDir returns the home directoy of the components cli.
 // It returns the COMPONENT_CLI_HOME if its defined otherwise
 // the default "$HOME/.component-cli" is returned.

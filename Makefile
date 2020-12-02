@@ -24,11 +24,11 @@ format:
 
 .PHONY: check
 check:
-	@$(REPO_ROOT)/hack/check.sh --golangci-lint-config=./.golangci.yaml $(REPO_ROOT)/cmd/... $(REPO_ROOT)/pkg/... $(REPO_ROOT)/ociclient/... $(REPO_ROOT)/test/...
+	@$(REPO_ROOT)/hack/check.sh --golangci-lint-config=./.golangci.yaml $(REPO_ROOT)/cmd/... $(REPO_ROOT)/pkg/... $(REPO_ROOT)/ociclient/...
 
 .PHONY: test
 test:
-	@go test -mod=vendor $(REPO_ROOT)/cmd/... $(REPO_ROOT)/pkg/... $(REPO_ROOT)/ociclient/... $(REPO_ROOT)/test/...
+	@go test -mod=vendor $(REPO_ROOT)/cmd/... $(REPO_ROOT)/pkg/... $(REPO_ROOT)/ociclient/...
 
 .PHONY: verify
 verify: check
@@ -40,6 +40,10 @@ verify: check
 .PHONY: install
 install:
 	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/install.sh
+
+.PHONY: cross-build
+cross-build:
+	@EFFECTIVE_VERSION=$(EFFECTIVE_VERSION) ./hack/cross-build.sh
 
 .PHONY: docker-images
 docker-images:

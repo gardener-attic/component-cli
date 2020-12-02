@@ -9,7 +9,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gardener/component-cli/pkg/commands/componentreferences"
+	"github.com/gardener/component-cli/pkg/commands/gardenerci"
 	"github.com/gardener/component-cli/pkg/commands/remote"
+	"github.com/gardener/component-cli/pkg/commands/resources"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/version"
 
@@ -35,6 +38,9 @@ func NewComponentsCliCommand(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(NewVersionCommand())
 	cmd.AddCommand(remote.NewRemoteCommand(ctx))
+	cmd.AddCommand(resources.NewResourcesCommand(ctx))
+	cmd.AddCommand(componentreferences.NewCompRefCommand(ctx))
+	cmd.AddCommand(gardenerci.NewGardenerCICommand(ctx))
 
 	return cmd
 }

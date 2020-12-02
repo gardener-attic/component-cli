@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
 
+	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
 
@@ -37,6 +38,8 @@ type showOptions struct {
 
 	// cacheDir defines the oci cache directory
 	cacheDir string
+	// registryConfigPath defines a path to the dockerconfig.json with the oci registry authentication.
+	registryConfigPath string
 }
 
 // NewGetCommand shows definitions and their configuration.
@@ -79,7 +82,15 @@ func (o *showOptions) run(ctx context.Context, log logr.Logger) error {
 		return err
 	}
 
-	ociClient, err := ociclient.NewClient(log, ociclient.WithCache{Cache: cache}, ociclient.AllowPlainHttp(o.allowPlainHttp))
+	ociOpts := []ociclient.Option{ociclient.WithCache{Cache: cache}, ociclient.AllowPlainHttp(o.allowPlainHttp)}
+	if len(o.registryConfigPath) != 0 {
+		keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{o.registryConfigPath})
+		if err != nil {
+			return fmt.Errorf("unable to create keyring for registry at %q: %w", o.registryConfigPath, err)
+		}
+		ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
+	}
+	ociClient, err := ociclient.NewClient(log, ociOpts...)
 	if err != nil {
 		return err
 	}
@@ -131,4 +142,5 @@ func (o *showOptions) Complete(args []string) error {
 
 func (o *showOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.allowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
+	fs.StringVar(&o.registryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
 }

@@ -2,6 +2,9 @@
 dev
 tmp
 
+# build directories
+dist
+
 # code editor files
 .idea
 .vscode

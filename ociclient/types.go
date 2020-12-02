@@ -78,12 +78,19 @@ func (c WithCache) ApplyOption(options *Options) {
 	options.Cache = c.Cache
 }
 
-// WithKeyring configures the resolver to use the given oci keyring
-type WithKeyring struct {
+// WithKeyring return a option that configures the resolver to use the given oci keyring
+func WithKeyring(ring credentials.OCIKeyring) Option {
+	return WithKeyringOption{
+		OCIKeyring: ring,
+	}
+}
+
+// WithKeyringOption configures the resolver to use the given oci keyring
+type WithKeyringOption struct {
 	credentials.OCIKeyring
 }
 
-func (c *WithKeyring) ApplyOption(options *Options) {
+func (c WithKeyringOption) ApplyOption(options *Options) {
 	options.Resolver = c.OCIKeyring
 }
 

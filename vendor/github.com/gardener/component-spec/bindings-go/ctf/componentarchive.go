@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -60,7 +61,7 @@ func ComponentArchiveFromPath(path string) (*ComponentArchive, error) {
 		return nil, fmt.Errorf("unable to create projected filesystem from path %s: %w", path, err)
 	}
 
-	return newComponentArchiveFromFilesystem(fs)
+	return NewComponentArchiveFromFilesystem(fs)
 }
 
 // ComponentArchiveFromCompressedCTF creates a new component archive from a zipped CTF tar.
@@ -75,7 +76,7 @@ func ComponentArchiveFromCompressedCTF(path string) (*ComponentArchive, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open gzip reader for %s: %w", path, err)
 	}
-	return newComponentArchiveFromTarReader(reader)
+	return NewComponentArchiveFromTarReader(reader)
 }
 
 // ComponentArchiveFromCTF creates a new componet archive from a CTF tar file.
@@ -86,12 +87,12 @@ func ComponentArchiveFromCTF(path string) (*ComponentArchive, error) {
 		return nil, fmt.Errorf("unable to open tar archive from %s: %w", path, err)
 	}
 	defer file.Close()
-	return newComponentArchiveFromTarReader(file)
+	return NewComponentArchiveFromTarReader(file)
 }
 
-// newComponentArchiveFromTarReader creates a new manifest builder from a input reader.
+// NewComponentArchiveFromTarReader creates a new manifest builder from a input reader.
 // todo: make the fs configurable to also use a temporary filesystem
-func newComponentArchiveFromTarReader(in io.Reader) (*ComponentArchive, error) {
+func NewComponentArchiveFromTarReader(in io.Reader) (*ComponentArchive, error) {
 	// the archive is untared to a memory fs that the builder can work
 	// as it would be a default filesystem.
 	fs := memoryfs.New()
@@ -99,11 +100,11 @@ func newComponentArchiveFromTarReader(in io.Reader) (*ComponentArchive, error) {
 		return nil, fmt.Errorf("unable to extract tar: %w", err)
 	}
 
-	return newComponentArchiveFromFilesystem(fs)
+	return NewComponentArchiveFromFilesystem(fs)
 }
 
-// newComponentArchiveFromTarReader creates a new manifest builder from a input reader.
-func newComponentArchiveFromFilesystem(fs vfs.FileSystem) (*ComponentArchive, error) {
+// NewComponentArchiveFromFilesystem creates a new component archive from a filesystem.
+func NewComponentArchiveFromFilesystem(fs vfs.FileSystem) (*ComponentArchive, error) {
 	data, err := vfs.ReadFile(fs, filepath.Join("/", ComponentDescriptorFileName))
 	if err != nil {
 		return nil, fmt.Errorf("unable to read the component descriptor from %s: %w", ComponentDescriptorFileName, err)
@@ -125,7 +126,13 @@ func newComponentArchiveFromFilesystem(fs vfs.FileSystem) (*ComponentArchive, er
 // AddResource adds a blob resource to the current archive.
 // If the specified resource already exists it will be overwritten.
 func (ca *ComponentArchive) AddResource(res *v2.Resource, info BlobInfo, reader io.Reader) error {
+	if res == nil {
+		return errors.New("a resource has to be defined")
+	}
 	id := ca.ComponentDescriptor.GetResourceIndex(*res)
+	if err := ca.ensureBlobsPath(); err != nil {
+		return err
+	}
 
 	blobpath := BlobPath(info.Digest)
 	if _, err := ca.fs.Stat(blobpath); err != nil {
@@ -162,7 +169,13 @@ func (ca *ComponentArchive) AddResource(res *v2.Resource, info BlobInfo, reader 
 // AddResource adds a blob resource to the current archive.
 // If the specified resource already exists it will be overwritten.
 func (ca *ComponentArchive) AddResourceFromResolver(ctx context.Context, res *v2.Resource, resolver BlobResolver) error {
+	if res == nil {
+		return errors.New("a resource has to be defined")
+	}
 	id := ca.ComponentDescriptor.GetResourceIndex(*res)
+	if err := ca.ensureBlobsPath(); err != nil {
+		return err
+	}
 
 	info, err := resolver.Info(ctx, *res)
 	if err != nil {
@@ -197,6 +210,17 @@ func (ca *ComponentArchive) AddResourceFromResolver(ctx context.Context, res *v2
 		ca.ComponentDescriptor.Resources = append(ca.ComponentDescriptor.Resources, *res)
 	} else {
 		ca.ComponentDescriptor.Resources[id] = *res
+	}
+	return nil
+}
+
+// ensureBlobsPath ensures that the blob directory exists
+func (ca *ComponentArchive) ensureBlobsPath() error {
+	if _, err := ca.fs.Stat(BlobsDirectoryName); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("unable to get file info for blob directory: %w", err)
+		}
+		return ca.fs.Mkdir(BlobsDirectoryName, os.ModePerm)
 	}
 	return nil
 }
@@ -268,6 +292,57 @@ func (ca *ComponentArchive) WriteTar(writer io.Writer) error {
 		}
 		if err := blob.Close(); err != nil {
 			return fmt.Errorf("unable to close blob %s: %w", blobpath, err)
+		}
+	}
+
+	return nil
+}
+
+// WriteToFilesystem writes the current component archive to a filesystem
+func (ca *ComponentArchive) WriteToFilesystem(fs vfs.FileSystem, path string) error {
+	// create the directory structure with the blob directory
+	if err := fs.MkdirAll(filepath.Join(path, BlobsDirectoryName), os.ModePerm); err != nil {
+		return fmt.Errorf("unable to create output directory %q: %s", path, err.Error())
+	}
+	// copy component-descriptor
+	cdBytes, err := codec.Encode(ca.ComponentDescriptor)
+	if err != nil {
+		return fmt.Errorf("unable to encode component descriptor: %w", err)
+	}
+	if err := vfs.WriteFile(fs, filepath.Join(path, ComponentDescriptorFileName), cdBytes, os.ModePerm); err != nil {
+		return fmt.Errorf("unable to copy component descritptor to %q: %w", filepath.Join(path, ComponentDescriptorFileName), err)
+	}
+
+	// copy all blobs
+	blobInfos, err := vfs.ReadDir(ca.fs, BlobsDirectoryName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("unable to read blobs: %w", err)
+	}
+	for _, blobInfo := range blobInfos {
+		if blobInfo.IsDir() {
+			continue
+		}
+		inpath := BlobPath(blobInfo.Name())
+		outpath := filepath.Join(path, BlobsDirectoryName, blobInfo.Name())
+		blob, err := ca.fs.Open(inpath)
+		if err != nil {
+			return fmt.Errorf("unable to open input blob %q: %w", inpath, err)
+		}
+		out, err := fs.OpenFile(outpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("unable to open output blob %q: %w", outpath, err)
+		}
+		if _, err := io.Copy(out, blob); err != nil {
+			return fmt.Errorf("unable to copy blob from %q to %q: %w", inpath, outpath, err)
+		}
+		if err := out.Close(); err != nil {
+			return fmt.Errorf("unable to close output blob %s: %w", outpath, err)
+		}
+		if err := blob.Close(); err != nil {
+			return fmt.Errorf("unable to close input blob %s: %w", outpath, err)
 		}
 	}
 
