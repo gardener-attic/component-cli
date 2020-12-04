@@ -16,6 +16,9 @@ var (
 	ErrNotFound = errors.New("not cached")
 )
 
+// CacheDirEnvName is the name of the environment variable that configures cache directory.
+const CacheDirEnvName = "OCI_CACHE_DIR"
+
 // Cache is the interface for a oci cache
 type Cache interface {
 	Get(desc ocispecv1.Descriptor) (io.ReadCloser, error)

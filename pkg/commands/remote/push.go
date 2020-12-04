@@ -23,8 +23,8 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
-	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type pushOptions struct {
@@ -53,15 +53,20 @@ type pushOptions struct {
 func NewPushCommand(ctx context.Context) *cobra.Command {
 	opts := &pushOptions{}
 	cmd := &cobra.Command{
-		Use:  "push",
-		Args: cobra.RangeArgs(1, 4),
-		Example: `component-cli cd push [path to component descriptor]
+		Use:   "push [path to component descriptor]",
+		Args:  cobra.RangeArgs(1, 4),
+		Short: "pushes a component archive to an oci repository",
+		Long: `
+pushes a component archive with the component descriptor and its local blobs to an oci repository.
+
+The command can be called in 2 different ways:
+
+push [path to component descriptor]
 - The cli will read all necessary parameters from the component descriptor.
 
-component-cli cd push [baseurl] [componentname] [version] [path to component descriptor]
+push [baseurl] [componentname] [version] [path to component descriptor]
 - The cli will add the baseurl as repository context and validate the name and version.
 `,
-		Short: "command to interact with a component descriptor stored an oci registry",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
@@ -132,13 +137,10 @@ func (o *pushOptions) Complete(args []string) error {
 		o.componentPath = args[3]
 	}
 
-	cliHomeDir, err := constants.CliHomeDir()
+	var err error
+	o.cacheDir, err = utils.CacheDir()
 	if err != nil {
-		return err
-	}
-	o.cacheDir = filepath.Join(cliHomeDir, "components")
-	if err := os.MkdirAll(o.cacheDir, os.ModePerm); err != nil {
-		return fmt.Errorf("unable to create cache directory %s: %w", o.cacheDir, err)
+		return fmt.Errorf("unable to get oci cache directory: %w", err)
 	}
 
 	if err := o.Validate(); err != nil {

@@ -30,6 +30,10 @@ check:
 test:
 	@go test -mod=vendor $(REPO_ROOT)/cmd/... $(REPO_ROOT)/pkg/... $(REPO_ROOT)/ociclient/...
 
+.PHONY: generate
+generate:
+	@$(REPO_ROOT)/hack/generate.sh $(REPO_ROOT)/pkg... $(REPO_ROOT)/cmd...
+
 .PHONY: verify
 verify: check
 

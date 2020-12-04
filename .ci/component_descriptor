@@ -27,7 +27,17 @@ mkdir -p "$COMPONENT_ARCHIVE_PATH"
 cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
 #component-cli gardener-ci init
-component-cli resources add --comp-desc="$COMPONENT_ARCHIVE_PATH" -r ./.ci/resources/bin-linux.yaml -i "$(which "component-cli")"
+ARTIFACT_PATH="$(which "component-cli")"
+cat <<EOF | component-cli ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
+name: cli-binary-linux
+extraIdentity:
+  os: "linux"
+  arch: "amd64"
+relation: local
+input:
+  type: "file"
+  path: "$ARTIFACT_PATH"
+EOF
 
 # copy modified component-descriptor to
 cp "$COMPONENT_DESCRIPTOR_FILE_PATH" "$COMPONENT_DESCRIPTOR_PATH"

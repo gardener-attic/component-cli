@@ -8,6 +8,9 @@ import (
 	"context"
 
 	"github.com/spf13/cobra"
+
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/componentreferences"
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/resources"
 )
 
 // NewComponentArchiveCommand creates a new component archive command.
@@ -17,5 +20,7 @@ func NewComponentArchiveCommand(ctx context.Context) *cobra.Command {
 		Aliases: []string{"componentarchive", "ca", "archive"},
 	}
 	cmd.AddCommand(NewExportCommand(ctx))
+	cmd.AddCommand(resources.NewResourcesCommand(ctx))
+	cmd.AddCommand(componentreferences.NewCompRefCommand(ctx))
 	return cmd
 }

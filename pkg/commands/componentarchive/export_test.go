@@ -43,8 +43,7 @@ var _ = Describe("Export", func() {
 			opts := &componentarchive.ExportOptions{
 				ComponentArchivePath: "00-ca",
 				OutputPath:           "ca.tar",
-				CreateTar:            true,
-				CompressWithGzip:     false,
+				OutputFormat:         componentarchive.OutputFormatTar,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())
@@ -57,8 +56,7 @@ var _ = Describe("Export", func() {
 			opts := &componentarchive.ExportOptions{
 				ComponentArchivePath: "00-ca",
 				OutputPath:           "ca.tar.gz",
-				CreateTar:            true,
-				CompressWithGzip:     true,
+				OutputFormat:         componentarchive.OutputFormatTarGzip,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())
@@ -75,7 +73,7 @@ var _ = Describe("Export", func() {
 			opts := &componentarchive.ExportOptions{
 				ComponentArchivePath: "00-ca",
 				OutputPath:           "ca.tar",
-				CompressWithGzip:     false,
+				OutputFormat:         componentarchive.OutputFormatTar,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())
@@ -83,8 +81,7 @@ var _ = Describe("Export", func() {
 			opts = &componentarchive.ExportOptions{
 				ComponentArchivePath: "ca.tar",
 				OutputPath:           "ca",
-				CreateTar:            false,
-				CompressWithGzip:     false,
+				OutputFormat:         componentarchive.OutputFormatFilesystem,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())

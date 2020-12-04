@@ -1,5 +1,0 @@
-name: cli-binary-linux
-extraIdentity:
-  os: "linux"
-  arch: "amd64"
-relation: local

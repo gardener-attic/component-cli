@@ -36,13 +36,6 @@ import (
 	"github.com/gardener/component-spec/bindings-go/codec"
 )
 
-// ComponentArchive is the go representation for a CTF component artefact
-type ComponentArchive struct {
-	ComponentDescriptor *v2.ComponentDescriptor
-	fs                  vfs.FileSystem
-	BlobResolver
-}
-
 // NewComponentArchive returns a new component descriptor with a filesystem
 func NewComponentArchive(cd *v2.ComponentDescriptor, fs vfs.FileSystem) *ComponentArchive {
 	return &ComponentArchive{
@@ -121,6 +114,23 @@ func NewComponentArchiveFromFilesystem(fs vfs.FileSystem) (*ComponentArchive, er
 			fs: fs,
 		},
 	}, nil
+}
+
+// ComponentArchive is the go representation for a CTF component artefact
+type ComponentArchive struct {
+	ComponentDescriptor *v2.ComponentDescriptor
+	fs                  vfs.FileSystem
+	BlobResolver
+}
+
+// Digest returns the digest of the component archive.
+// The digest is computed serializing the included component descriptor into json and compute sha hash.
+func (ca *ComponentArchive) Digest() (string, error) {
+	data, err := codec.Encode(ca.ComponentDescriptor)
+	if err != nil {
+		return "", err
+	}
+	return digest.FromBytes(data).String(), nil
 }
 
 // AddResource adds a blob resource to the current archive.
@@ -227,7 +237,11 @@ func (ca *ComponentArchive) ensureBlobsPath() error {
 
 // WriteTar tars the current components descriptor and its artifacts.
 func (ca *ComponentArchive) WriteTarGzip(writer io.Writer) error {
-	return ca.WriteTar(gzip.NewWriter(writer))
+	gw := gzip.NewWriter(writer)
+	if err := ca.WriteTar(gw); err != nil {
+		return err
+	}
+	return gw.Close()
 }
 
 // WriteTar tars the current components descriptor and its artifacts.
@@ -295,7 +309,7 @@ func (ca *ComponentArchive) WriteTar(writer io.Writer) error {
 		}
 	}
 
-	return nil
+	return tw.Close()
 }
 
 // WriteToFilesystem writes the current component archive to a filesystem

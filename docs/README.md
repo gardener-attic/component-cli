@@ -12,7 +12,7 @@ __Index__:
 
 A resource can be added to an existing component descriptor by using the `resource` subcommand.
 
-The subcommand adds all resources defined in by a file .<br>
+The subcommand adds all resources defined in by a file.
 
 ```shell script
 # define by file
@@ -25,7 +25,21 @@ access:
   type: 'ociRegistry'
   imageReference: 'ubuntu:18.0'
 EOF > ./resource.yaml
-$ component-cli resources add -r ./resource.yaml
+$ component-cli ca resources add -r ./resource.yaml
+```
+
+The resources can also be added using stdin.
+```shell script
+# define by file
+$ cat <<EOF
+name: 'ubuntu'
+version: 'v0.0.1'
+type: 'ociImage'
+relation: 'external'
+access:
+  type: 'ociRegistry'
+  imageReference: 'ubuntu:18.0'
+EOF | component-cli ca resources add
 ```
 
 The file is expected to be a yaml, and multiple resources can be added by using the yaml multi doc syntax:
@@ -72,7 +86,7 @@ $ cat <<EOF
 }
 EOF > ./blob.raw
 
-$ component-cli resources add -r ./resource.yaml
+$ component-cli ca resources add -r ./resource.yaml
 ```
 
 See an example with a directory and possible options.
@@ -122,18 +136,6 @@ labels:
     key: true
 EOF > ./comp-ref.yaml
 $ component-cli component-reference add -r ./comp-ref.yaml
-```
-
-```shell script
-# define by commandline
-$ component-cli component-reference add \
-  --name="cli" \
-  --componentName="github.com/gardener/component-spec" \
-  --version="v0.0.1" \
-  --identity="myid=abc" \
-  --identity="mysecondid=efg" \
-  --label="mylabel=efg" \
-  --label="mysecondlabel={\"key\": true}"
 ```
 
 ## Remote

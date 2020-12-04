@@ -19,6 +19,9 @@ const ComponentDescriptorPathEnvName = "COMPONENT_DESCRIPTOR_PATH"
 // BaseDefinitionPathEnvName is the name of the environment variable that contains the absolute file path to the base component descriptor
 const BaseDefinitionPathEnvName = "BASE_DEFINITION_PATH"
 
+// ComponentArchivePathEnvName is the name of the environment variable that contains the file path to the component archive to be used.
+const ComponentArchivePathEnvName = "COMPONENT_ARCHIVE_PATH"
+
 // CliHomeDir returns the home directoy of the components cli.
 // It returns the COMPONENT_CLI_HOME if its defined otherwise
 // the default "$HOME/.component-cli" is returned.

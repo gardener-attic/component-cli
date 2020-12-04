@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/apis/v2/cdutils"
 	cdvalidation "github.com/gardener/component-spec/bindings-go/apis/v2/validation"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	"github.com/go-logr/logr"
@@ -33,8 +34,6 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
 )
-
-const KeyValueAssignment = "="
 
 // Options defines the options that are used to add resources to a component descriptor
 type Options struct {
@@ -83,9 +82,43 @@ func (i BlobInput) Compress() bool {
 func NewAddCommand(ctx context.Context) *cobra.Command {
 	opts := &Options{}
 	cmd := &cobra.Command{
-		Use:     "add",
-		Example: "component-cli add",
-		Short:   "add a resource to an existing component descriptor",
+		Use:   "add [component archive path] [-r resource-path]",
+		Args:  cobra.RangeArgs(0, 1),
+		Short: "Adds a resource to an component archive",
+		Long: `
+add generates resources from a resource template and adds it to the given component descriptor in the component archive.
+If the resource is already defined (quality by identity) in the component-descriptor it will be overwritten.
+
+The component archive can be specified by the first argument, the flag "--archive" or as env var "COMPONENT_ARCHIVE_PATH".
+The component archive is expected to be a filesystem archive. If the archive is given as tar please use the export command.
+
+The resource template can be defined by specifying a file with the template with "resource" or it can be given through stdin.
+
+The resource template is a multidoc yaml file so multiple templates can be defined.
+
+<pre>
+
+---
+name: 'myconfig'
+type: 'json'
+relation: 'local'
+input:
+  type: "file"
+  path: "some/path"
+...
+---
+name: 'myconfig'
+type: 'json'
+relation: 'local'
+input:
+  type: "dir"
+  path: /my/path
+  compress: true # defaults to false
+  exclude: "*.txt"
+...
+
+</pre>
+`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
@@ -135,7 +168,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 			// validate the resource
 			id := archive.ComponentDescriptor.GetResourceIndex(resource.Resource)
 			if id != -1 {
-				archive.ComponentDescriptor.Resources[id] = resource.Resource
+				archive.ComponentDescriptor.Resources[id] = cdutils.MergeResources(archive.ComponentDescriptor.Resources[id], resource.Resource)
 			} else {
 				archive.ComponentDescriptor.Resources = append(archive.ComponentDescriptor.Resources, resource.Resource)
 			}
@@ -161,7 +194,7 @@ func (o *Options) Complete(args []string) error {
 
 	// default component path to env var
 	if len(o.ComponentArchivePath) == 0 {
-		o.ComponentArchivePath = filepath.Dir(os.Getenv(constants.ComponentDescriptorPathEnvName))
+		o.ComponentArchivePath = filepath.Dir(os.Getenv(constants.ComponentArchivePathEnvName))
 	}
 
 	return o.validate()
@@ -175,21 +208,24 @@ func (o *Options) validate() error {
 }
 
 func (o *Options) AddFlags(set *pflag.FlagSet) {
-	set.StringVar(&o.ComponentArchivePath, "comp-desc", "", "path to the component descriptor directory")
+	set.StringVarP(&o.ComponentArchivePath, "archive", "a", "", "path to the component descriptor directory")
 
 	// specify the resource
 	set.StringVarP(&o.ResourceObjectPath, "resource", "r", "", "The path to the resources defined as yaml or json")
 }
 
 func (o *Options) generateResources(fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]ResourceOptions, error) {
-	resourceObjectReader, err := fs.Open(o.ResourceObjectPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ResourceObjectPath, err)
-	}
-	defer resourceObjectReader.Close()
-	resources, err := generateResourcesFromReader(cd, resourceObjectReader)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read resources from %s: %w", o.ResourceObjectPath, err)
+	resources := make([]ResourceOptions, 0)
+	if len(o.ResourceObjectPath) != 0 {
+		resourceObjectReader, err := fs.Open(o.ResourceObjectPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ResourceObjectPath, err)
+		}
+		defer resourceObjectReader.Close()
+		resources, err = generateResourcesFromReader(cd, resourceObjectReader)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read resources from %s: %w", o.ResourceObjectPath, err)
+		}
 	}
 	stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
 	if err != nil {

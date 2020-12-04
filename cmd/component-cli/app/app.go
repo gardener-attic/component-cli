@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//go:generate go run -mod=vendor ../../../hack/generate-docs ../../../docs/reference
+
 package app
 
 import (
@@ -9,10 +11,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/component-cli/pkg/commands/componentreferences"
+	"github.com/gardener/component-cli/pkg/commands/componentarchive"
+	"github.com/gardener/component-cli/pkg/commands/ctf"
 	"github.com/gardener/component-cli/pkg/commands/gardenerci"
 	"github.com/gardener/component-cli/pkg/commands/remote"
-	"github.com/gardener/component-cli/pkg/commands/resources"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/version"
 
@@ -38,8 +40,8 @@ func NewComponentsCliCommand(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(NewVersionCommand())
 	cmd.AddCommand(remote.NewRemoteCommand(ctx))
-	cmd.AddCommand(resources.NewResourcesCommand(ctx))
-	cmd.AddCommand(componentreferences.NewCompRefCommand(ctx))
+	cmd.AddCommand(ctf.NewCTFCommand(ctx))
+	cmd.AddCommand(componentarchive.NewComponentArchiveCommand(ctx))
 	cmd.AddCommand(gardenerci.NewGardenerCICommand(ctx))
 
 	return cmd

@@ -46,10 +46,12 @@ type showOptions struct {
 func NewGetCommand(ctx context.Context) *cobra.Command {
 	opts := &showOptions{}
 	cmd := &cobra.Command{
-		Use:     "get",
-		Args:    cobra.ExactArgs(3),
-		Example: "component-cli cd get [baseurl] [componentname] [version]",
-		Short:   "fetch the component descriptor from a oci registry",
+		Use:   "get [baseurl] [componentname] [version]",
+		Args:  cobra.ExactArgs(3),
+		Short: "fetch the component descriptor from a oci registry",
+		Long: `
+get fetches the component descriptor from a baseurl with the given name and version.
+`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())

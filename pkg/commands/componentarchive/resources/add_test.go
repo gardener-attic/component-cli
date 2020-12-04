@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/gardener/component-cli/pkg/commands/resources"
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/resources"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
