@@ -23,6 +23,7 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
+	"github.com/gardener/component-cli/ociclient/credentials/secretserver"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/utils"
 )
@@ -47,6 +48,8 @@ type pushOptions struct {
 	cacheDir string
 	// registryConfigPath defines a path to the dockerconfig.json with the oci registry authentication.
 	registryConfigPath string
+	// ConcourseConfigPath is the path to the local concourse config file.
+	ConcourseConfigPath string
 }
 
 // NewPushCommand creates a new definition command to push definitions
@@ -116,6 +119,17 @@ func (o *pushOptions) run(ctx context.Context, log logr.Logger) error {
 			return fmt.Errorf("unable to create keyring for registry at %q: %w", o.registryConfigPath, err)
 		}
 		ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
+	} else {
+		keyring, err := secretserver.New().
+			FromPath(o.ConcourseConfigPath).
+			WithMinPrivileges(secretserver.ReadWrite).
+			Build()
+		if err != nil {
+			return fmt.Errorf("unable to get credentils from secret server: %s", err.Error())
+		}
+		if keyring != nil {
+			ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
+		}
 	}
 
 	ociClient, err := ociclient.NewClient(log, ociOpts...)
@@ -207,4 +221,5 @@ func (o *pushOptions) Validate() error {
 func (o *pushOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.allowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
 	fs.StringVar(&o.registryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
+	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
 }

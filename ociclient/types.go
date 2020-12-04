@@ -28,10 +28,10 @@ type Client interface {
 	PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest) error
 }
 
-// Resolver is a interface that should return a new resolver if called.
+// Resolver is a interface that should return a new resolver for a given ref if called.
 type Resolver interface {
 	// Resolver returns a new authenticated resolver.
-	Resolver(ctx context.Context, client *http.Client, plainHTTP bool) (remotes.Resolver, error)
+	Resolver(ctx context.Context, ref string, client *http.Client, plainHTTP bool) (remotes.Resolver, error)
 }
 
 // Options contains all client options to configure the oci client.

@@ -30,6 +30,7 @@ cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 ARTIFACT_PATH="$(which "component-cli")"
 cat <<EOF | component-cli ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
 name: cli-binary-linux
+type: executable
 extraIdentity:
   os: "linux"
   arch: "amd64"
@@ -39,5 +40,16 @@ input:
   path: "$ARTIFACT_PATH"
 EOF
 
-# copy modified component-descriptor to
-cp "$COMPONENT_DESCRIPTOR_FILE_PATH" "$COMPONENT_DESCRIPTOR_PATH"
+echo "> Modified Component Descriptor "
+cat "$COMPONENT_DESCRIPTOR_FILE_PATH"
+
+echo "> create ca archive"
+COMPONENT_ARCHIVE_ARTIFACT_PATH="/tmp/ca.tar"
+CTF_PATH="/tmp/ctf.tar"
+component-cli ca export "$COMPONENT_ARCHIVE_PATH" -f tar -o "$COMPONENT_ARCHIVE_ARTIFACT_PATH"
+
+echo "> create ctf"
+component-cli ctf add "$CTF_PATH" -f "$COMPONENT_ARCHIVE_ARTIFACT_PATH"
+
+echo "> upload ctf"
+component-cli ctf push "$CTF_PATH"

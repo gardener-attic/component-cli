@@ -46,7 +46,7 @@ func NewAddCommand(ctx context.Context) *cobra.Command {
 				os.Exit(1)
 			}
 
-			fmt.Print("Successfully uploaded ctf\n")
+			fmt.Print("Successfully added ctf\n")
 		},
 	}
 

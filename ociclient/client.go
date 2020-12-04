@@ -35,6 +35,13 @@ type client struct {
 	knownMediaTypes sets.String
 }
 
+// ResolverWrapperFunc returns a new authenticated resolver.
+type ResolverWrapperFunc func(ctx context.Context, ref string, client *http.Client, plainHTTP bool) (remotes.Resolver, error)
+
+func (f ResolverWrapperFunc) Resolver(ctx context.Context, ref string, client *http.Client, plainHTTP bool) (remotes.Resolver, error) {
+	return f(ctx, ref, client, plainHTTP)
+}
+
 // NewClient creates a new OCI Client.
 func NewClient(log logr.Logger, opts ...Option) (Client, error) {
 	options := &Options{}
@@ -45,7 +52,9 @@ func NewClient(log logr.Logger, opts ...Option) (Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		options.Resolver = authorizer
+		options.Resolver = ResolverWrapperFunc(func(ctx context.Context, ref string, client *http.Client, plainHTTP bool) (remotes.Resolver, error) {
+			return authorizer.Resolver(ctx, client, plainHTTP)
+		})
 	}
 
 	if options.Cache == nil {
@@ -71,7 +80,7 @@ func (c *client) InjectCache(cache cache.Cache) error {
 }
 
 func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
-	resolver, err := c.resolver.Resolver(context.Background(), http.DefaultClient, c.allowPlainHttp)
+	resolver, err := c.resolver.Resolver(context.Background(), ref, http.DefaultClient, c.allowPlainHttp)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +129,7 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 		}
 	}
 
-	resolver, err := c.resolver.Resolver(context.Background(), http.DefaultClient, c.allowPlainHttp)
+	resolver, err := c.resolver.Resolver(context.Background(), ref, http.DefaultClient, c.allowPlainHttp)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +154,7 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 }
 
 func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest) error {
-	resolver, err := c.resolver.Resolver(context.Background(), http.DefaultClient, c.allowPlainHttp)
+	resolver, err := c.resolver.Resolver(context.Background(), ref, http.DefaultClient, c.allowPlainHttp)
 	if err != nil {
 		return err
 	}
@@ -170,7 +179,7 @@ func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispec
 		return err
 	}
 
-	// at last upload all layers
+	// last upload all layers
 	for _, layer := range manifest.Layers {
 		if err := c.pushContent(ctx, pusher, layer); err != nil {
 			return err

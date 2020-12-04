@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
+	"github.com/gardener/component-cli/ociclient/credentials/secretserver"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/utils"
 )
@@ -35,6 +36,8 @@ type pushOptions struct {
 	CacheDir string
 	// RegistryConfigPath defines a path to the dockerconfig.json with the oci registry authentication.
 	RegistryConfigPath string
+	// ConcourseConfigPath is the path to the local concourse config file.
+	ConcourseConfigPath string
 }
 
 // NewPushCommand creates a new definition command to push definitions
@@ -99,6 +102,18 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 			return fmt.Errorf("unable to create keyring for registry at %q: %w", o.RegistryConfigPath, err)
 		}
 		ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
+	} else {
+		keyring, err := secretserver.New().
+			WithFS(fs).
+			FromPath(o.ConcourseConfigPath).
+			WithMinPrivileges(secretserver.ReadWrite).
+			Build()
+		if err != nil {
+			return fmt.Errorf("unable to get credentils from secret server: %s", err.Error())
+		}
+		if keyring != nil {
+			ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
+		}
 	}
 
 	ociClient, err := ociclient.NewClient(log, ociOpts...)
@@ -122,7 +137,7 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 			return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
 		}
 		if err := ociClient.PushManifest(ctx, ref, manifest); err != nil {
-			return fmt.Errorf("unable to upload component archive to %q_: %s", ref, err.Error())
+			return fmt.Errorf("unable to upload component archive to %q: %s", ref, err.Error())
 		}
 		log.Info(fmt.Sprintf("Successfully uploaded component archive to %q", ref))
 		return nil
@@ -167,4 +182,5 @@ func (o *pushOptions) Validate() error {
 func (o *pushOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.AllowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
 	fs.StringVar(&o.RegistryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
+	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
 }

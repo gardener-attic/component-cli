@@ -6,7 +6,7 @@ require (
 	github.com/containerd/containerd v1.4.2
 	github.com/deislabs/oras v0.8.1
 	github.com/docker/cli v20.10.0-rc1+incompatible
-	github.com/docker/distribution v2.7.1+incompatible // indirect
+	github.com/docker/distribution v2.7.1+incompatible
 	github.com/gardener/component-spec/bindings-go v0.0.0-20201127224544-4fd6d604604f
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
@@ -32,4 +32,4 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201204154656-2d4f41da1c11
+replace github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201207094109-1b81a5cb2f6a
