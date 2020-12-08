@@ -16,6 +16,7 @@ components-cli remote get [baseurl] [componentname] [version] [flags]
 
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
+      --cc-config string         path to the local concourse config file
   -h, --help                     help for get
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
 ```

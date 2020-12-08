@@ -32,4 +32,4 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201207094109-1b81a5cb2f6a
+replace github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201208083537-5dc9a8f0b845

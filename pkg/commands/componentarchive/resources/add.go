@@ -5,14 +5,10 @@
 package resources
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -24,13 +20,13 @@ import (
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/projectionfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
-	"github.com/opencontainers/go-digest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/yaml"
 
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
 )
@@ -48,34 +44,7 @@ type Options struct {
 // ResourceOptions contains options that are used to describe a resource
 type ResourceOptions struct {
 	cdv2.Resource
-	Input *BlobInput `json:"input,omitempty"`
-}
-
-type BlobInputType string
-
-const (
-	FileInputType = "file"
-	DirInputType  = "dir"
-)
-
-// BlobInput defines a local resource input that should be added to the component descriptor and
-// to the resource's access.
-type BlobInput struct {
-	// Type defines the input type of the blob to be added.
-	// Note that a input blob of type "dir" is automatically tarred.
-	Type BlobInputType `json:"type"`
-	// Path is the path that points to the blob to be added.
-	Path string `json:"path"`
-	// CompressWithGzip defines that the blob should be automatically compressed using gzip.
-	CompressWithGzip *bool `json:"compress,omitempty"`
-}
-
-// Compress returns if the blob should be compressed using gzip.
-func (i BlobInput) Compress() bool {
-	if i.CompressWithGzip == nil {
-		return false
-	}
-	return *i.CompressWithGzip
+	Input *input.BlobInput `json:"input,omitempty"`
 }
 
 // NewAddCommand creates a command to add additional resources to a component descriptor.
@@ -98,6 +67,15 @@ The resource template is a multidoc yaml file so multiple templates can be defin
 
 <pre>
 
+---
+name: 'myimage'
+type: 'ociImage'
+relation: 'external'
+version: 0.2.0
+access:
+  type: ociRegistry
+  imageReference: eu.gcr.io/gardener-project/component-cli:0.2.0
+...
 ---
 name: 'myconfig'
 type: 'json'
@@ -162,14 +140,17 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 				return err
 			}
 		} else {
-			if errList := cdvalidation.ValidateResource(field.NewPath(""), resource.Resource); len(errList) != 0 {
-				return errList.ToAggregate()
-			}
-			// validate the resource
 			id := archive.ComponentDescriptor.GetResourceIndex(resource.Resource)
 			if id != -1 {
-				archive.ComponentDescriptor.Resources[id] = cdutils.MergeResources(archive.ComponentDescriptor.Resources[id], resource.Resource)
+				mergedRes := cdutils.MergeResources(archive.ComponentDescriptor.Resources[id], resource.Resource)
+				if errList := cdvalidation.ValidateResource(field.NewPath(""), mergedRes); len(errList) != 0 {
+					return errList.ToAggregate()
+				}
+				archive.ComponentDescriptor.Resources[id] = mergedRes
 			} else {
+				if errList := cdvalidation.ValidateResource(field.NewPath(""), resource.Resource); len(errList) != 0 {
+					return errList.ToAggregate()
+				}
 				archive.ComponentDescriptor.Resources = append(archive.ComponentDescriptor.Resources, resource.Resource)
 			}
 		}
@@ -227,11 +208,19 @@ func (o *Options) generateResources(fs vfs.FileSystem, cd *cdv2.ComponentDescrip
 			return nil, fmt.Errorf("unable to read resources from %s: %w", o.ResourceObjectPath, err)
 		}
 	}
-	stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
+
+	stdinInfo, err := os.Stdin.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("unable to read from stdin: %w", err)
 	}
-	return append(resources, stdinResources...), nil
+	if stdinInfo.Size() != 0 {
+		stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read from stdin: %w", err)
+		}
+		resources = append(resources, stdinResources...)
+	}
+	return resources, nil
 }
 
 // generateResourcesFromPath generates a resource given resource options and a resource template file.
@@ -247,17 +236,13 @@ func generateResourcesFromReader(cd *cdv2.ComponentDescriptor, reader io.Reader)
 			return nil, fmt.Errorf("unable to decode resource: %w", err)
 		}
 
-		// default relation to local
-		if len(resource.Relation) == 0 {
-			resource.Relation = cdv2.LocalRelation
-		}
 		// automatically set the version to the component descriptors version for local resources
 		if resource.Relation == cdv2.LocalRelation && len(resource.Version) == 0 {
 			resource.Version = cd.GetVersion()
 		}
 
 		if resource.Input != nil && resource.Access != nil {
-			return nil, fmt.Errorf("the resources %q input and access is defiend. Only one option is allowed", resource.Name)
+			return nil, fmt.Errorf("the resources %q input and access is defind. Only one option is allowed", resource.Name)
 		}
 		resources = append(resources, resource)
 	}
@@ -266,133 +251,22 @@ func generateResourcesFromReader(cd *cdv2.ComponentDescriptor, reader io.Reader)
 }
 
 func (o *Options) addInputBlob(fs vfs.FileSystem, archive *ctf.ComponentArchive, resource *ResourceOptions) error {
-	inputPath := resource.Input.Path
-	if !filepath.IsAbs(resource.Input.Path) {
-		inputPath = filepath.Join(filepath.Dir(o.ResourceObjectPath), resource.Input.Path)
-	}
-	inputInfo, err := fs.Stat(inputPath)
+	blob, err := resource.Input.Read(fs, o.ResourceObjectPath)
 	if err != nil {
-		return fmt.Errorf("unable to get info for input blob from %q, %w", inputPath, err)
-	}
-
-	var (
-		blob        io.ReadCloser
-		inputDigest string
-	)
-	// automatically tar the input artifact if it is a directory
-	if resource.Input.Type == DirInputType {
-		if !inputInfo.IsDir() {
-			return fmt.Errorf("resource type is dir but a file was provided")
-		}
-		blobFs, err := projectionfs.New(fs, inputPath)
-		if err != nil {
-			return fmt.Errorf("unable to create internal fs for %q: %w", inputPath, err)
-		}
-		var (
-			data bytes.Buffer
-		)
-		if resource.Input.Compress() {
-			gw := gzip.NewWriter(&data)
-			if err := TarFileSystem(blobFs, gw); err != nil {
-				return fmt.Errorf("unable to tar input artifact: %w", err)
-			}
-			if err := gw.Close(); err != nil {
-				return fmt.Errorf("unable to close gzip writer: %w", err)
-			}
-		} else {
-			if err := TarFileSystem(blobFs, &data); err != nil {
-				return fmt.Errorf("unable to tar input artifact: %w", err)
-			}
-		}
-		blob = ioutil.NopCloser(&data)
-		inputDigest = digest.FromBytes(data.Bytes()).String()
-	} else if resource.Input.Type == FileInputType {
-		if inputInfo.IsDir() {
-			return fmt.Errorf("resource type is file but a directory was provided")
-		}
-		// otherwise just open the file
-		inputBlob, err := fs.Open(inputPath)
-		if err != nil {
-			return fmt.Errorf("unable to read input blob from %q: %w", inputPath, err)
-		}
-		blobDigest, err := digest.FromReader(inputBlob)
-		if err != nil {
-			return fmt.Errorf("unable to calculate digest for input blob from %q, %w", inputPath, err)
-		}
-		if _, err := inputBlob.Seek(0, io.SeekStart); err != nil {
-			return fmt.Errorf("unable to reset input file: %s", err)
-		}
-		blob = inputBlob
-		inputDigest = blobDigest.String()
-		if resource.Input.Compress() {
-			var data bytes.Buffer
-			gw := gzip.NewWriter(&data)
-			if _, err := io.Copy(gw, inputBlob); err != nil {
-				return fmt.Errorf("unable to compress input file %q: %w", inputPath, err)
-			}
-			if err := gw.Close(); err != nil {
-				return fmt.Errorf("unable to close gzip writer: %w", err)
-			}
-			blob = ioutil.NopCloser(&data)
-			inputDigest = digest.FromBytes(data.Bytes()).String()
-		}
-	} else {
-		return fmt.Errorf("unknown input type %q", inputPath)
+		return err
 	}
 
 	err = archive.AddResource(&resource.Resource, ctf.BlobInfo{
 		MediaType: resource.Type,
-		Digest:    inputDigest,
-		Size:      inputInfo.Size(),
-	}, blob)
+		Digest:    blob.Digest,
+		Size:      blob.Size,
+	}, blob.Reader)
 	if err != nil {
+		blob.Reader.Close()
 		return fmt.Errorf("unable to add input blob to archive: %w", err)
 	}
-	if err := blob.Close(); err != nil {
-		return fmt.Errorf("unable to close input file %q: %w", inputPath, err)
+	if err := blob.Reader.Close(); err != nil {
+		return fmt.Errorf("unable to close input file: %w", err)
 	}
 	return nil
-}
-
-// TarFileSystem creates a tar archive from a filesystem.
-func TarFileSystem(fs vfs.FileSystem, writer io.Writer) error {
-	tw := tar.NewWriter(writer)
-
-	err := vfs.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		header, err := tar.FileInfoHeader(info, "")
-		if err != nil {
-			return err
-		}
-		relPath, err := filepath.Rel("/", path)
-		if err != nil {
-			return fmt.Errorf("unable to calculate relative path for %s: %w", path, err)
-		}
-		// ignore the root directory.
-		if relPath == "." {
-			return nil
-		}
-		header.Name = relPath
-		if err := tw.WriteHeader(header); err != nil {
-			return fmt.Errorf("unable to write header for %q: %w", path, err)
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		file, err := fs.OpenFile(path, os.O_RDONLY, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("unable to open file %q: %w", path, err)
-		}
-		if _, err := io.Copy(tw, file); err != nil {
-			return fmt.Errorf("unable to add file to tar %q: %w", path, err)
-		}
-		if err := file.Close(); err != nil {
-			return fmt.Errorf("unable to close file %q: %w", path, err)
-		}
-		return nil
-	})
-	return err
 }

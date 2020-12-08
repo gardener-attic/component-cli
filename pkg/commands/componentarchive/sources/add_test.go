@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package componentreferences_test
+package sources_test
 
 import (
 	"context"
@@ -23,12 +23,12 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/gardener/component-cli/pkg/commands/componentarchive/componentreferences"
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/sources"
 )
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ComponentReferences Test Suite")
+	RunSpecs(t, "Sources Test Suite")
 }
 
 var _ = Describe("Add", func() {
@@ -41,11 +41,11 @@ var _ = Describe("Add", func() {
 		testdataFs = layerfs.New(memoryfs.New(), fs)
 	})
 
-	It("should add a reference defined by a file", func() {
+	It("should add a source defined by a file", func() {
 
-		opts := &componentreferences.Options{
-			ComponentArchivePath:         "./00-component",
-			ComponentReferenceObjectPath: "./resources/00-ref.yaml",
+		opts := &sources.Options{
+			ComponentArchivePath: "./00-component",
+			SourceObjectPath:     "./resources/00-src.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -56,15 +56,15 @@ var _ = Describe("Add", func() {
 		cd := &cdv2.ComponentDescriptor{}
 		Expect(codec.Decode(data, cd)).To(Succeed())
 
-		Expect(cd.ComponentReferences).To(HaveLen(1))
-		Expect(cd.ComponentReferences[0]).To(MatchFields(IgnoreExtras, Fields{
-			"Name":          Equal("ubuntu"),
-			"ComponentName": Equal("github.com/gardener/ubuntu"),
-			"Version":       Equal("v0.0.1"),
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("git"),
 		}))
 	})
 
-	It("should add a resource defined by stdin", func() {
+	It("should add a source defined by stdin", func() {
 		oldstdin := os.Stdin
 		defer func() {
 			os.Stdin = oldstdin
@@ -72,15 +72,18 @@ var _ = Describe("Add", func() {
 		r, w, err := os.Pipe()
 		Expect(err).ToNot(HaveOccurred())
 		_, err = w.WriteString(`
-name: 'ubuntu'
-componentName: 'github.com/gardener/ubuntu'
+name: 'repo'
 version: 'v0.0.1'
+type: 'git'
+access:
+  type: 'git'
+  repository: 'github.com/gardener/component-cli'
 `)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(w.Close()).To(Succeed())
 		os.Stdin = r
 
-		opts := &componentreferences.Options{
+		opts := &sources.Options{
 			ComponentArchivePath: "./00-component",
 		}
 
@@ -92,19 +95,19 @@ version: 'v0.0.1'
 		cd := &cdv2.ComponentDescriptor{}
 		Expect(codec.Decode(data, cd)).To(Succeed())
 
-		Expect(cd.ComponentReferences).To(HaveLen(1))
-		Expect(cd.ComponentReferences[0]).To(MatchFields(IgnoreExtras, Fields{
-			"Name":          Equal("ubuntu"),
-			"ComponentName": Equal("github.com/gardener/ubuntu"),
-			"Version":       Equal("v0.0.1"),
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("git"),
 		}))
 	})
 
-	It("should add multiple reference defined by a multi doc file", func() {
+	It("should add multiple sources defined by a multi doc file", func() {
 
-		opts := &componentreferences.Options{
-			ComponentArchivePath:         "./00-component",
-			ComponentReferenceObjectPath: "./resources/01-multi-doc.yaml",
+		opts := &sources.Options{
+			ComponentArchivePath: "./00-component",
+			SourceObjectPath:     "./resources/01-multi-doc.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -115,23 +118,23 @@ version: 'v0.0.1'
 		cd := &cdv2.ComponentDescriptor{}
 		Expect(codec.Decode(data, cd)).To(Succeed())
 
-		Expect(cd.ComponentReferences).To(HaveLen(2))
-		Expect(cd.ComponentReferences[0]).To(MatchFields(IgnoreExtras, Fields{
-			"Name":          Equal("ubuntu"),
-			"ComponentName": Equal("github.com/gardener/ubuntu"),
-			"Version":       Equal("v0.0.1"),
+		Expect(cd.Sources).To(HaveLen(2))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("git"),
 		}))
-		Expect(cd.ComponentReferences[1]).To(MatchFields(IgnoreExtras, Fields{
-			"Name":          Equal("myref"),
-			"ComponentName": Equal("github.com/gardener/other"),
-			"Version":       Equal("v0.0.2"),
+		Expect(cd.Sources[1].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("baseRepo"),
+			"Version": Equal("v18.4.0"),
+			"Type":    Equal("git"),
 		}))
 	})
 
-	It("should throw an error if an invalid resource is defined", func() {
-		opts := &componentreferences.Options{
-			ComponentArchivePath:         "./00-component",
-			ComponentReferenceObjectPath: "./resources/10-invalid.yaml",
+	It("should throw an error if an invalid source is defined", func() {
+		opts := &sources.Options{
+			ComponentArchivePath: "./00-component",
+			SourceObjectPath:     "./resources/10-invalid.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())
@@ -140,7 +143,30 @@ version: 'v0.0.1'
 		Expect(err).ToNot(HaveOccurred())
 		cd := &cdv2.ComponentDescriptor{}
 		Expect(codec.Decode(data, cd)).To(Succeed())
-		Expect(cd.ComponentReferences).To(HaveLen(0))
+		Expect(cd.Sources).To(HaveLen(0))
+	})
+
+	It("should overwrite the version of a already existing source", func() {
+
+		opts := &sources.Options{
+			ComponentArchivePath: "./01-component",
+			SourceObjectPath:     "./resources/02-overwrite.yaml",
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.2"),
+			"Type":    Equal("git"),
+		}))
 	})
 
 })

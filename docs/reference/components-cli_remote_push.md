@@ -24,6 +24,7 @@ components-cli remote push [path to component descriptor] [flags]
 
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
+      --cc-config string         path to the local concourse config file
   -h, --help                     help for push
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
 ```

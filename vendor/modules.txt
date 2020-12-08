@@ -81,7 +81,7 @@ github.com/docker/go-metrics
 github.com/docker/go-units
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
-# github.com/gardener/component-spec/bindings-go v0.0.0-20201127224544-4fd6d604604f => github.com/schrodit/component-spec/bindings-go v0.0.0-20201207094109-1b81a5cb2f6a
+# github.com/gardener/component-spec/bindings-go v0.0.0-20201127224544-4fd6d604604f => github.com/schrodit/component-spec/bindings-go v0.0.0-20201208083537-5dc9a8f0b845
 ## explicit
 github.com/gardener/component-spec/bindings-go/apis
 github.com/gardener/component-spec/bindings-go/apis/v2
@@ -395,4 +395,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
-# github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201207094109-1b81a5cb2f6a
+# github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201208083537-5dc9a8f0b845

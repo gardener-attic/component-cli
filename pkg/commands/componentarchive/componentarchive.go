@@ -11,6 +11,7 @@ import (
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/componentreferences"
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/resources"
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/sources"
 )
 
 // NewComponentArchiveCommand creates a new component archive command.
@@ -22,5 +23,6 @@ func NewComponentArchiveCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(NewExportCommand(ctx))
 	cmd.AddCommand(resources.NewResourcesCommand(ctx))
 	cmd.AddCommand(componentreferences.NewCompRefCommand(ctx))
+	cmd.AddCommand(sources.NewSourceCommand(ctx))
 	return cmd
 }

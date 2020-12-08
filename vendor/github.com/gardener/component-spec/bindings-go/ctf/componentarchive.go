@@ -176,6 +176,49 @@ func (ca *ComponentArchive) AddResource(res *v2.Resource, info BlobInfo, reader 
 	return nil
 }
 
+// AddSource adds a blob source to the current archive.
+// If the specified source already exists it will be overwritten.
+func (ca *ComponentArchive) AddSource(src *v2.Source, info BlobInfo, reader io.Reader) error {
+	if src == nil {
+		return errors.New("a source has to be defined")
+	}
+	id := ca.ComponentDescriptor.GetSourceIndex(*src)
+	if err := ca.ensureBlobsPath(); err != nil {
+		return err
+	}
+
+	blobpath := BlobPath(info.Digest)
+	if _, err := ca.fs.Stat(blobpath); err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("unable to get file info for %s", blobpath)
+		}
+		file, err := ca.fs.OpenFile(blobpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("unable to open file %s: %w", blobpath, err)
+		}
+		if _, err := io.Copy(file, reader); err != nil {
+			return fmt.Errorf("unable to write blob to file: %w", err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("unable to close file: %w", err)
+		}
+	}
+
+	localFsAccess := v2.NewLocalFilesystemBlobAccess(info.Digest)
+	unstructuredType, err := v2.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
+	if err != nil {
+		return fmt.Errorf("unable to convert local filesystem type to untructured type: %w", err)
+	}
+	src.Access = unstructuredType
+
+	if id == -1 {
+		ca.ComponentDescriptor.Sources = append(ca.ComponentDescriptor.Sources, *src)
+	} else {
+		ca.ComponentDescriptor.Sources[id] = *src
+	}
+	return nil
+}
+
 // AddResource adds a blob resource to the current archive.
 // If the specified resource already exists it will be overwritten.
 func (ca *ComponentArchive) AddResourceFromResolver(ctx context.Context, res *v2.Resource, resolver BlobResolver) error {

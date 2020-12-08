@@ -18,6 +18,15 @@ The resource template is a multidoc yaml file so multiple templates can be defin
 <pre>
 
 ---
+name: 'myimage'
+type: 'ociImage'
+relation: 'external'
+version: 0.2.0
+access:
+  type: ociRegistry
+  imageReference: eu.gcr.io/gardener-project/component-cli:0.2.0
+...
+---
 name: 'myconfig'
 type: 'json'
 relation: 'local'

@@ -163,6 +163,33 @@ access:
 		}))
 	})
 
+	It("should overwrite the version of a already existing resource", func() {
+		opts := &resources.Options{
+			ComponentArchivePath: "./01-component",
+			ResourceObjectPath:   "./resources/03-overwrite.yaml",
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("ubuntu"),
+			"Version": Equal("v0.0.2"),
+			"Type":    Equal("ociImage"),
+		}))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ResourceRelation("external")),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("type", "ociRegistry"))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("imageReference", "ubuntu:18.0"))
+	})
+
 	It("should throw an error if an invalid resource is defined", func() {
 		opts := &resources.Options{
 			ComponentArchivePath: "./00-component",

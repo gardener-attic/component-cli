@@ -157,27 +157,34 @@ func (o *Options) AddFlags(set *pflag.FlagSet) {
 
 // generateComponentReferences parses component references from the given path and stdin.
 func (o *Options) generateComponentReferences(fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]cdv2.ComponentReference, error) {
-	resources := make([]cdv2.ComponentReference, 0)
+	refs := make([]cdv2.ComponentReference, 0)
 	if len(o.ComponentReferenceObjectPath) != 0 {
-		resourceObjectReader, err := fs.Open(o.ComponentReferenceObjectPath)
+		refObjectReader, err := fs.Open(o.ComponentReferenceObjectPath)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ComponentReferenceObjectPath, err)
 		}
-		defer resourceObjectReader.Close()
-		resources, err = generateComponentReferenceFromReader(resourceObjectReader)
+		defer refObjectReader.Close()
+		refs, err = generateComponentReferenceFromReader(refObjectReader)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read resources from %s: %w", o.ComponentReferenceObjectPath, err)
+			return nil, fmt.Errorf("unable to read refs from %s: %w", o.ComponentReferenceObjectPath, err)
 		}
 	}
 
-	stdinResources, err := generateComponentReferenceFromReader(os.Stdin)
+	stdinInfo, err := os.Stdin.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("unable to read from stdin: %w", err)
 	}
-	return append(resources, stdinResources...), nil
+	if stdinInfo.Size() != 0 {
+		stdinRef, err := generateComponentReferenceFromReader(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read from stdin: %w", err)
+		}
+		refs = append(refs, stdinRef...)
+	}
+	return refs, nil
 }
 
-// generateResourcesFromPath generates a resource given resource options and a resource template file.
+// generateComponentReferenceFromReader generates a resource given resource options and a resource template file.
 func generateComponentReferenceFromReader(reader io.Reader) ([]cdv2.ComponentReference, error) {
 	refs := make([]cdv2.ComponentReference, 0)
 	yamldecoder := yamlutil.NewYAMLOrJSONDecoder(reader, 1024)

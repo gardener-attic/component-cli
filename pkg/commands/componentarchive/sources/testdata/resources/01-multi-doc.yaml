@@ -1,0 +1,16 @@
+---
+name: 'repo'
+version: 'v0.0.1'
+type: 'git'
+access:
+  type: 'git'
+  repository: 'github.com/gardener/component-cli'
+...
+---
+name: 'baseRepo'
+version: 'v18.4.0'
+type: 'git'
+access:
+  type: 'git'
+  repository: 'github.com/gardener/component-cli'
+...
