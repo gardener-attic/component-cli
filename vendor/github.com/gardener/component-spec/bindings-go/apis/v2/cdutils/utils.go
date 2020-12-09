@@ -4,7 +4,11 @@
 
 package cdutils
 
-import v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+import (
+	"encoding/json"
+
+	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+)
 
 // MergeResources merges two resources whereas the second one will overwrite defined attributes.
 // Labels are merged by their name not by their index.
@@ -84,4 +88,49 @@ func GetLabelIdx(labels []v2.Label, name string) int {
 // StringDefined validates if a string is defined
 func StringDefined(s string) bool {
 	return len(s) != 0
+}
+
+// SetLabel adds the given name and val as label to the given list
+func SetLabel(labels []v2.Label, name string, val interface{}) ([]v2.Label, error) {
+	data, err := json.Marshal(val)
+	if err != nil {
+		return nil, err
+	}
+	return SetRawLabel(labels, name, data), nil
+}
+
+// SetRawLabel adds the given name and val as label to the given list
+func SetRawLabel(labels []v2.Label, name string, val []byte) []v2.Label {
+	for i, label := range labels {
+		if label.Name == name {
+			labels[i].Value = val
+			return labels
+		}
+	}
+	return append(labels, v2.Label{
+		Name:  name,
+		Value: val,
+	})
+}
+
+// SetExtraIdentity sets a extra identity field of a identity object.
+func SetExtraIdentityField(o *v2.IdentityObjectMeta, key, val string) {
+	if o.ExtraIdentity == nil {
+		o.ExtraIdentity = v2.Identity{}
+	}
+	o.ExtraIdentity[key] = val
+}
+
+// ToUnstructuredTypedObject converts a typed object to a unstructured object.
+func ToUnstructuredTypedObject(codec v2.TypedObjectCodec, obj v2.TypedObjectAccessor) (*v2.UnstructuredAccessType, error) {
+	data, err := codec.Encode(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	uObj := &v2.UnstructuredAccessType{}
+	if err := uObj.Decode(data, uObj); err != nil {
+		return nil, err
+	}
+	return uObj, nil
 }

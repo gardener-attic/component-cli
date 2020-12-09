@@ -29,6 +29,7 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/apis/v2/cdutils"
 	"github.com/gardener/component-spec/bindings-go/codec"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 )
@@ -180,7 +181,7 @@ func (b *ManifestBuilder) addLocalBlobs(ctx context.Context) ([]ocispecv1.Descri
 		}
 
 		ociBlobAccess := v2.NewLocalOCIBlobAccess(desc.Digest.String())
-		unstructuredType, err := v2.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), ociBlobAccess)
+		unstructuredType, err := cdutils.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), ociBlobAccess)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert ociBlob to untructured type: %w", err)
 		}

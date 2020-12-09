@@ -256,17 +256,3 @@ func (c ComponentDescriptor) GetSourceIndex(src Source) int {
 	}
 	return -1
 }
-
-// ToUnstructuredTypedObject converts a typed object to a unstructured object.
-func ToUnstructuredTypedObject(codec TypedObjectCodec, obj TypedObjectAccessor) (*UnstructuredAccessType, error) {
-	data, err := codec.Encode(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	uObj := &UnstructuredAccessType{}
-	if err := uObj.Decode(data, uObj); err != nil {
-		return nil, err
-	}
-	return uObj, nil
-}

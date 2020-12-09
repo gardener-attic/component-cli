@@ -33,6 +33,7 @@ import (
 	"github.com/opencontainers/go-digest"
 
 	"github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/apis/v2/cdutils"
 	"github.com/gardener/component-spec/bindings-go/codec"
 )
 
@@ -162,7 +163,7 @@ func (ca *ComponentArchive) AddResource(res *v2.Resource, info BlobInfo, reader 
 	}
 
 	localFsAccess := v2.NewLocalFilesystemBlobAccess(info.Digest)
-	unstructuredType, err := v2.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
+	unstructuredType, err := cdutils.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
 	if err != nil {
 		return fmt.Errorf("unable to convert local filesystem type to untructured type: %w", err)
 	}
@@ -205,7 +206,7 @@ func (ca *ComponentArchive) AddSource(src *v2.Source, info BlobInfo, reader io.R
 	}
 
 	localFsAccess := v2.NewLocalFilesystemBlobAccess(info.Digest)
-	unstructuredType, err := v2.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
+	unstructuredType, err := cdutils.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
 	if err != nil {
 		return fmt.Errorf("unable to convert local filesystem type to untructured type: %w", err)
 	}
@@ -253,7 +254,7 @@ func (ca *ComponentArchive) AddResourceFromResolver(ctx context.Context, res *v2
 	}
 
 	localFsAccess := v2.NewLocalFilesystemBlobAccess(info.Digest)
-	unstructuredType, err := v2.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
+	unstructuredType, err := cdutils.ToUnstructuredTypedObject(v2.NewCodec(nil, nil, nil), localFsAccess)
 	if err != nil {
 		return fmt.Errorf("unable to convert local filesystem type to untructured type: %w", err)
 	}

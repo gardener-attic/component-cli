@@ -36,6 +36,8 @@ type showOptions struct {
 	version string
 	// allowPlainHttp allows the fallback to http if the oci registry does not support https
 	allowPlainHttp bool
+	// validate specifies whether the read component descriptor should be validated
+	validate bool
 
 	// cacheDir defines the oci cache directory
 	cacheDir string
@@ -158,6 +160,7 @@ func (o *showOptions) Complete(args []string) error {
 
 func (o *showOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.allowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
+	fs.BoolVar(&o.validate, "validate", true, "validates the read component-descriptor")
 	fs.StringVar(&o.registryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
 	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
 }

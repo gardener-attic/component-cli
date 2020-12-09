@@ -100,7 +100,7 @@ type ObjectMeta struct {
 	// Labels defines an optional set of additional labels
 	// describing the object.
 	// +optional
-	Labels []Label `json:"labels,omitempty"`
+	Labels Labels `json:"labels,omitempty"`
 }
 
 // GetName returns the name of the object.
@@ -124,7 +124,7 @@ func (o *ObjectMeta) SetVersion(version string) {
 }
 
 // GetLabels returns the label of the object.
-func (o ObjectMeta) GetLabels() []Label {
+func (o ObjectMeta) GetLabels() Labels {
 	return o.Labels
 }
 
@@ -162,7 +162,7 @@ type IdentityObjectMeta struct {
 	// Labels defines an optional set of additional labels
 	// describing the object.
 	// +optional
-	Labels []Label `json:"labels,omitempty"`
+	Labels Labels `json:"labels,omitempty"`
 }
 
 // GetName returns the name of the object.
@@ -196,7 +196,7 @@ func (o *IdentityObjectMeta) SetType(ttype string) {
 }
 
 // GetLabels returns the label of the object.
-func (o IdentityObjectMeta) GetLabels() []Label {
+func (o IdentityObjectMeta) GetLabels() Labels {
 	return o.Labels
 }
 
@@ -249,6 +249,19 @@ type Label struct {
 	Value json.RawMessage `json:"value"`
 }
 
+// Labels describe a list of labels
+type Labels []Label
+
+// Get returns the label witht the given name
+func (l Labels) Get(name string) ([]byte, bool) {
+	for _, label := range l {
+		if label.Name == name {
+			return label.Value, true
+		}
+	}
+	return nil, false
+}
+
 // NameAccessor describes a accessor for a named object.
 type NameAccessor interface {
 	// GetName returns the name of the object.
@@ -268,7 +281,7 @@ type VersionAccessor interface {
 // LabelsAccessor describes a accessor for a labeled object.
 type LabelsAccessor interface {
 	// GetLabels returns the labels of the object.
-	GetLabels() []Label
+	GetLabels() Labels
 	// SetLabels sets the labels of the object.
 	SetLabels(labels []Label)
 }
@@ -391,7 +404,7 @@ type SourceRef struct {
 	// Labels defines an optional set of additional labels
 	// describing the object.
 	// +optional
-	Labels []Label `json:"labels,omitempty"`
+	Labels Labels `json:"labels,omitempty"`
 }
 
 // Resource describes a resource dependency of a component.
@@ -425,7 +438,7 @@ type ComponentReference struct {
 	// Labels defines an optional set of additional labels
 	// describing the object.
 	// +optional
-	Labels []Label `json:"labels,omitempty"`
+	Labels Labels `json:"labels,omitempty"`
 }
 
 // GetName returns the name of the object.
@@ -449,7 +462,7 @@ func (o *ComponentReference) SetVersion(version string) {
 }
 
 // GetLabels returns the label of the object.
-func (o ComponentReference) GetLabels() []Label {
+func (o ComponentReference) GetLabels() Labels {
 	return o.Labels
 }
 

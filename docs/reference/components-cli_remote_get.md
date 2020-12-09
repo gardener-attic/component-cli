@@ -19,6 +19,7 @@ components-cli remote get [baseurl] [componentname] [version] [flags]
       --cc-config string         path to the local concourse config file
   -h, --help                     help for get
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
+      --validate                 validates the read component-descriptor (default true)
 ```
 
 ### Options inherited from parent commands

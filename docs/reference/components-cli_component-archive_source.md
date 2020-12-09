@@ -1,8 +1,14 @@
-## components-cli
+## components-cli component-archive source
 
-components cli
+command to modify sources of a component descriptor
 
 ### Options
+
+```
+  -h, --help   help for source
+```
+
+### Options inherited from parent commands
 
 ```
       --cli                  logger runs as cli logger. enables cli logging
@@ -10,16 +16,11 @@ components cli
       --disable-caller       disable the caller of logs (default true)
       --disable-stacktrace   disable the stacktrace of error logs (default true)
       --disable-timestamp    disable timestamp output (default true)
-  -h, --help                 help for components-cli
   -v, --verbosity int        number for the log level verbosity (default 1)
 ```
 
 ### SEE ALSO
 
 * [components-cli component-archive](components-cli_component-archive.md)	 - 
-* [components-cli ctf](components-cli_ctf.md)	 - 
-* [components-cli gardener-ci](components-cli_gardener-ci.md)	 - 
-* [components-cli image-vector](components-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
-* [components-cli remote](components-cli_remote.md)	 - command to interact with component descriptors stored in an oci registry
-* [components-cli version](components-cli_version.md)	 - displays the version
+* [components-cli component-archive source add](components-cli_component-archive_source_add.md)	 - Adds a source to a component descriptor
 
