@@ -282,10 +282,40 @@ var _ = Describe("Add", func() {
 		})))
 	})
 
+	It("should add two image sources that match a given pattern as one component reference", func() {
+		opts := &imagevector.AddOptions{
+			ParseImageOptions: imagevector.ParseImageOptions{
+				GenericDependencies: []string{
+					"hyperkube",
+				},
+			},
+		}
+		cd := runAdd(testdataFs, "./00-component", "./resources/30-generic.yaml", opts)
+
+		Expect(cd.Resources).To(HaveLen(0))
+		Expect(cd.ComponentReferences).To(HaveLen(0))
+
+		imageLabelBytes, ok := cd.GetLabels().Get(imagevector.ImagesLabel)
+		Expect(ok).To(BeTrue())
+		imageVector := &imagevector.ImageVector{}
+		Expect(json.Unmarshal(imageLabelBytes, imageVector)).To(Succeed())
+		Expect(imageVector.Images).To(HaveLen(2))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("k8s.gcr.io/hyperkube"),
+			"TargetVersion": PointTo(Equal("< 1.19")),
+		})))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("eu.gcr.io/gardener-project/hyperkube"),
+			"TargetVersion": PointTo(Equal(">= 1.19")),
+		})))
+	})
+
 })
 
-// RunAdd runs the add command
-func RunAdd(fs vfs.FileSystem, caPath, ivPath string, addOpts ...*imagevector.AddOptions) *cdv2.ComponentDescriptor {
+// runAdd runs the add command
+func runAdd(fs vfs.FileSystem, caPath, ivPath string, addOpts ...*imagevector.AddOptions) *cdv2.ComponentDescriptor {
 	Expect(len(addOpts) <= 1).To(BeTrue())
 	opts := &imagevector.AddOptions{}
 	if len(addOpts) == 1 {

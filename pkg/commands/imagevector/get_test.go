@@ -46,7 +46,7 @@ var _ = Describe("Get", func() {
 	})
 
 	It("should generate a image source with a target version", func() {
-		RunAdd(testdataFs, "./00-component", "./resources/10-targetversion.yaml")
+		runAdd(testdataFs, "./00-component", "./resources/10-targetversion.yaml")
 		imageVector := runGet(testdataFs, "./00-component")
 		Expect(imageVector.Images).To(HaveLen(1))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -62,7 +62,7 @@ var _ = Describe("Get", func() {
 				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
 			},
 		}
-		RunAdd(testdataFs, "./00-component", "./resources/21-multi-comp-ref.yaml", opts)
+		runAdd(testdataFs, "./00-component", "./resources/21-multi-comp-ref.yaml", opts)
 		getOpts := &imagevector.GetOptions{
 			ComponentArchivesPath: []string{
 				"./02-autoscaler-0.10.1",
@@ -80,6 +80,42 @@ var _ = Describe("Get", func() {
 			"Name":          Equal("cluster-autoscaler"),
 			"Tag":           PointTo(Equal("v0.10.1")),
 			"TargetVersion": PointTo(Equal("< 1.16")),
+		})))
+	})
+
+	It("should generate image sources from generic images", func() {
+		addOpts := &imagevector.AddOptions{
+			ParseImageOptions: imagevector.ParseImageOptions{
+				GenericDependencies: []string{
+					"hyperkube",
+				},
+			},
+		}
+		runAdd(testdataFs, "./00-component", "./resources/30-generic.yaml", addOpts)
+		getOpts := &imagevector.GetOptions{
+			ComponentArchivesPath: []string{
+				"./04-generic-images",
+			},
+		}
+		imageVector := runGet(testdataFs, "./00-component", getOpts)
+		Expect(imageVector.Images).To(HaveLen(3))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("eu.gcr.io/gardener-project/hyperkube"),
+			"Tag":           PointTo(Equal("v1.19.2")),
+			"TargetVersion": PointTo(Equal("= v1.19.2")),
+		})))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("k8s.gcr.io/hyperkube"),
+			"Tag":           PointTo(Equal("v1.18.6")),
+			"TargetVersion": PointTo(Equal("= v1.18.6")),
+		})))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("k8s.gcr.io/hyperkube"),
+			"Tag":           PointTo(Equal("v1.17.10")),
+			"TargetVersion": PointTo(Equal("= v1.17.10")),
 		})))
 	})
 

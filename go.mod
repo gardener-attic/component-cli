@@ -3,6 +3,7 @@ module github.com/gardener/component-cli
 go 1.15
 
 require (
+	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/containerd/containerd v1.4.2
 	github.com/deislabs/oras v0.8.1
 	github.com/docker/cli v20.10.0-rc1+incompatible

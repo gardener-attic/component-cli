@@ -54,11 +54,12 @@ resources:
 - name: pause-container
   version: "3.1"
   type: ociImage
+  relation: external
   extraIdentity:
     "imagevector-gardener-cloud+tag": "3.1"
   labels:
   - name: imagevector.gardener.cloud/name
-    value: pause-container 
+    value: pause-container
   - name: imagevector.gardener.cloud/repository
     value: gcr.io/google_containers/pause-amd64
   - name: imagevector.gardener.cloud/source-repository
@@ -80,7 +81,7 @@ resources:
 <pre>
 
 componentReferences:
-- name: cluster-autoscaler
+- name: cluster-autoscaler-abc
   componentName: github.com/gardener/autoscaler
   version: v0.10.1
   labels:
@@ -88,7 +89,7 @@ componentReferences:
     value:
       images:
       - name: cluster-autoscaler
-        repository: cluster-autoscaler-image
+        repository: eu.gcr.io/gardener-project/gardener/autoscaler/cluster-autoscaler
         tag: "v0.10.1"
 
 </pre>
@@ -127,7 +128,7 @@ component:
     labels:
     - name: imagevector.gardener.cloud/name
       value: hyperkube
-    - name: imagevector.gardener.cloud/source-repository
+    - name: imagevector.gardener.cloud/repository
       value: k8s.gcr.io/hyperkube
     access:
 	  type: ociRegistry
