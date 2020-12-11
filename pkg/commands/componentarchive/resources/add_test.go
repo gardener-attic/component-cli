@@ -70,24 +70,14 @@ var _ = Describe("Add", func() {
 	})
 
 	It("should add a resource defined by stdin", func() {
+		input, err := os.Open("./testdata/resources/00-res.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		defer input.Close()
 		oldstdin := os.Stdin
 		defer func() {
 			os.Stdin = oldstdin
 		}()
-		r, w, err := os.Pipe()
-		Expect(err).ToNot(HaveOccurred())
-		_, err = w.WriteString(`
-name: 'ubuntu'
-version: 'v0.0.1'
-type: 'ociImage'
-relation: 'external'
-access:
-  type: 'ociRegistry'
-  imageReference: 'ubuntu:18.0'
-`)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(w.Close()).To(Succeed())
-		os.Stdin = r
+		os.Stdin = input
 
 		opts := &resources.Options{
 			ComponentArchivePath: "./00-component",

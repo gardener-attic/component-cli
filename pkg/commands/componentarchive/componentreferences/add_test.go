@@ -64,21 +64,16 @@ var _ = Describe("Add", func() {
 		}))
 	})
 
-	It("should add a resource defined by stdin", func() {
+	It("should add a component reference defined by stdin", func() {
+		input, err := os.Open("./testdata/resources/00-ref.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		defer input.Close()
+
 		oldstdin := os.Stdin
 		defer func() {
 			os.Stdin = oldstdin
 		}()
-		r, w, err := os.Pipe()
-		Expect(err).ToNot(HaveOccurred())
-		_, err = w.WriteString(`
-name: 'ubuntu'
-componentName: 'github.com/gardener/ubuntu'
-version: 'v0.0.1'
-`)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(w.Close()).To(Succeed())
-		os.Stdin = r
+		os.Stdin = input
 
 		opts := &componentreferences.Options{
 			ComponentArchivePath: "./00-component",

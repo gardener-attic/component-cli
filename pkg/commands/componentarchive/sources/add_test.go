@@ -65,23 +65,14 @@ var _ = Describe("Add", func() {
 	})
 
 	It("should add a source defined by stdin", func() {
+		input, err := os.Open("./testdata/resources/00-src.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		defer input.Close()
 		oldstdin := os.Stdin
 		defer func() {
 			os.Stdin = oldstdin
 		}()
-		r, w, err := os.Pipe()
-		Expect(err).ToNot(HaveOccurred())
-		_, err = w.WriteString(`
-name: 'repo'
-version: 'v0.0.1'
-type: 'git'
-access:
-  type: 'git'
-  repository: 'github.com/gardener/component-cli'
-`)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(w.Close()).To(Succeed())
-		os.Stdin = r
+		os.Stdin = input
 
 		opts := &sources.Options{
 			ComponentArchivePath: "./00-component",

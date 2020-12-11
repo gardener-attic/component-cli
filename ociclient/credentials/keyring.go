@@ -85,7 +85,6 @@ func CreateOCIRegistryKeyringFromFilesystem(pullSecrets []corev1.Secret, configF
 	}
 
 	return store, nil
-
 }
 
 // CreateOCIRegistryKeyring creates a new OCI registry keyring.
