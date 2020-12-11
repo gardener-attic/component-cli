@@ -58,7 +58,14 @@ func NewClient(log logr.Logger, opts ...Option) (Client, error) {
 	}
 
 	if options.Cache == nil {
-		c, err := cache.NewCache(log)
+		cacheOpts := make([]cache.Option, 0)
+		if options.CacheConfig != nil {
+			if len(options.CacheConfig.BasePath) != 0 {
+				cacheOpts = append(cacheOpts, cache.WithBasePath(options.CacheConfig.BasePath))
+			}
+			cacheOpts = append(cacheOpts, cache.WithInMemoryOverlay(options.CacheConfig.InMemoryOverlay))
+		}
+		c, err := cache.NewCache(log, cacheOpts...)
 		if err != nil {
 			return nil, err
 		}

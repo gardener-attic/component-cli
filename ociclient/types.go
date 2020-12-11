@@ -46,6 +46,11 @@ type Options struct {
 	// A default resolver will be created if not given.
 	Resolver Resolver
 
+	// CacheConfig contains the cache configuration.
+	// Tis configuration will automatically create a new cache based on that configuration.
+	// This cache can be overwritten with the Cache property.
+	CacheConfig *cache.Options
+
 	// Cache is the oci cache to be used by the client
 	Cache cache.Cache
 
