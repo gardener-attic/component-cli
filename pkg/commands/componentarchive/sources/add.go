@@ -205,7 +205,7 @@ func (o *Options) generateSources(fs vfs.FileSystem) ([]SourceOptions, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to read from stdin: %w", err)
 	}
-	if stdinInfo.Size() != 0 {
+	if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
 		stdinSources, err := generateSourcesFromReader(os.Stdin)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read from stdin: %w", err)

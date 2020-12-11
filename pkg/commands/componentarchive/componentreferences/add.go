@@ -174,7 +174,7 @@ func (o *Options) generateComponentReferences(fs vfs.FileSystem, cd *cdv2.Compon
 	if err != nil {
 		return nil, fmt.Errorf("unable to read from stdin: %w", err)
 	}
-	if stdinInfo.Size() != 0 {
+	if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
 		stdinRef, err := generateComponentReferenceFromReader(os.Stdin)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read from stdin: %w", err)

@@ -33,5 +33,5 @@ for i in "${build_matrix[@]}"; do
   ${PROJECT_ROOT}/cmd/component-cli
 
   # create zipped file
-  gzip --force --keep "$bin_path"
+  gzip -f -k "$bin_path"
 done

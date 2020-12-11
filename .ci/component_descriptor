@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# SPDX-FileCopyrightText: 2020 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+apk add --no-cache --no-progress git make musl-dev go
+
+# Configure Go
+export GOROOT="/usr/lib/go"
+export GOPATH="/go"
+export PATH="/go/bin:$PATH"
+
+cd "$(dirname $0)/.."
+
+# build the component-cli
+make cross-build
+
+COMPONENT_CLI="./dist/componentcli-linux-amd64"
+
+# copy base component descriptor to temporary directory
+COMPONENT_ARCHIVE_PATH="/tmp/ca"
+COMPONENT_DESCRIPTOR_FILE_PATH="$COMPONENT_ARCHIVE_PATH/component-descriptor.yaml"
+mkdir -p "$COMPONENT_ARCHIVE_PATH"
+cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
+
+#component-cli gardener-ci init
+
+printf "> Add Linux Binary\n"
+ARTIFACT_PATH="$(pwd)/dist/componentcli-linux-amd64"
+cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
+name: cli-binary-linux
+type: executable
+extraIdentity:
+  os: linux
+  arch: amd64
+relation: local
+input:
+  type: file
+  path: ${ARTIFACT_PATH}
+EOF
+
+printf "> Add Darwin Binary\n"
+ARTIFACT_PATH="$(pwd)/dist/componentcli-darwin-amd64"
+cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
+name: cli-binary-darwin
+type: executable
+extraIdentity:
+  os: darwin
+  arch: amd64
+relation: local
+input:
+  type: file
+  path: ${ARTIFACT_PATH}
+EOF
+
+printf "> Add Windows Binary\n"
+ARTIFACT_PATH="$(pwd)/dist/componentcli-windows-amd64"
+cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
+name: cli-binary-windows
+type: executable
+extraIdentity:
+  os: windows
+  arch: amd64
+relation: local
+input:
+  type: file
+  path: ${ARTIFACT_PATH}
+EOF
+
+printf "> Modified Component Descriptor\n"
+cat "$COMPONENT_DESCRIPTOR_FILE_PATH"
+
+printf "> create ca archive\n"
+COMPONENT_ARCHIVE_ARTIFACT_PATH="/tmp/ca.tar"
+$COMPONENT_CLI ca export "$COMPONENT_ARCHIVE_PATH" -f tar -o "$COMPONENT_ARCHIVE_ARTIFACT_PATH"
+
+printf "> create ctf\n"
+$COMPONENT_CLI ctf add "$CTF_PATH" -f "$COMPONENT_ARCHIVE_ARTIFACT_PATH"

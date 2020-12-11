@@ -58,9 +58,10 @@ var _ = Describe("Add", func() {
 
 		Expect(cd.Resources).To(HaveLen(1))
 		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
-			"Name":    Equal("ubuntu"),
-			"Version": Equal("v0.0.1"),
-			"Type":    Equal("ociImage"),
+			"Name":          Equal("ubuntu"),
+			"Version":       Equal("v0.0.1"),
+			"Type":          Equal("ociImage"),
+			"ExtraIdentity": HaveLen(1),
 		}))
 		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
 			"Relation": Equal(cdv2.ResourceRelation("external")),

@@ -213,7 +213,7 @@ func (o *Options) generateResources(fs vfs.FileSystem, cd *cdv2.ComponentDescrip
 	if err != nil {
 		return nil, fmt.Errorf("unable to read from stdin: %w", err)
 	}
-	if stdinInfo.Size() != 0 {
+	if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
 		stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read from stdin: %w", err)
