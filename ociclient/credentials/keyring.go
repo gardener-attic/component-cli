@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -20,6 +19,8 @@ import (
 	dockerconfig "github.com/docker/cli/cli/config"
 	dockercreds "github.com/docker/cli/cli/config/credentials"
 	dockerconfigtypes "github.com/docker/cli/cli/config/types"
+	"github.com/mandelsoft/vfs/pkg/osfs"
+	"github.com/mandelsoft/vfs/pkg/vfs"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -38,9 +39,12 @@ type OCIKeyring interface {
 	Resolver(ctx context.Context, ref string, client *http.Client, plainHTTP bool) (remotes.Resolver, error)
 }
 
-// CreateOCIRegistryKeyring creates a new OCI registry keyring.
-func CreateOCIRegistryKeyring(pullSecrets []corev1.Secret, configFiles []string) (*GeneralOciKeyring, error) {
-	store := New()
+// CreateOCIRegistryKeyringFromFilesystem creates a new OCI registry keyring from a given file system.
+func CreateOCIRegistryKeyringFromFilesystem(pullSecrets []corev1.Secret, configFiles []string, fs vfs.FileSystem) (*GeneralOciKeyring, error) {
+	store := &GeneralOciKeyring{
+		index: &IndexNode{},
+		store: map[string]dockerconfigtypes.AuthConfig{},
+	}
 	for _, secret := range pullSecrets {
 		if secret.Type != corev1.SecretTypeDockerConfigJson {
 			continue
@@ -63,7 +67,7 @@ func CreateOCIRegistryKeyring(pullSecrets []corev1.Secret, configFiles []string)
 	}
 
 	for _, configFile := range configFiles {
-		dockerConfigBytes, err := ioutil.ReadFile(configFile)
+		dockerConfigBytes, err := vfs.ReadFile(fs, configFile)
 		if err != nil {
 			return nil, err
 		}
@@ -81,6 +85,12 @@ func CreateOCIRegistryKeyring(pullSecrets []corev1.Secret, configFiles []string)
 	}
 
 	return store, nil
+
+}
+
+// CreateOCIRegistryKeyring creates a new OCI registry keyring.
+func CreateOCIRegistryKeyring(pullSecrets []corev1.Secret, configFiles []string) (*GeneralOciKeyring, error) {
+	return CreateOCIRegistryKeyringFromFilesystem(pullSecrets, configFiles, osfs.New())
 }
 
 // GeneralOciKeyring is general implementation of a oci keyring that can be extended with other credentials.
