@@ -14,13 +14,19 @@ import (
 	"path"
 	"strings"
 
+	dockerreference "github.com/containerd/containerd/reference/docker"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
 	dockerconfig "github.com/docker/cli/cli/config"
 	dockercreds "github.com/docker/cli/cli/config/credentials"
 	dockerconfigtypes "github.com/docker/cli/cli/config/types"
-	"github.com/docker/distribution/reference"
 	corev1 "k8s.io/api/core/v1"
+)
+
+// to find a suitable secret for images on Docker Hub, we need its two domains to do matching
+const (
+	dockerHubDomain       = "docker.io"
+	dockerHubLegacyDomain = "index.docker.io"
 )
 
 // OCIKeyring is the interface that implements are keyring to retrieve credentials for a given
@@ -144,12 +150,26 @@ func (o GeneralOciKeyring) Size() int {
 }
 
 func (o GeneralOciKeyring) Get(resourceURl string) (dockerconfigtypes.AuthConfig, bool) {
-	ref, err := reference.ParseNamed(resourceURl)
+	ref, err := dockerreference.ParseDockerRef(resourceURl)
 	if err == nil {
 		// if the name is not conical try to treat it like a host name
 		resourceURl = ref.Name()
 	}
-	address, ok := o.index.Find(resourceURl)
+	if auth, ok := o.get(resourceURl); ok {
+		return auth, true
+	}
+
+	// fallback to legacy docker domain if applicable
+	// this is how containerd translates the old domain for DockerHub to the new one, taken from containerd/reference/docker/reference.go:674
+	if dockerreference.Domain(ref) == dockerHubDomain {
+		dockerreference.Path(ref)
+		return o.get(path.Join(dockerHubLegacyDomain, dockerreference.Path(ref)))
+	}
+	return dockerconfigtypes.AuthConfig{}, false
+}
+
+func (o GeneralOciKeyring) get(url string) (dockerconfigtypes.AuthConfig, bool) {
+	address, ok := o.index.Find(url)
 	if !ok {
 		return dockerconfigtypes.AuthConfig{}, false
 	}
@@ -159,12 +179,17 @@ func (o GeneralOciKeyring) Get(resourceURl string) (dockerconfigtypes.AuthConfig
 	return dockerconfigtypes.AuthConfig{}, false
 }
 
-// getCredentials returns the username and password for a given url.
+// GetCredentials returns the username and password for a given hostname.
 // It implements the Credentials func for a docker resolver
-func (o *GeneralOciKeyring) getCredentials(url string) (string, string, error) {
-	auth, ok := o.Get(url)
+func (o *GeneralOciKeyring) GetCredentials(hostname string) (username, password string, err error) {
+	auth, ok := o.get(hostname)
 	if !ok {
-		return "", "", fmt.Errorf("authentication for %s cannot be found", url)
+		// fallback to legacy docker domain if applicable
+		// this is how containerd translates the old domain for DockerHub to the new one, taken from containerd/reference/docker/reference.go:674
+		if hostname == dockerHubDomain {
+			return o.GetCredentials(dockerHubLegacyDomain)
+		}
+		return "", "", fmt.Errorf("authentication for %s cannot be found", hostname)
 	}
 
 	return auth.Username, auth.Password, nil
@@ -200,7 +225,7 @@ func (o *GeneralOciKeyring) Add(store dockercreds.Store) error {
 func (o *GeneralOciKeyring) Resolver(ctx context.Context, ref string, client *http.Client, plainHTTP bool) (remotes.Resolver, error) {
 	if ref == "" {
 		return docker.NewResolver(docker.ResolverOptions{
-			Credentials: o.getCredentials,
+			Credentials: o.GetCredentials,
 			Client:      client,
 			PlainHTTP:   plainHTTP,
 		}), nil
@@ -210,13 +235,13 @@ func (o *GeneralOciKeyring) Resolver(ctx context.Context, ref string, client *ht
 	auth, ok := o.Get(ref)
 	if !ok {
 		return docker.NewResolver(docker.ResolverOptions{
-			Credentials: o.getCredentials,
+			Credentials: o.GetCredentials,
 			Client:      client,
 			PlainHTTP:   plainHTTP,
 		}), nil
 	}
 	return docker.NewResolver(docker.ResolverOptions{
-		Credentials: func(_ string) (string, string, error) {
+		Credentials: func(url string) (string, string, error) {
 			return auth.Username, auth.Password, nil
 		},
 		Client:    client,
