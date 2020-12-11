@@ -8,7 +8,7 @@ require (
 	github.com/deislabs/oras v0.8.1
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/gardener/component-spec/bindings-go v0.0.0-20201127224544-4fd6d604604f
+	github.com/gardener/component-spec/bindings-go v0.0.0-20201211081559-1dc388fc92bf
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0
@@ -32,5 +32,3 @@ require (
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
-
-replace github.com/gardener/component-spec/bindings-go => github.com/schrodit/component-spec/bindings-go v0.0.0-20201208165739-d6b38ac8438b
