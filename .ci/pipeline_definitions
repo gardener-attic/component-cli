@@ -48,7 +48,7 @@ component-cli:
               image: eu.gcr.io/gardener-project/component/cli
       steps:
         update-release:
-          execute: 'update-release.py'
+          execute: 'update_release.py'
           depends:
           - 'release'
           inputs:
