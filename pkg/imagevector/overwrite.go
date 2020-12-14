@@ -5,12 +5,16 @@
 package imagevector
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
+
+// ComponentResolverFunc describes a function that can resolve a component descriptor by its name and version
+type ComponentResolverFunc func(ctx context.Context, repoCtx cdv2.RepositoryContext, name, version string) (*cdv2.ComponentDescriptor, error)
 
 // GenerateImageOverwrite parses a component descriptor and returns the defined image vector
 func GenerateImageOverwrite(cd *cdv2.ComponentDescriptor, list *cdv2.ComponentDescriptorList) (*ImageVector, error) {

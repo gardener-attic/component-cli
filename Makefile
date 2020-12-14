@@ -37,6 +37,9 @@ generate:
 .PHONY: verify
 verify: check
 
+.PHONY: all
+all: generate format test verify
+
 #################################################################
 # Rules related to binary build, docker image build and release #
 #################################################################

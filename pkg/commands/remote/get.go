@@ -14,17 +14,15 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
+	"github.com/mandelsoft/vfs/pkg/osfs"
+	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
 
-	"github.com/gardener/component-cli/ociclient/credentials"
-	"github.com/gardener/component-cli/ociclient/credentials/secretserver"
+	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
-
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/ociclient/cache"
 )
 
 type showOptions struct {
@@ -34,17 +32,9 @@ type showOptions struct {
 	componentName string
 	// version is the component version in the oci registry.
 	version string
-	// allowPlainHttp allows the fallback to http if the oci registry does not support https
-	allowPlainHttp bool
-	// validate specifies whether the read component descriptor should be validated
-	validate bool
 
-	// cacheDir defines the oci cache directory
-	cacheDir string
-	// registryConfigPath defines a path to the dockerconfig.json with the oci registry authentication.
-	registryConfigPath string
-	// ConcourseConfigPath is the path to the local concourse config file.
-	ConcourseConfigPath string
+	// OciOptions contains all exposed options to configure the oci client.
+	OciOptions ociopts.Options
 }
 
 // NewGetCommand shows definitions and their configuration.
@@ -63,7 +53,7 @@ get fetches the component descriptor from a baseurl with the given name and Vers
 				os.Exit(1)
 			}
 
-			if err := opts.run(ctx, logger.Log); err != nil {
+			if err := opts.run(ctx, logger.Log, osfs.New()); err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
@@ -75,7 +65,7 @@ get fetches the component descriptor from a baseurl with the given name and Vers
 	return cmd
 }
 
-func (o *showOptions) run(ctx context.Context, log logr.Logger) error {
+func (o *showOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	repoCtx := cdv2.RepositoryContext{
 		Type:    cdv2.OCIRegistryType,
 		BaseURL: o.baseUrl,
@@ -84,33 +74,10 @@ func (o *showOptions) run(ctx context.Context, log logr.Logger) error {
 	if err != nil {
 		return fmt.Errorf("invalid component reference: %w", err)
 	}
-	cache, err := cache.NewCache(log, cache.WithBasePath(o.cacheDir))
-	if err != nil {
-		return err
-	}
 
-	ociOpts := []ociclient.Option{ociclient.WithCache{Cache: cache}, ociclient.AllowPlainHttp(o.allowPlainHttp)}
-	if len(o.registryConfigPath) != 0 {
-		keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{o.registryConfigPath})
-		if err != nil {
-			return fmt.Errorf("unable to create keyring for registry at %q: %w", o.registryConfigPath, err)
-		}
-		ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
-	} else {
-		keyring, err := secretserver.New().
-			FromPath(o.ConcourseConfigPath).
-			WithMinPrivileges(secretserver.ReadOnly).
-			Build()
-		if err != nil {
-			return fmt.Errorf("unable to get credentils from secret server: %s", err.Error())
-		}
-		if keyring != nil {
-			ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
-		}
-	}
-	ociClient, err := ociclient.NewClient(log, ociOpts...)
+	ociClient, _, err := o.OciOptions.Build(log, fs)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to build oci client: %s", err.Error())
 	}
 
 	cdresolver := cdoci.NewResolver().WithOCIClient(ociClient).WithRepositoryContext(repoCtx)
@@ -138,9 +105,9 @@ func (o *showOptions) Complete(args []string) error {
 	if err != nil {
 		return err
 	}
-	o.cacheDir = filepath.Join(cliHomeDir, "components")
-	if err := os.MkdirAll(o.cacheDir, os.ModePerm); err != nil {
-		return fmt.Errorf("unable to create cache directory %s: %w", o.cacheDir, err)
+	o.OciOptions.CacheDir = filepath.Join(cliHomeDir, "components")
+	if err := os.MkdirAll(o.OciOptions.CacheDir, os.ModePerm); err != nil {
+		return fmt.Errorf("unable to create cache directory %s: %w", o.OciOptions.CacheDir, err)
 	}
 
 	if len(o.baseUrl) == 0 {
@@ -152,15 +119,7 @@ func (o *showOptions) Complete(args []string) error {
 	if len(o.version) == 0 {
 		return errors.New("a component's Version must be defined")
 	}
-	if len(o.cacheDir) == 0 {
-		return errors.New("a cache directory must be defined")
-	}
 	return nil
 }
 
-func (o *showOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.BoolVar(&o.allowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
-	fs.BoolVar(&o.validate, "validate", true, "validates the read component-descriptor")
-	fs.StringVar(&o.registryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
-	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
-}
+func (o *showOptions) AddFlags(fs *pflag.FlagSet) {}

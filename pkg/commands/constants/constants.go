@@ -22,6 +22,12 @@ const BaseDefinitionPathEnvName = "BASE_DEFINITION_PATH"
 // ComponentArchivePathEnvName is the name of the environment variable that contains the file path to the component archive to be used.
 const ComponentArchivePathEnvName = "COMPONENT_ARCHIVE_PATH"
 
+// ComponentRepositoryRepositoryBaseUrlEnvName is the name of the environment variable that hold the base url of the current component repository
+const ComponentRepositoryRepositoryBaseUrlEnvName = "COMPONENT_REPOSITORY_BASE_URL"
+
+// ComponentRepositoryCacheDirEnvVar is the name of the environment variable that points to the local component descriptor cache.
+const ComponentRepositoryCacheDirEnvVar = "COMPONENT_REPOSITORY_CACHE_DIR"
+
 // CliHomeDir returns the home directoy of the components cli.
 // It returns the COMPONENT_CLI_HOME if its defined otherwise
 // the default "$HOME/.component-cli" is returned.

@@ -22,7 +22,7 @@ import (
 	"github.com/gardener/component-cli/pkg/imagevector"
 )
 
-var _ = Describe("Get", func() {
+var _ = Describe("GenerateOverwrite", func() {
 
 	var testdataFs vfs.FileSystem
 
@@ -33,7 +33,7 @@ var _ = Describe("Get", func() {
 	})
 
 	It("should generate a simple image with tag from a component descriptor", func() {
-		imageVector := runGet(testdataFs, "./01-component/component-descriptor.yaml")
+		imageVector := runGenerateOverwrite(testdataFs, "./01-component/component-descriptor.yaml")
 
 		Expect(imageVector.Images).To(HaveLen(2))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -48,7 +48,7 @@ var _ = Describe("Get", func() {
 
 	It("should generate a image source with a target version", func() {
 		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/10-targetversion.yaml")
-		imageVector := runGet(testdataFs, "./00-component/component-descriptor.yaml")
+		imageVector := runGenerateOverwrite(testdataFs, "./00-component/component-descriptor.yaml")
 		Expect(imageVector.Images).To(HaveLen(1))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("metrics-server"),
@@ -64,13 +64,13 @@ var _ = Describe("Get", func() {
 			},
 		}
 		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/21-multi-comp-ref.yaml", opts)
-		getOpts := &ivcmd.GenerateOverwriteOptions{
-			ComponentDescriptorsPath: []string{
-				"./02-autoscaler-0.10.1/component-descriptor.yaml",
-				"./03-autoscaler-0.13.0/component-descriptor.yaml",
-			},
+
+		getOpts := &ivcmd.GenerateOverwriteOptions{}
+		getOpts.ComponentDescriptorsPath = []string{
+			"./02-autoscaler-0.10.1/component-descriptor.yaml",
+			"./03-autoscaler-0.13.0/component-descriptor.yaml",
 		}
-		imageVector := runGet(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
+		imageVector := runGenerateOverwrite(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
 		Expect(imageVector.Images).To(HaveLen(2))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("cluster-autoscaler"),
@@ -93,12 +93,10 @@ var _ = Describe("Get", func() {
 			},
 		}
 		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/30-generic.yaml", addOpts)
-		getOpts := &ivcmd.GenerateOverwriteOptions{
-			ComponentDescriptorsPath: []string{
-				"./04-generic-images/component-descriptor.yaml",
-			},
-		}
-		imageVector := runGet(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
+
+		getOpts := &ivcmd.GenerateOverwriteOptions{}
+		getOpts.ComponentDescriptorsPath = []string{"./04-generic-images/component-descriptor.yaml"}
+		imageVector := runGenerateOverwrite(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
 		Expect(imageVector.Images).To(HaveLen(3))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
@@ -122,7 +120,7 @@ var _ = Describe("Get", func() {
 
 })
 
-func runGet(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.GenerateOverwriteOptions) *imagevector.ImageVector {
+func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.GenerateOverwriteOptions) *imagevector.ImageVector {
 	Expect(len(getOpts) <= 1).To(BeTrue())
 	opts := &ivcmd.GenerateOverwriteOptions{}
 	if len(getOpts) == 1 {

@@ -19,10 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/ociclient/cache"
-	"github.com/gardener/component-cli/ociclient/credentials"
-	"github.com/gardener/component-cli/ociclient/credentials/secretserver"
+	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/utils"
 )
@@ -30,18 +27,11 @@ import (
 type pushOptions struct {
 	// CTFPath is the path to the directory containing the ctf archive.
 	CTFPath string
-	// AllowPlainHttp allows the fallback to http if the oci registry does not support https
-	AllowPlainHttp bool
-
 	// BaseUrl is the repository context base url for all included component descriptors.
 	BaseUrl string
 
-	// CacheDir defines the oci cache directory
-	CacheDir string
-	// RegistryConfigPath defines a path to the dockerconfig.json with the oci registry authentication.
-	RegistryConfigPath string
-	// ConcourseConfigPath is the path to the local concourse config file.
-	ConcourseConfigPath string
+	// OciOptions contains all exposed options to configure the oci client.
+	OciOptions ociopts.Options
 }
 
 // NewPushCommand creates a new definition command to push definitions
@@ -88,41 +78,9 @@ func (o *pushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 It is expected that the given path points to a CTF Archive`, o.CTFPath)
 	}
 
-	cache, err := cache.NewCache(log, cache.WithBasePath(o.CacheDir))
+	ociClient, cache, err := o.OciOptions.Build(log, fs)
 	if err != nil {
-		return err
-	}
-
-	ociOpts := []ociclient.Option{
-		ociclient.WithCache{Cache: cache},
-		ociclient.WithKnownMediaType(cdoci.ComponentDescriptorConfigMimeType),
-		ociclient.WithKnownMediaType(cdoci.ComponentDescriptorTarMimeType),
-		ociclient.WithKnownMediaType(cdoci.ComponentDescriptorJSONMimeType),
-		ociclient.AllowPlainHttp(o.AllowPlainHttp),
-	}
-	if len(o.RegistryConfigPath) != 0 {
-		keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{o.RegistryConfigPath})
-		if err != nil {
-			return fmt.Errorf("unable to create keyring for registry at %q: %w", o.RegistryConfigPath, err)
-		}
-		ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
-	} else {
-		keyring, err := secretserver.New().
-			WithFS(fs).
-			FromPath(o.ConcourseConfigPath).
-			WithMinPrivileges(secretserver.ReadWrite).
-			Build()
-		if err != nil {
-			return fmt.Errorf("unable to get credentils from secret server: %s", err.Error())
-		}
-		if keyring != nil {
-			ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
-		}
-	}
-
-	ociClient, err := ociclient.NewClient(log, ociOpts...)
-	if err != nil {
-		return err
+		return fmt.Errorf("unable to build oci client: %s", err.Error())
 	}
 
 	ctfArchive, err := ctf.NewCTF(fs, o.CTFPath)
@@ -160,7 +118,7 @@ func (o *pushOptions) Complete(args []string) error {
 	o.CTFPath = args[0]
 
 	var err error
-	o.CacheDir, err = utils.CacheDir()
+	o.OciOptions.CacheDir, err = utils.CacheDir()
 	if err != nil {
 		return fmt.Errorf("unable to get oci cache directory: %w", err)
 	}
@@ -177,18 +135,11 @@ func (o *pushOptions) Validate() error {
 	if len(o.CTFPath) == 0 {
 		return errors.New("a path to the component descriptor must be defined")
 	}
-
-	if len(o.CacheDir) == 0 {
-		return errors.New("a oci cache directory must be defined")
-	}
-
-	// todo: validate references exist
 	return nil
 }
 
 func (o *pushOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.BoolVar(&o.AllowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
-	fs.StringVar(&o.RegistryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
-	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
 	fs.StringVar(&o.BaseUrl, "repo-ctx", "", "repository context url for component to upload. The repository url will be automatically added to the repository contexts.")
+
+	o.OciOptions.AddFlags(fs)
 }

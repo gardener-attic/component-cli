@@ -20,17 +20,53 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-cli/pkg/imagevector"
 	"github.com/gardener/component-cli/pkg/logger"
 )
 
 // GenerateOverwriteOptions defines the options that are used to generate a image vector from component descriptors
 type GenerateOverwriteOptions struct {
-	// ComponentDescriptorPath is the path to the component descriptor
-	ComponentDescriptorPath string
+	LocalComponentDescriptorOption
+	RemoteComponentDescriptorOption
+
+	// SubComponentName is the name of the reference that should be used as the main component descriptor.
+	// +optional
+	SubComponentName string
 	// ImageVectorPath defines the path to the image vector defined as yaml or json
 	ImageVectorPath string
+
+	// OciOptions contains all exposed options to configure the oci client.
+	OciOptions ociopts.Options
+}
+
+// ComponentDescriptorOption describes a component descriptor
+type ComponentDescriptorOption struct {
+	Local  LocalComponentDescriptorOption
+	Remote RemoteComponentDescriptorOption
+}
+
+// RemoteComponentDescriptorOption defines component descriptors that are fetched by their remote repository, name and version.
+type RemoteComponentDescriptorOption struct {
+	// BaseURL defines the repository base url of the remote repository
+	// +optional
+	BaseURL string
+	// ComponentName is the name of the remote component to fetch
+	// +optional
+	ComponentName string
+	// ComponentVersion is the version of the remote component to fetch
+	// +optional
+	ComponentVersion string
+}
+
+// LocalComponentDescriptorOption defines component descriptors that are locally available
+type LocalComponentDescriptorOption struct {
+	// ComponentDescriptorPath is the path to the component descriptor
+	// Either component descriptor or a remote component descriptor has to be defined.
+	// +optional
+	ComponentDescriptorPath string
 	// ComponentDescriptorsPath is a list of paths to additional component descriptors
 	ComponentDescriptorsPath []string
 }
@@ -157,39 +193,34 @@ component:
 }
 
 func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	data, err := vfs.ReadFile(fs, o.ComponentDescriptorPath)
+	ociClient, _, err := o.OciOptions.Build(log, fs)
 	if err != nil {
-		return fmt.Errorf("unable to read component descriptor from %q: %s", o.ComponentDescriptorPath, err.Error())
+		return err
 	}
+	compResolver := components.New(log, fs, ociClient)
 
-	// add the input to the ctf format
-	cd := &cdv2.ComponentDescriptor{}
-	if err := codec.Decode(data, cd); err != nil {
-		return fmt.Errorf("unable to decode component descriptor from %q: %s", o.ComponentDescriptorPath, err.Error())
+	root, main, err := o.getComponentDescriptor(ctx, fs, compResolver)
+	if err != nil {
+		return fmt.Errorf("unable to get component descriptor: %s", err.Error())
 	}
 
 	// parse all given additional component descriptors
-	cdList := &cdv2.ComponentDescriptorList{}
-	for _, cdPath := range o.ComponentDescriptorsPath {
-		data, err := vfs.ReadFile(fs, cdPath)
-		if err != nil {
-			return fmt.Errorf("unable to read component descriptor from %q: %s", cdPath, err.Error())
-		}
-
-		// add the input to the ctf format
-		cd := cdv2.ComponentDescriptor{}
-		if err := codec.Decode(data, &cd); err != nil {
-			return fmt.Errorf("unable to decode component descriptor from %q: %s", cdPath, err.Error())
-		}
-		cdList.Components = append(cdList.Components, cd)
+	cdList, err := o.getComponentDescriptors(ctx, fs, compResolver, root)
+	if err != nil {
+		return fmt.Errorf("unable to get component descriptors: %s", err.Error())
 	}
 
-	imageVector, err := imagevector.GenerateImageOverwrite(cd, cdList)
+	// if the root component descriptor is not the main component descriptor add it to the list of component descriptos
+	if root != main {
+		cdList.Components = append(cdList.Components, *root)
+	}
+
+	imageVector, err := imagevector.GenerateImageOverwrite(main, cdList)
 	if err != nil {
 		return fmt.Errorf("unable to parse image vector: %s", err.Error())
 	}
 
-	data, err = yaml.Marshal(imageVector)
+	data, err := yaml.Marshal(imageVector)
 	if err != nil {
 		return fmt.Errorf("unable to encode image vector: %w", err)
 	}
@@ -213,19 +244,110 @@ func (o *GenerateOverwriteOptions) Complete(args []string) error {
 	if len(o.ComponentDescriptorPath) == 0 {
 		o.ComponentDescriptorPath = filepath.Dir(os.Getenv(constants.ComponentDescriptorPathEnvName))
 	}
+	if len(o.BaseURL) == 0 {
+		o.BaseURL = os.Getenv(constants.ComponentRepositoryRepositoryBaseUrlEnvName)
+	}
 
 	return o.validate()
 }
 
 func (o *GenerateOverwriteOptions) validate() error {
-	if len(o.ComponentDescriptorPath) == 0 {
-		return errors.New("component descriptor path must be provided")
+	if len(o.ComponentDescriptorPath) == 0 && len(o.ComponentName) == 0 {
+		return errors.New("component descriptor path or a remote component descriptor must be provided")
 	}
+
+	if len(o.ComponentName) == 0 {
+		if len(o.ComponentVersion) != 0 {
+			return errors.New("a component version has to be defined for a upstream component")
+		}
+		if len(o.BaseURL) != 0 {
+			return errors.New("a base url has to be defined for a upstream component")
+		}
+	}
+
 	return nil
 }
 
-func (o *GenerateOverwriteOptions) AddFlags(set *pflag.FlagSet) {
-	set.StringVar(&o.ComponentDescriptorPath, "comp", "", "path to the component descriptor directory")
-	set.StringArrayVar(&o.ComponentDescriptorsPath, "add-comp", []string{}, "path to the component descriptor directory")
-	set.StringVar(&o.ImageVectorPath, "out", "", "The path to the image vector that will be written.")
+func (o *GenerateOverwriteOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.ComponentDescriptorPath, "comp", "", "path to the component descriptor directory")
+	fs.StringArrayVar(&o.ComponentDescriptorsPath, "add-comp", []string{}, "path to the component descriptor directory")
+
+	fs.StringVar(&o.BaseURL, "repo-ctx", "", "base url of the component repository")
+	fs.StringVar(&o.ComponentName, "component-name", "", "name of the remote component")
+	fs.StringVar(&o.ComponentVersion, "component-version", "", "version of the remote component")
+
+	fs.StringVarP(&o.ImageVectorPath, "Output", "O", "", "The path to the image vector that will be written.")
+	fs.StringVar(&o.SubComponentName, "sub-component", "", "name of the sub component that should be used as the main component descriptor")
+	o.OciOptions.AddFlags(fs)
+}
+
+func (o *GenerateOverwriteOptions) getComponentDescriptor(ctx context.Context, fs vfs.FileSystem, compResolver components.ComponentResolver) (root, main *cdv2.ComponentDescriptor, err error) {
+	var cd *cdv2.ComponentDescriptor
+	if len(o.ComponentDescriptorPath) != 0 {
+		data, err := vfs.ReadFile(fs, o.ComponentDescriptorPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to read component descriptor from %q: %s", o.ComponentDescriptorPath, err.Error())
+		}
+
+		// add the input to the ctf format
+		cd = &cdv2.ComponentDescriptor{}
+		if err := codec.Decode(data, cd); err != nil {
+			return nil, nil, fmt.Errorf("unable to decode component descriptor from %q: %s", o.ComponentDescriptorPath, err.Error())
+		}
+	} else {
+		var err error
+		cd, err = compResolver.Resolve(ctx, cdv2.RepositoryContext{
+			Type:    cdv2.OCIRegistryType,
+			BaseURL: o.BaseURL,
+		}, o.ComponentName, o.ComponentVersion)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to resolve upstream component descriptor %q:%q: %s", o.ComponentName, o.ComponentVersion, err.Error())
+		}
+	}
+
+	// use the defined subcomponents as main component
+	if len(o.SubComponentName) != 0 {
+
+		ref, err := cd.GetComponentReferencesByName(o.SubComponentName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to resolve subcomponent from root component descriptor: %w", err)
+		}
+		if len(ref) != 1 {
+			return nil, nil, fmt.Errorf("the sub component %q is not unique in the component descriptor", o.SubComponentName)
+		}
+
+		main, err := compResolver.Resolve(ctx, cdv2.RepositoryContext{
+			Type:    cdv2.OCIRegistryType,
+			BaseURL: o.BaseURL,
+		}, ref[0].ComponentName, ref[0].Version)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to resolve upstream subcomponent descriptor %q:%q: %s", ref[0].ComponentName, ref[0].Version, err.Error())
+		}
+		return cd, main, nil
+	}
+
+	return cd, cd, nil
+}
+
+func (o *GenerateOverwriteOptions) getComponentDescriptors(ctx context.Context, fs vfs.FileSystem, compResolver components.ComponentResolver, cd *cdv2.ComponentDescriptor) (*cdv2.ComponentDescriptorList, error) {
+	if len(o.ComponentDescriptorsPath) != 0 {
+		// parse all given additional component descriptors
+		cdList := &cdv2.ComponentDescriptorList{}
+		for _, cdPath := range o.ComponentDescriptorsPath {
+			data, err := vfs.ReadFile(fs, cdPath)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read component descriptor from %q: %s", cdPath, err.Error())
+			}
+
+			// add the input to the ctf format
+			cd := cdv2.ComponentDescriptor{}
+			if err := codec.Decode(data, &cd); err != nil {
+				return nil, fmt.Errorf("unable to decode component descriptor from %q: %s", cdPath, err.Error())
+			}
+			cdList.Components = append(cdList.Components, cd)
+		}
+		return cdList, nil
+	}
+
+	return components.ResolveTransitiveComponentDescriptors(ctx, compResolver, cd)
 }

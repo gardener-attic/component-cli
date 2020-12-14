@@ -108,10 +108,17 @@ components-cli image-vector generate-overwrite [flags]
 ### Options
 
 ```
-      --add-comp stringArray   path to the component descriptor directory
-      --comp string            path to the component descriptor directory
-  -h, --help                   help for generate-overwrite
-      --out string             The path to the image vector that will be written.
+  -O, --Output string              The path to the image vector that will be written.
+      --add-comp stringArray       path to the component descriptor directory
+      --allow-plain-http           allows the fallback to http if the oci registry does not support https
+      --cc-config string           path to the local concourse config file
+      --comp string                path to the component descriptor directory
+      --component-name string      name of the remote component
+      --component-version string   version of the remote component
+  -h, --help                       help for generate-overwrite
+      --registry-config string     path to the dockerconfig.json with the oci registry authentication information
+      --repo-ctx string            base url of the component repository
+      --sub-component string       name of the sub component that should be used as the main component descriptor
 ```
 
 ### Options inherited from parent commands
