@@ -474,8 +474,8 @@ func (o *ComponentReference) SetLabels(labels []Label) {
 // GetLabels returns the identity of the object.
 func (o *ComponentReference) GetIdentity() Identity {
 	identity := map[string]string{}
-	if o.ExtraIdentity != nil {
-		identity = o.ExtraIdentity
+	for k, v := range o.ExtraIdentity {
+		identity[k] = v
 	}
 	identity[SystemIdentityName] = o.Name
 	return identity

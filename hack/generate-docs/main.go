@@ -23,6 +23,8 @@ func main() {
 	}
 	outputDir := os.Args[1]
 
+	// clear generated
+	check(os.RemoveAll(outputDir))
 	check(os.MkdirAll(outputDir, os.ModePerm))
 
 	cmd := app.NewComponentsCliCommand(context.TODO())

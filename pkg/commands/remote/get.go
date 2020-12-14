@@ -51,11 +51,11 @@ type showOptions struct {
 func NewGetCommand(ctx context.Context) *cobra.Command {
 	opts := &showOptions{}
 	cmd := &cobra.Command{
-		Use:   "get [baseurl] [componentname] [version]",
+		Use:   "get [baseurl] [componentname] [Version]",
 		Args:  cobra.ExactArgs(3),
 		Short: "fetch the component descriptor from a oci registry",
 		Long: `
-get fetches the component descriptor from a baseurl with the given name and version.
+get fetches the component descriptor from a baseurl with the given name and Version.
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
@@ -150,7 +150,7 @@ func (o *showOptions) Complete(args []string) error {
 		return errors.New("a component name must be defined")
 	}
 	if len(o.version) == 0 {
-		return errors.New("a component's version must be defined")
+		return errors.New("a component's Version must be defined")
 	}
 	if len(o.cacheDir) == 0 {
 		return errors.New("a cache directory must be defined")

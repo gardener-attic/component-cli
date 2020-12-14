@@ -55,7 +55,7 @@ components-cli component-archive resources add [component archive path] [-r reso
 ### Options
 
 ```
-  -a, --archive string    path to the component descriptor directory
+  -a, --archive string    path to the component archive directory
   -h, --help              help for add
   -r, --resource string   The path to the resources defined as yaml or json
 ```

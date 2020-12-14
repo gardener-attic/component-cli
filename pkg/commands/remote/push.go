@@ -28,17 +28,18 @@ import (
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
-type pushOptions struct {
-	// baseUrl is the oci registry where the component is stored.
-	baseUrl string
-	// componentName is the unique name of the component in the registry.
-	componentName string
-	// version is the component version in the oci registry.
-	version string
-	// componentPath is the path to the directory containing the definition.
-	componentPath string
-	// allowPlainHttp allows the fallback to http if the oci registry does not support https
-	allowPlainHttp bool
+// PushOptions contains all options to upload a component archive.
+type PushOptions struct {
+	// BaseUrl is the oci registry where the component is stored.
+	BaseUrl string
+	// ComponentName is the unique name of the component in the registry.
+	ComponentName string
+	// Version is the component Version in the oci registry.
+	Version string
+	// ComponentPath is the path to the directory containing the definition.
+	ComponentPath string
+	// AllowPlainHttp allows the fallback to http if the oci registry does not support https
+	AllowPlainHttp bool
 
 	// ref is the oci artifact uri reference to the uploaded component descriptor
 	ref string
@@ -54,7 +55,7 @@ type pushOptions struct {
 
 // NewPushCommand creates a new definition command to push definitions
 func NewPushCommand(ctx context.Context) *cobra.Command {
-	opts := &pushOptions{}
+	opts := &PushOptions{}
 	cmd := &cobra.Command{
 		Use:   "push [path to component descriptor]",
 		Args:  cobra.RangeArgs(1, 4),
@@ -67,8 +68,8 @@ The command can be called in 2 different ways:
 push [path to component descriptor]
 - The cli will read all necessary parameters from the component descriptor.
 
-push [baseurl] [componentname] [version] [path to component descriptor]
-- The cli will add the baseurl as repository context and validate the name and version.
+push [baseurl] [componentname] [Version] [path to component descriptor]
+- The cli will add the baseurl as repository context and validate the name and Version.
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
@@ -90,16 +91,18 @@ push [baseurl] [componentname] [version] [path to component descriptor]
 	return cmd
 }
 
-func (o *pushOptions) run(ctx context.Context, log logr.Logger) error {
+func (o *PushOptions) run(ctx context.Context, log logr.Logger) error {
 	cache, err := cache.NewCache(log, cache.WithBasePath(o.cacheDir))
 	if err != nil {
 		return err
 	}
 
-	archive, err := ctf.ComponentArchiveFromPath(o.componentPath)
+	archive, err := ctf.ComponentArchiveFromPath(o.ComponentPath)
 	if err != nil {
 		return fmt.Errorf("unable to build component archive: %w", err)
 	}
+	// update repository context
+	archive.ComponentDescriptor.RepositoryContexts = utils.AddRepositoryContext(archive.ComponentDescriptor.RepositoryContexts, cdv2.OCIRegistryType, o.BaseUrl)
 
 	manifest, err := cdoci.NewManifestBuilder(cache, archive).Build(ctx)
 	if err != nil {
@@ -111,7 +114,7 @@ func (o *pushOptions) run(ctx context.Context, log logr.Logger) error {
 		ociclient.WithKnownMediaType(cdoci.ComponentDescriptorConfigMimeType),
 		ociclient.WithKnownMediaType(cdoci.ComponentDescriptorTarMimeType),
 		ociclient.WithKnownMediaType(cdoci.ComponentDescriptorJSONMimeType),
-		ociclient.AllowPlainHttp(o.allowPlainHttp),
+		ociclient.AllowPlainHttp(o.AllowPlainHttp),
 	}
 	if len(o.registryConfigPath) != 0 {
 		keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{o.registryConfigPath})
@@ -140,15 +143,15 @@ func (o *pushOptions) run(ctx context.Context, log logr.Logger) error {
 	return ociClient.PushManifest(ctx, o.ref, manifest)
 }
 
-func (o *pushOptions) Complete(args []string) error {
+func (o *PushOptions) Complete(args []string) error {
 	switch len(args) {
 	case 1:
-		o.componentPath = args[0]
+		o.ComponentPath = args[0]
 	case 4:
-		o.baseUrl = args[0]
-		o.componentName = args[1]
-		o.version = args[2]
-		o.componentPath = args[3]
+		o.BaseUrl = args[0]
+		o.ComponentName = args[1]
+		o.Version = args[2]
+		o.ComponentPath = args[3]
 	}
 
 	var err error
@@ -161,17 +164,17 @@ func (o *pushOptions) Complete(args []string) error {
 		return err
 	}
 
-	info, err := os.Stat(o.componentPath)
+	info, err := os.Stat(o.ComponentPath)
 	if err != nil {
-		return fmt.Errorf("unable to get info for %s: %w", o.componentPath, err)
+		return fmt.Errorf("unable to get info for %s: %w", o.ComponentPath, err)
 	}
 	if !info.IsDir() {
 		return fmt.Errorf(`%s is not a directory. 
 It is expected that the given path points to a diectory that contains the component descriptor as file in "%s" 
-`, o.componentPath, ctf.ComponentDescriptorFileName)
+`, o.ComponentPath, ctf.ComponentDescriptorFileName)
 	}
 
-	data, err := ioutil.ReadFile(filepath.Join(o.componentPath, ctf.ComponentDescriptorFileName))
+	data, err := ioutil.ReadFile(filepath.Join(o.ComponentPath, ctf.ComponentDescriptorFileName))
 	if err != nil {
 		return err
 	}
@@ -180,19 +183,19 @@ It is expected that the given path points to a diectory that contains the compon
 		return err
 	}
 
-	if len(o.componentName) != 0 {
-		if o.cd.Name != o.componentName {
-			return fmt.Errorf("name in component descriptor '%s' does not match the given name '%s'", o.cd.Name, o.componentName)
+	if len(o.ComponentName) != 0 {
+		if o.cd.Name != o.ComponentName {
+			return fmt.Errorf("name in component descriptor '%s' does not match the given name '%s'", o.cd.Name, o.ComponentName)
 		}
-		if o.cd.Version != o.version {
-			return fmt.Errorf("version in component descriptor '%s' does not match the given version '%s'", o.cd.Version, o.version)
+		if o.cd.Version != o.Version {
+			return fmt.Errorf("Version in component descriptor '%s' does not match the given Version '%s'", o.cd.Version, o.Version)
 		}
 	}
 
-	if len(o.baseUrl) != 0 {
+	if len(o.BaseUrl) != 0 {
 		o.cd.RepositoryContexts = append(o.cd.RepositoryContexts, cdv2.RepositoryContext{
 			Type:    cdv2.OCIRegistryType,
-			BaseURL: o.baseUrl,
+			BaseURL: o.BaseUrl,
 		})
 	}
 
@@ -205,8 +208,8 @@ It is expected that the given path points to a diectory that contains the compon
 }
 
 // Validate validates push options
-func (o *pushOptions) Validate() error {
-	if len(o.componentPath) == 0 {
+func (o *PushOptions) Validate() error {
+	if len(o.ComponentPath) == 0 {
 		return errors.New("a path to the component descriptor must be defined")
 	}
 
@@ -218,8 +221,9 @@ func (o *pushOptions) Validate() error {
 	return nil
 }
 
-func (o *pushOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.BoolVar(&o.allowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
+func (o *PushOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&o.AllowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
 	fs.StringVar(&o.registryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
 	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
+	fs.StringVar(&o.BaseUrl, "repo-ctx", "", "repository context url for component to upload. The repository url will be automatically added to the repository contexts.")
 }

@@ -7,11 +7,9 @@ package imagevector_test
 import (
 	"context"
 	"encoding/json"
-	"path/filepath"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
-	"github.com/gardener/component-spec/bindings-go/ctf"
 	testlog "github.com/go-logr/logr/testing"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
@@ -22,7 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
-	"github.com/gardener/component-cli/pkg/commands/imagevector"
+	ivcmd "github.com/gardener/component-cli/pkg/commands/imagevector"
+	"github.com/gardener/component-cli/pkg/imagevector"
 )
 
 var _ = Describe("Add", func() {
@@ -37,14 +36,14 @@ var _ = Describe("Add", func() {
 
 	It("should add a image source with tag", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/00-tag.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/00-tag.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -62,14 +61,14 @@ var _ = Describe("Add", func() {
 
 	It("should add a image source with a label", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/01-labels.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/01-labels.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -91,14 +90,14 @@ var _ = Describe("Add", func() {
 
 	It("should add a image source with tag and target version", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/10-targetversion.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/10-targetversion.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -117,14 +116,14 @@ var _ = Describe("Add", func() {
 
 	It("should add two image sources with different target versions", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/11-multi-targetversion.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/11-multi-targetversion.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -152,9 +151,9 @@ var _ = Describe("Add", func() {
 
 	It("should add image sources that match a given pattern as component reference", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/20-comp-ref.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/20-comp-ref.yaml",
 			ParseImageOptions: imagevector.ParseImageOptions{
 				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
 			},
@@ -162,7 +161,7 @@ var _ = Describe("Add", func() {
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -189,9 +188,9 @@ var _ = Describe("Add", func() {
 
 	It("should add two image sources that match a given pattern as component reference", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/21-multi-comp-ref.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/21-multi-comp-ref.yaml",
 			ParseImageOptions: imagevector.ParseImageOptions{
 				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
 			},
@@ -199,7 +198,7 @@ var _ = Describe("Add", func() {
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -241,9 +240,9 @@ var _ = Describe("Add", func() {
 
 	It("should add two image sources that match a given pattern as one component reference", func() {
 
-		opts := &imagevector.AddOptions{
-			ComponentArchivePath: "./00-component",
-			ImageVectorPath:      "./resources/22-multi-image-comp-ref.yaml",
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/22-multi-image-comp-ref.yaml",
 			ParseImageOptions: imagevector.ParseImageOptions{
 				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
 			},
@@ -251,7 +250,7 @@ var _ = Describe("Add", func() {
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
 
 		cd := &cdv2.ComponentDescriptor{}
@@ -263,6 +262,7 @@ var _ = Describe("Add", func() {
 			"Name":          Equal("cluster-autoscaler"),
 			"ComponentName": Equal("github.com/gardener/autoscaler"),
 			"Version":       Equal("v0.13.0"),
+			"ExtraIdentity": And(HaveKey(imagevector.TagExtraIdentity), Not(HaveKey("name"))),
 		}))
 
 		imageLabelBytes, ok := cd.ComponentReferences[0].GetLabels().Get(imagevector.ImagesLabel)
@@ -282,15 +282,41 @@ var _ = Describe("Add", func() {
 		})))
 	})
 
-	It("should add two image sources that match a given pattern as one component reference", func() {
-		opts := &imagevector.AddOptions{
+	It("should add generic sources that match a given generic dependency name", func() {
+		opts := &ivcmd.AddOptions{
 			ParseImageOptions: imagevector.ParseImageOptions{
 				GenericDependencies: []string{
 					"hyperkube",
 				},
 			},
 		}
-		cd := runAdd(testdataFs, "./00-component", "./resources/30-generic.yaml", opts)
+		cd := runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/30-generic.yaml", opts)
+
+		Expect(cd.Resources).To(HaveLen(0))
+		Expect(cd.ComponentReferences).To(HaveLen(0))
+
+		imageLabelBytes, ok := cd.GetLabels().Get(imagevector.ImagesLabel)
+		Expect(ok).To(BeTrue())
+		imageVector := &imagevector.ImageVector{}
+		Expect(json.Unmarshal(imageLabelBytes, imageVector)).To(Succeed())
+		Expect(imageVector.Images).To(HaveLen(2))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("k8s.gcr.io/hyperkube"),
+			"TargetVersion": PointTo(Equal("< 1.19")),
+		})))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("hyperkube"),
+			"Repository":    Equal("eu.gcr.io/gardener-project/hyperkube"),
+			"TargetVersion": PointTo(Equal(">= 1.19")),
+		})))
+	})
+
+	It("should add generic sources that match a given generic dependency name defined by a list of dependencies", func() {
+		opts := &ivcmd.AddOptions{
+			GenericDependencies: "hyperkube",
+		}
+		cd := runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/30-generic.yaml", opts)
 
 		Expect(cd.Resources).To(HaveLen(0))
 		Expect(cd.ComponentReferences).To(HaveLen(0))
@@ -315,18 +341,19 @@ var _ = Describe("Add", func() {
 })
 
 // runAdd runs the add command
-func runAdd(fs vfs.FileSystem, caPath, ivPath string, addOpts ...*imagevector.AddOptions) *cdv2.ComponentDescriptor {
+func runAdd(fs vfs.FileSystem, caPath, ivPath string, addOpts ...*ivcmd.AddOptions) *cdv2.ComponentDescriptor {
 	Expect(len(addOpts) <= 1).To(BeTrue())
-	opts := &imagevector.AddOptions{}
+	opts := &ivcmd.AddOptions{}
 	if len(addOpts) == 1 {
 		opts = addOpts[0]
 	}
-	opts.ComponentArchivePath = caPath
+	opts.ComponentDescriptorPath = caPath
 	opts.ImageVectorPath = ivPath
+	Expect(opts.Complete(nil)).To(Succeed())
 
 	Expect(opts.Run(context.TODO(), testlog.NullLogger{}, fs)).To(Succeed())
 
-	data, err := vfs.ReadFile(fs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+	data, err := vfs.ReadFile(fs, opts.ComponentDescriptorPath)
 	Expect(err).ToNot(HaveOccurred())
 
 	cd := &cdv2.ComponentDescriptor{}

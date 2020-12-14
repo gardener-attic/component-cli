@@ -18,6 +18,6 @@ func NewImageVectorCommand(ctx context.Context) *cobra.Command {
 		Short:   "command to add resource from a image vector and retrieve from a component descriptor",
 	}
 	cmd.AddCommand(NewAddCommand(ctx))
-	cmd.AddCommand(NewGetCommand(ctx))
+	cmd.AddCommand(NewGenerateOverwriteCommand(ctx))
 	return cmd
 }

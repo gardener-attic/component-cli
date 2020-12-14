@@ -85,7 +85,7 @@ github.com/docker/go-metrics
 github.com/docker/go-units
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
-# github.com/gardener/component-spec/bindings-go v0.0.0-20201211081559-1dc388fc92bf
+# github.com/gardener/component-spec/bindings-go v0.0.0-20201214104938-0bdb01b553e8
 ## explicit
 github.com/gardener/component-spec/bindings-go/apis
 github.com/gardener/component-spec/bindings-go/apis/v2

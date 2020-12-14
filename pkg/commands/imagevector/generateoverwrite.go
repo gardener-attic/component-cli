@@ -12,37 +12,38 @@ import (
 	"path/filepath"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	"github.com/gardener/component-spec/bindings-go/ctf"
+	"github.com/gardener/component-spec/bindings-go/codec"
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
-	"github.com/mandelsoft/vfs/pkg/projectionfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/imagevector"
 	"github.com/gardener/component-cli/pkg/logger"
 )
 
-// GetOptions defines the options that are used to generate a image vector from component descriptors
-type GetOptions struct {
-	// ComponentArchivePath is the path to the component descriptor
-	ComponentArchivePath string
+// GenerateOverwriteOptions defines the options that are used to generate a image vector from component descriptors
+type GenerateOverwriteOptions struct {
+	// ComponentDescriptorPath is the path to the component descriptor
+	ComponentDescriptorPath string
 	// ImageVectorPath defines the path to the image vector defined as yaml or json
 	ImageVectorPath string
-	// ComponentArchivesPath is a list of paths to additional component descriptors
-	ComponentArchivesPath []string
+	// ComponentDescriptorsPath is a list of paths to additional component descriptors
+	ComponentDescriptorsPath []string
 }
 
-// NewGetCommand creates a command to add additional resources to a component descriptor.
-func NewGetCommand(ctx context.Context) *cobra.Command {
-	opts := &GetOptions{}
+// NewGenerateOverwriteCommand creates a command to add additional resources to a component descriptor.
+func NewGenerateOverwriteCommand(ctx context.Context) *cobra.Command {
+	opts := &GenerateOverwriteOptions{}
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get parses a component descriptor and returns the defined image vector",
+		Use:     "generate-overwrite",
+		Aliases: []string{"go"},
+		Short:   "Get parses a component descriptor and returns the defined image vector",
 		Long: `
-get parses images defined in a component descriptor and returns them a image vector.
+generate-overwrite parses images defined in a component descriptor and returns them as image vector.
 
 Images can be defined in a component descriptor in 3 different ways:
 1. as 'ociImage' resource: The image is defined a default resource of type 'ociImage' with a access of type 'ociRegistry'.
@@ -155,40 +156,40 @@ component:
 	return cmd
 }
 
-func (o *GetOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	compDescFilePath := filepath.Join(o.ComponentArchivePath, ctf.ComponentDescriptorFileName)
+func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+	data, err := vfs.ReadFile(fs, o.ComponentDescriptorPath)
+	if err != nil {
+		return fmt.Errorf("unable to read component descriptor from %q: %s", o.ComponentDescriptorPath, err.Error())
+	}
 
 	// add the input to the ctf format
-	archiveFs, err := projectionfs.New(fs, o.ComponentArchivePath)
-	if err != nil {
-		return fmt.Errorf("unable to create projectionfilesystem: %w", err)
-	}
-	archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs)
-	if err != nil {
-		return fmt.Errorf("unable to parse component archive from %s: %w", compDescFilePath, err)
+	cd := &cdv2.ComponentDescriptor{}
+	if err := codec.Decode(data, cd); err != nil {
+		return fmt.Errorf("unable to decode component descriptor from %q: %s", o.ComponentDescriptorPath, err.Error())
 	}
 
 	// parse all given additional component descriptors
 	cdList := &cdv2.ComponentDescriptorList{}
-	for _, archivePath := range o.ComponentArchivesPath {
+	for _, cdPath := range o.ComponentDescriptorsPath {
+		data, err := vfs.ReadFile(fs, cdPath)
+		if err != nil {
+			return fmt.Errorf("unable to read component descriptor from %q: %s", cdPath, err.Error())
+		}
+
 		// add the input to the ctf format
-		archiveFs, err := projectionfs.New(fs, archivePath)
-		if err != nil {
-			return fmt.Errorf("unable to create projectionfilesystem: %w", err)
+		cd := cdv2.ComponentDescriptor{}
+		if err := codec.Decode(data, &cd); err != nil {
+			return fmt.Errorf("unable to decode component descriptor from %q: %s", cdPath, err.Error())
 		}
-		archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs)
-		if err != nil {
-			return fmt.Errorf("unable to parse component archive from %s: %w", compDescFilePath, err)
-		}
-		cdList.Components = append(cdList.Components, *archive.ComponentDescriptor)
+		cdList.Components = append(cdList.Components, cd)
 	}
 
-	imageVector, err := ParseComponentDescriptor(archive.ComponentDescriptor, cdList)
+	imageVector, err := imagevector.GenerateImageOverwrite(cd, cdList)
 	if err != nil {
 		return fmt.Errorf("unable to parse image vector: %s", err.Error())
 	}
 
-	data, err := yaml.Marshal(imageVector)
+	data, err = yaml.Marshal(imageVector)
 	if err != nil {
 		return fmt.Errorf("unable to encode image vector: %w", err)
 	}
@@ -206,25 +207,25 @@ func (o *GetOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem
 	return nil
 }
 
-func (o *GetOptions) Complete(args []string) error {
+func (o *GenerateOverwriteOptions) Complete(args []string) error {
 
 	// default component path to env var
-	if len(o.ComponentArchivePath) == 0 {
-		o.ComponentArchivePath = filepath.Dir(os.Getenv(constants.ComponentDescriptorPathEnvName))
+	if len(o.ComponentDescriptorPath) == 0 {
+		o.ComponentDescriptorPath = filepath.Dir(os.Getenv(constants.ComponentDescriptorPathEnvName))
 	}
 
 	return o.validate()
 }
 
-func (o *GetOptions) validate() error {
-	if len(o.ComponentArchivePath) == 0 {
+func (o *GenerateOverwriteOptions) validate() error {
+	if len(o.ComponentDescriptorPath) == 0 {
 		return errors.New("component descriptor path must be provided")
 	}
 	return nil
 }
 
-func (o *GetOptions) AddFlags(set *pflag.FlagSet) {
-	set.StringVar(&o.ComponentArchivePath, "comp", "", "path to the component descriptor directory")
-	set.StringArrayVar(&o.ComponentArchivesPath, "add-comp", []string{}, "path to the component descriptor directory")
+func (o *GenerateOverwriteOptions) AddFlags(set *pflag.FlagSet) {
+	set.StringVar(&o.ComponentDescriptorPath, "comp", "", "path to the component descriptor directory")
+	set.StringArrayVar(&o.ComponentDescriptorsPath, "add-comp", []string{}, "path to the component descriptor directory")
 	set.StringVar(&o.ImageVectorPath, "out", "", "The path to the image vector that will be written.")
 }

@@ -33,9 +33,9 @@ components-cli component-archive component-references add [flags]
 ### Options
 
 ```
-      --comp-desc string   path to the component descriptor directory
-  -h, --help               help for add
-  -r, --resource string    The path to the resources defined as yaml or json
+      --archive string    path to the component descriptor archive directory
+  -h, --help              help for add
+  -r, --resource string   The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands

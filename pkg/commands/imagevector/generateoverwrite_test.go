@@ -18,7 +18,8 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/yaml"
 
-	"github.com/gardener/component-cli/pkg/commands/imagevector"
+	ivcmd "github.com/gardener/component-cli/pkg/commands/imagevector"
+	"github.com/gardener/component-cli/pkg/imagevector"
 )
 
 var _ = Describe("Get", func() {
@@ -32,7 +33,7 @@ var _ = Describe("Get", func() {
 	})
 
 	It("should generate a simple image with tag from a component descriptor", func() {
-		imageVector := runGet(testdataFs, "./01-component")
+		imageVector := runGet(testdataFs, "./01-component/component-descriptor.yaml")
 
 		Expect(imageVector.Images).To(HaveLen(2))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
@@ -46,8 +47,8 @@ var _ = Describe("Get", func() {
 	})
 
 	It("should generate a image source with a target version", func() {
-		runAdd(testdataFs, "./00-component", "./resources/10-targetversion.yaml")
-		imageVector := runGet(testdataFs, "./00-component")
+		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/10-targetversion.yaml")
+		imageVector := runGet(testdataFs, "./00-component/component-descriptor.yaml")
 		Expect(imageVector.Images).To(HaveLen(1))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("metrics-server"),
@@ -57,19 +58,19 @@ var _ = Describe("Get", func() {
 	})
 
 	It("should generate image sources from component references", func() {
-		opts := &imagevector.AddOptions{
+		opts := &ivcmd.AddOptions{
 			ParseImageOptions: imagevector.ParseImageOptions{
 				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
 			},
 		}
-		runAdd(testdataFs, "./00-component", "./resources/21-multi-comp-ref.yaml", opts)
-		getOpts := &imagevector.GetOptions{
-			ComponentArchivesPath: []string{
-				"./02-autoscaler-0.10.1",
-				"./03-autoscaler-0.13.0",
+		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/21-multi-comp-ref.yaml", opts)
+		getOpts := &ivcmd.GenerateOverwriteOptions{
+			ComponentDescriptorsPath: []string{
+				"./02-autoscaler-0.10.1/component-descriptor.yaml",
+				"./03-autoscaler-0.13.0/component-descriptor.yaml",
 			},
 		}
-		imageVector := runGet(testdataFs, "./00-component", getOpts)
+		imageVector := runGet(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
 		Expect(imageVector.Images).To(HaveLen(2))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("cluster-autoscaler"),
@@ -84,20 +85,20 @@ var _ = Describe("Get", func() {
 	})
 
 	It("should generate image sources from generic images", func() {
-		addOpts := &imagevector.AddOptions{
+		addOpts := &ivcmd.AddOptions{
 			ParseImageOptions: imagevector.ParseImageOptions{
 				GenericDependencies: []string{
 					"hyperkube",
 				},
 			},
 		}
-		runAdd(testdataFs, "./00-component", "./resources/30-generic.yaml", addOpts)
-		getOpts := &imagevector.GetOptions{
-			ComponentArchivesPath: []string{
-				"./04-generic-images",
+		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/30-generic.yaml", addOpts)
+		getOpts := &ivcmd.GenerateOverwriteOptions{
+			ComponentDescriptorsPath: []string{
+				"./04-generic-images/component-descriptor.yaml",
 			},
 		}
-		imageVector := runGet(testdataFs, "./00-component", getOpts)
+		imageVector := runGet(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
 		Expect(imageVector.Images).To(HaveLen(3))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
@@ -121,14 +122,15 @@ var _ = Describe("Get", func() {
 
 })
 
-func runGet(fs vfs.FileSystem, caPath string, getOpts ...*imagevector.GetOptions) *imagevector.ImageVector {
+func runGet(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.GenerateOverwriteOptions) *imagevector.ImageVector {
 	Expect(len(getOpts) <= 1).To(BeTrue())
-	opts := &imagevector.GetOptions{}
+	opts := &ivcmd.GenerateOverwriteOptions{}
 	if len(getOpts) == 1 {
 		opts = getOpts[0]
 	}
-	opts.ComponentArchivePath = caPath
+	opts.ComponentDescriptorPath = caPath
 	opts.ImageVectorPath = "./out/imagevector.yaml"
+	Expect(opts.Complete(nil)).To(Succeed())
 
 	Expect(opts.Run(context.TODO(), testlog.NullLogger{}, fs)).To(Succeed())
 

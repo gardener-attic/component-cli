@@ -19,7 +19,7 @@ images:
 
 
 ```
-components-cli image-vector add [flags]
+components-cli image-vector add --comp-desc component-descriptor-file --image-vector images.yaml [--component-prefixes "github.com/gardener/myproj"]... [--generic-dependency image-source-name]... [--generic-dependencies "image-name1,image-name2"] [flags]
 ```
 
 ### Options
@@ -27,6 +27,8 @@ components-cli image-vector add [flags]
 ```
       --comp-desc string                 path to the component descriptor directory
       --component-prefixes stringArray   Specify all prefixes that define a image  from another component
+      --generic-dependencies string      Specify all prefixes that define a image  from another component
+      --generic-dependency stringArray   Specify all image source names that are a generic dependency.
   -h, --help                             help for add
       --image-vector string              The path to the resources defined as yaml or json
 ```

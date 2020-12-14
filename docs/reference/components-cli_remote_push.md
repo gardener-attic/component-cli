@@ -12,8 +12,8 @@ The command can be called in 2 different ways:
 push [path to component descriptor]
 - The cli will read all necessary parameters from the component descriptor.
 
-push [baseurl] [componentname] [version] [path to component descriptor]
-- The cli will add the baseurl as repository context and validate the name and version.
+push [baseurl] [componentname] [Version] [path to component descriptor]
+- The cli will add the baseurl as repository context and validate the name and Version.
 
 
 ```
@@ -27,6 +27,7 @@ components-cli remote push [path to component descriptor] [flags]
       --cc-config string         path to the local concourse config file
   -h, --help                     help for push
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
+      --repo-ctx string          repository context url for component to upload. The repository url will be automatically added to the repository contexts.
 ```
 
 ### Options inherited from parent commands

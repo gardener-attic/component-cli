@@ -13,7 +13,7 @@ Note: Currently only component archives are supoprted. Generic OCI Artifacts wil
 
 
 ```
-components-cli ctf push [ctf-path] [flags]
+components-cli ctf push ctf-path [flags]
 ```
 
 ### Options
@@ -23,6 +23,7 @@ components-cli ctf push [ctf-path] [flags]
       --cc-config string         path to the local concourse config file
   -h, --help                     help for push
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
+      --repo-ctx string          repository context url for component to upload. The repository url will be automatically added to the repository contexts.
 ```
 
 ### Options inherited from parent commands

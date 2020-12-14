@@ -33,7 +33,7 @@ import (
 
 // Options defines the options that are used to add resources to a component descriptor
 type Options struct {
-	// ComponentArchivePath is the path to the component descriptor
+	// ComponentArchivePath is the path to the component archive
 	ComponentArchivePath string
 
 	// either components can be added by a yaml resource template or by input flags
@@ -189,7 +189,7 @@ func (o *Options) validate() error {
 }
 
 func (o *Options) AddFlags(set *pflag.FlagSet) {
-	set.StringVarP(&o.ComponentArchivePath, "archive", "a", "", "path to the component descriptor directory")
+	set.StringVarP(&o.ComponentArchivePath, "archive", "a", "", "path to the component archive directory")
 
 	// specify the resource
 	set.StringVarP(&o.ResourceObjectPath, "resource", "r", "", "The path to the resources defined as yaml or json")

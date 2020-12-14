@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -32,6 +33,9 @@ type pushOptions struct {
 	// AllowPlainHttp allows the fallback to http if the oci registry does not support https
 	AllowPlainHttp bool
 
+	// BaseUrl is the repository context base url for all included component descriptors.
+	BaseUrl string
+
 	// CacheDir defines the oci cache directory
 	CacheDir string
 	// RegistryConfigPath defines a path to the dockerconfig.json with the oci registry authentication.
@@ -44,8 +48,8 @@ type pushOptions struct {
 func NewPushCommand(ctx context.Context) *cobra.Command {
 	opts := &pushOptions{}
 	cmd := &cobra.Command{
-		Use:   "push [ctf-path]",
-		Args:  cobra.RangeArgs(1, 4),
+		Use:   "push ctf-path",
+		Args:  cobra.ExactArgs(1),
 		Short: "Pushes all archives of a ctf to a remote repository",
 		Long: `
 Push pushes all component archives and oci artifacts to the defined oci repository.
@@ -127,6 +131,9 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 	}
 
 	err = ctfArchive.Walk(func(ca *ctf.ComponentArchive) error {
+		// update repository context
+		ca.ComponentDescriptor.RepositoryContexts = utils.AddRepositoryContext(ca.ComponentDescriptor.RepositoryContexts, cdv2.OCIRegistryType, o.BaseUrl)
+
 		manifest, err := cdoci.NewManifestBuilder(cache, ca).Build(ctx)
 		if err != nil {
 			return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
@@ -183,4 +190,5 @@ func (o *pushOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.AllowPlainHttp, "allow-plain-http", false, "allows the fallback to http if the oci registry does not support https")
 	fs.StringVar(&o.RegistryConfigPath, "registry-config", "", "path to the dockerconfig.json with the oci registry authentication information")
 	fs.StringVar(&o.ConcourseConfigPath, "cc-config", "", "path to the local concourse config file")
+	fs.StringVar(&o.BaseUrl, "repo-ctx", "", "repository context url for component to upload. The repository url will be automatically added to the repository contexts.")
 }

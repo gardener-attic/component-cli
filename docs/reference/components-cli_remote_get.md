@@ -5,11 +5,11 @@ fetch the component descriptor from a oci registry
 ### Synopsis
 
 
-get fetches the component descriptor from a baseurl with the given name and version.
+get fetches the component descriptor from a baseurl with the given name and Version.
 
 
 ```
-components-cli remote get [baseurl] [componentname] [version] [flags]
+components-cli remote get [baseurl] [componentname] [Version] [flags]
 ```
 
 ### Options

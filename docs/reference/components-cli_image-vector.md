@@ -23,5 +23,5 @@ command to add resource from a image vector and retrieve from a component descri
 
 * [components-cli](components-cli.md)	 - components cli
 * [components-cli image-vector add](components-cli_image-vector_add.md)	 - Adds all resources of a image vector to the component descriptor
-* [components-cli image-vector get](components-cli_image-vector_get.md)	 - Get parses a component descriptor and returns the defined image vector
+* [components-cli image-vector generate-overwrite](components-cli_image-vector_generate-overwrite.md)	 - Get parses a component descriptor and returns the defined image vector
 

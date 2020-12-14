@@ -1,11 +1,11 @@
-## components-cli image-vector get
+## components-cli image-vector generate-overwrite
 
 Get parses a component descriptor and returns the defined image vector
 
 ### Synopsis
 
 
-get parses images defined in a component descriptor and returns them a image vector.
+generate-overwrite parses images defined in a component descriptor and returns them as image vector.
 
 Images can be defined in a component descriptor in 3 different ways:
 1. as 'ociImage' resource: The image is defined a default resource of type 'ociImage' with a access of type 'ociRegistry'.
@@ -102,7 +102,7 @@ component:
 
 
 ```
-components-cli image-vector get [flags]
+components-cli image-vector generate-overwrite [flags]
 ```
 
 ### Options
@@ -110,7 +110,7 @@ components-cli image-vector get [flags]
 ```
       --add-comp stringArray   path to the component descriptor directory
       --comp string            path to the component descriptor directory
-  -h, --help                   help for get
+  -h, --help                   help for generate-overwrite
       --out string             The path to the image vector that will be written.
 ```
 
