@@ -8,6 +8,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+ABS_OUT_PATH=$(realpath $OUT_PATH)
+
 cd "$(dirname $0)/.."
 
 make install-requirements
@@ -18,5 +20,5 @@ cd /go/src/github.com/gardener/component-cli
 
 make cross-build
 
-mkdir -p $OUT_PATH
+mkdir -p $ABS_OUT_PATH
 cp ./dist/*.gz "$OUT_PATH"
