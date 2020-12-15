@@ -28,8 +28,6 @@ COMPONENT_DESCRIPTOR_FILE_PATH="$COMPONENT_ARCHIVE_PATH/component-descriptor.yam
 mkdir -p "$COMPONENT_ARCHIVE_PATH"
 cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
-#component-cli gardener-ci init
-
 printf "> Add Linux Binary\n"
 ARTIFACT_PATH="$(pwd)/dist/componentcli-linux-amd64"
 cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
