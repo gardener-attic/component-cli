@@ -113,7 +113,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		} else {
 			archive.ComponentDescriptor.ComponentReferences = append(archive.ComponentDescriptor.ComponentReferences, ref)
 		}
-		log.V(3).Info(fmt.Sprintf("Successfully added component references %q to component descriptor", ref.Name))
+		log.V(3).Info(fmt.Sprintf("Successfully added component references %q of component %q to component descriptor", ref.Name, ref.ComponentName))
 	}
 
 	if err := cdvalidation.Validate(archive.ComponentDescriptor); err != nil {
@@ -127,7 +127,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	if err := vfs.WriteFile(fs, compDescFilePath, data, 06444); err != nil {
 		return fmt.Errorf("unable to write modified comonent descriptor: %w", err)
 	}
-	fmt.Printf("Successfully added component references to component descriptor")
+	log.V(1).Info("Successfully added all component references to component descriptor")
 	return nil
 }
 

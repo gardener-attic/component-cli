@@ -104,7 +104,7 @@ func (o *AddOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem
 	if err := vfs.WriteFile(fs, o.ComponentDescriptorPath, data, 06444); err != nil {
 		return fmt.Errorf("unable to write modified comonent descriptor: %w", err)
 	}
-	fmt.Printf("Successfully added component references to component descriptor")
+	log.V(1).Info("Successfully added all resources from the image vector to component descriptor")
 	return nil
 }
 

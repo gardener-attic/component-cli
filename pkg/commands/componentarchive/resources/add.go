@@ -166,8 +166,9 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		if err := vfs.WriteFile(fs, compDescFilePath, data, 06444); err != nil {
 			return fmt.Errorf("unable to write modified comonent descriptor: %w", err)
 		}
-		fmt.Printf("Successfully added resource %q to component descriptor", resource.Name)
+		log.V(1).Info(fmt.Sprintf("Successfully added %q resource %q %q to component descriptor", resource.Type, resource.Name, resource.Version))
 	}
+	log.V(1).Info("Successfully added all resources to component descriptor")
 	return nil
 }
 
