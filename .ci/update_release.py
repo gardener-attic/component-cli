@@ -35,6 +35,6 @@ output_files = list(output_path.glob('*.gz'))
 for output_file in output_files:
     gh_release.upload_asset(
         content_type='application/gzip',
-        name=f'vscode-gardener-tools-{version_file_contents}.vsix',
+        name=output_file.name,
         asset=output_file.open(mode='rb'),
     )
