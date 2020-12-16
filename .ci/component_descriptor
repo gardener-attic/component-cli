@@ -56,20 +56,6 @@ input:
   path: ${ARTIFACT_PATH}
 EOF
 
-printf "> Add Windows Binary\n"
-ARTIFACT_PATH="$(pwd)/dist/componentcli-windows-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
-name: cli-binary-windows
-type: executable
-extraIdentity:
-  os: windows
-  arch: amd64
-relation: local
-input:
-  type: file
-  path: ${ARTIFACT_PATH}
-EOF
-
 printf "> Modified Component Descriptor\n"
 cat "$COMPONENT_DESCRIPTOR_FILE_PATH"
 

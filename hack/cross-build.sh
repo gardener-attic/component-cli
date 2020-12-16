@@ -15,7 +15,7 @@ fi
 
 mkdir -p dist
 
-build_matrix=("linux,amd64" "darwin,amd64" "windows,amd64")
+build_matrix=("linux,amd64" "darwin,amd64")
 
 for i in "${build_matrix[@]}"; do
   IFS=',' read os arch <<< "${i}"
@@ -23,7 +23,7 @@ for i in "${build_matrix[@]}"; do
   echo "Build $os/$arch"
   bin_path="dist/componentcli-$os-$arch"
 
-  CGO_ENABLED=0 GOOS=$(go env GOOS) GOARCH=$(go env GOARCH) GO111MODULE=on \
+  CGO_ENABLED=0 GOOS=$os GOARCH=$arch GO111MODULE=on \
   go build -mod=vendor -o $bin_path \
   -ldflags "-s -w \
             -X github.com/gardener/component-cli/pkg/version.gitVersion=$EFFECTIVE_VERSION \
