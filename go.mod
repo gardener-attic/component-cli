@@ -8,7 +8,7 @@ require (
 	github.com/deislabs/oras v0.8.1
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/gardener/component-spec/bindings-go v0.0.0-20201214104938-0bdb01b553e8
+	github.com/gardener/component-spec/bindings-go v0.0.0-20201215161450-f36336f4c2ce
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0
@@ -24,7 +24,7 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
+	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5
 	golang.org/x/tools v0.0.0-20201002184944-ecd9fd270d5d // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 	k8s.io/api v0.19.4

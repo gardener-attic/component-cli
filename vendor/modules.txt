@@ -85,7 +85,7 @@ github.com/docker/go-metrics
 github.com/docker/go-units
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
-# github.com/gardener/component-spec/bindings-go v0.0.0-20201214104938-0bdb01b553e8
+# github.com/gardener/component-spec/bindings-go v0.0.0-20201215161450-f36336f4c2ce
 ## explicit
 github.com/gardener/component-spec/bindings-go/apis
 github.com/gardener/component-spec/bindings-go/apis/v2
@@ -255,7 +255,7 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
-# golang.org/x/lint v0.0.0-20200302205851-738671d3881b
+# golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5
 ## explicit
 golang.org/x/lint
 golang.org/x/lint/golint
