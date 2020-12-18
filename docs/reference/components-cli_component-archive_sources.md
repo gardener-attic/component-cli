@@ -1,11 +1,11 @@
-## components-cli component-archive source
+## components-cli component-archive sources
 
 command to modify sources of a component descriptor
 
 ### Options
 
 ```
-  -h, --help   help for source
+  -h, --help   help for sources
 ```
 
 ### Options inherited from parent commands
@@ -22,5 +22,5 @@ command to modify sources of a component descriptor
 ### SEE ALSO
 
 * [components-cli component-archive](components-cli_component-archive.md)	 - 
-* [components-cli component-archive source add](components-cli_component-archive_source_add.md)	 - Adds a source to a component descriptor
+* [components-cli component-archive sources add](components-cli_component-archive_sources_add.md)	 - Adds a source to a component descriptor
 

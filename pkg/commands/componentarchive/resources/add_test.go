@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/resources"
+	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -44,8 +45,8 @@ var _ = Describe("Add", func() {
 
 	It("should add a resource defined by a file", func() {
 		opts := &resources.Options{
-			ComponentArchivePath: "./00-component",
-			ResourceObjectPath:   "./resources/00-res.yaml",
+			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPath: "./resources/00-res.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -81,7 +82,7 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &resources.Options{
-			ComponentArchivePath: "./00-component",
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -107,8 +108,8 @@ var _ = Describe("Add", func() {
 
 	It("should automatically set the version for a local resource", func() {
 		opts := &resources.Options{
-			ComponentArchivePath: "./00-component",
-			ResourceObjectPath:   "./resources/01-local.yaml",
+			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPath: "./resources/01-local.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -129,8 +130,8 @@ var _ = Describe("Add", func() {
 
 	It("should add multiple resources via multi yaml docs", func() {
 		opts := &resources.Options{
-			ComponentArchivePath: "./00-component",
-			ResourceObjectPath:   "./resources/02-multidoc.yaml",
+			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPath: "./resources/02-multidoc.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -156,8 +157,8 @@ var _ = Describe("Add", func() {
 
 	It("should overwrite the version of a already existing resource", func() {
 		opts := &resources.Options{
-			ComponentArchivePath: "./01-component",
-			ResourceObjectPath:   "./resources/03-overwrite.yaml",
+			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
+			ResourceObjectPath: "./resources/03-overwrite.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -183,8 +184,8 @@ var _ = Describe("Add", func() {
 
 	It("should throw an error if an invalid resource is defined", func() {
 		opts := &resources.Options{
-			ComponentArchivePath: "./00-component",
-			ResourceObjectPath:   "./resources/10-res-invalid.yaml",
+			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPath: "./resources/10-res-invalid.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())
@@ -199,7 +200,7 @@ var _ = Describe("Add", func() {
 	Context("With Input", func() {
 		It("should add a resource defined by a file with a jsonfile input", func() {
 			opts := &resources.Options{
-				ComponentArchivePath: "./00-component",
+				BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 				// jsonschema example copied from https://json-schema.org/learn/miscellaneous-examples.html
 				ResourceObjectPath: "./resources/20-res-json.yaml",
 			}
@@ -230,8 +231,8 @@ var _ = Describe("Add", func() {
 
 		It("should automatically tar a directory input and add it as resource", func() {
 			opts := &resources.Options{
-				ComponentArchivePath: "./00-component",
-				ResourceObjectPath:   "./resources/20-res-json.yaml",
+				BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+				ResourceObjectPath: "./resources/20-res-json.yaml",
 			}
 
 			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -260,8 +261,8 @@ var _ = Describe("Add", func() {
 
 		It("should gzip a input blob and add it as resource if the gzip flag is provided", func() {
 			opts := &resources.Options{
-				ComponentArchivePath: "./00-component",
-				ResourceObjectPath:   "./resources/21-res-dir-zip.yaml",
+				BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+				ResourceObjectPath: "./resources/21-res-dir-zip.yaml",
 			}
 
 			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())

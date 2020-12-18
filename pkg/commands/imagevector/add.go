@@ -101,10 +101,10 @@ func (o *AddOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem
 	if err != nil {
 		return fmt.Errorf("unable to encode component descriptor: %w", err)
 	}
-	if err := vfs.WriteFile(fs, o.ComponentDescriptorPath, data, 06444); err != nil {
+	if err := vfs.WriteFile(fs, o.ComponentDescriptorPath, data, 0664); err != nil {
 		return fmt.Errorf("unable to write modified comonent descriptor: %w", err)
 	}
-	log.V(1).Info("Successfully added all resources from the image vector to component descriptor")
+	log.V(2).Info("Successfully added all resources from the image vector to component descriptor")
 	return nil
 }
 

@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/sources"
+	"github.com/gardener/component-cli/pkg/componentarchive"
 )
 
 func TestConfig(t *testing.T) {
@@ -44,8 +45,8 @@ var _ = Describe("Add", func() {
 	It("should add a source defined by a file", func() {
 
 		opts := &sources.Options{
-			ComponentArchivePath: "./00-component",
-			SourceObjectPath:     "./resources/00-src.yaml",
+			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPath: "./resources/00-src.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -75,7 +76,7 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &sources.Options{
-			ComponentArchivePath: "./00-component",
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -97,8 +98,8 @@ var _ = Describe("Add", func() {
 	It("should add multiple sources defined by a multi doc file", func() {
 
 		opts := &sources.Options{
-			ComponentArchivePath: "./00-component",
-			SourceObjectPath:     "./resources/01-multi-doc.yaml",
+			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPath: "./resources/01-multi-doc.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -124,8 +125,8 @@ var _ = Describe("Add", func() {
 
 	It("should throw an error if an invalid source is defined", func() {
 		opts := &sources.Options{
-			ComponentArchivePath: "./00-component",
-			SourceObjectPath:     "./resources/10-invalid.yaml",
+			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPath: "./resources/10-invalid.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())
@@ -140,8 +141,8 @@ var _ = Describe("Add", func() {
 	It("should overwrite the version of a already existing source", func() {
 
 		opts := &sources.Options{
-			ComponentArchivePath: "./01-component",
-			SourceObjectPath:     "./resources/02-overwrite.yaml",
+			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
+			SourceObjectPath: "./resources/02-overwrite.yaml",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())

@@ -33,9 +33,12 @@ components-cli component-archive component-references add [flags]
 ### Options
 
 ```
-      --archive string    path to the component descriptor archive directory
-  -h, --help              help for add
-  -r, --resource string   The path to the resources defined as yaml or json
+  -a, --archive string             path to the component archive directory
+      --component-name string      name of the component
+      --component-version string   version of the component
+  -h, --help                       help for add
+      --repo-ctx string            repository context url for component to upload. The repository url will be automatically added to the repository contexts.
+  -r, --resource string            The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands

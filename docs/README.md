@@ -16,7 +16,7 @@ The subcommand adds all resources defined in by a file.
 
 ```shell script
 # define by file
-$ cat <<EOF
+$ cat <<EOF > ./resource.yaml
 name: 'ubuntu'
 version: 'v0.0.1'
 type: 'ociImage'
@@ -24,14 +24,14 @@ relation: 'external'
 access:
   type: 'ociRegistry'
   imageReference: 'ubuntu:18.0'
-EOF > ./resource.yaml
+EOF
 $ component-cli ca resources add -r ./resource.yaml
 ```
 
 The resources can also be added using stdin.
 ```shell script
 # define by file
-$ cat <<EOF
+$ cat <<EOF | component-cli ca resources add
 name: 'ubuntu'
 version: 'v0.0.1'
 type: 'ociImage'
@@ -39,7 +39,7 @@ relation: 'external'
 access:
   type: 'ociRegistry'
   imageReference: 'ubuntu:18.0'
-EOF | component-cli ca resources add
+EOF
 ```
 
 The file is expected to be a yaml, and multiple resources can be added by using the yaml multi doc syntax:
@@ -71,20 +71,20 @@ This will automatically add the file as local artifact to the component descript
 :warning: When the given input path is a directory, a tar archive is automatically created.
 
 ```
-$ cat <<EOF
+$ cat <<EOF > ./resource.yaml
 name: 'myconfig'
 type: 'json'
 relation: 'local'
 input:
   type: "file"
   path: "./blob.raw" # path is realtive to the current resource file
-EOF > ./resource.yaml
+EOF 
 
-$ cat <<EOF
+$ cat <<EOF > ./blob.raw
 {
   "key": "value"
 }
-EOF > ./blob.raw
+EOF 
 
 $ component-cli ca resources add -r ./resource.yaml
 ```
@@ -123,7 +123,7 @@ The subcommand offers the possibility to add a component-reference either via co
 
 ```shell script
 # define by file
-$ cat <<EOF
+$ cat <<EOF > ./comp-ref.yaml
 name: 'cli'
 componentName: 'github.com/gardener/component-spec'
 version: 'v0.0.1'
@@ -134,7 +134,7 @@ labels:
   mylabel: efg
   mysecondlabel:
     key: true
-EOF > ./comp-ref.yaml
+EOF 
 $ component-cli component-reference add -r ./comp-ref.yaml
 ```
 

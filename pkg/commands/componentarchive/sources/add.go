@@ -6,7 +6,6 @@ package sources
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +18,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
-	"github.com/mandelsoft/vfs/pkg/projectionfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -27,14 +25,13 @@ import (
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
-	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/logger"
 )
 
 // Options defines the options that are used to add resources to a component descriptor
 type Options struct {
-	// ComponentArchivePath is the path to the component archive
-	ComponentArchivePath string
+	componentarchive.BuilderOptions
 
 	// either components can be added by a yaml resource template or by input flags
 
@@ -109,13 +106,9 @@ input:
 func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	compDescFilePath := filepath.Join(o.ComponentArchivePath, ctf.ComponentDescriptorFileName)
 
-	archiveFs, err := projectionfs.New(fs, o.ComponentArchivePath)
+	archive, err := o.BuilderOptions.Build(fs)
 	if err != nil {
-		return fmt.Errorf("unable to create projectionfilesystem: %w", err)
-	}
-	archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs)
-	if err != nil {
-		return fmt.Errorf("unable to parse component archive from %s: %w", compDescFilePath, err)
+		return err
 	}
 
 	sources, err := o.generateSources(fs)
@@ -155,7 +148,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	if err != nil {
 		return fmt.Errorf("unable to encode component descriptor: %w", err)
 	}
-	if err := vfs.WriteFile(fs, compDescFilePath, data, 06444); err != nil {
+	if err := vfs.WriteFile(fs, compDescFilePath, data, 0664); err != nil {
 		return fmt.Errorf("unable to write modified comonent descriptor: %w", err)
 	}
 	log.V(1).Info("Successfully added all sources to component descriptor")
@@ -163,27 +156,18 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 }
 
 func (o *Options) Complete(args []string) error {
-
-	// default component path to env var
-	if len(o.ComponentArchivePath) == 0 {
-		o.ComponentArchivePath = filepath.Dir(os.Getenv(constants.ComponentDescriptorPathEnvName))
-	}
-
+	o.BuilderOptions.Default()
 	return o.validate()
 }
 
 func (o *Options) validate() error {
-	if len(o.ComponentArchivePath) == 0 {
-		return errors.New("component descriptor path must be provided")
-	}
-	return nil
+	return o.BuilderOptions.Validate()
 }
 
-func (o *Options) AddFlags(set *pflag.FlagSet) {
-	set.StringVar(&o.ComponentArchivePath, "archive", "", "path to the component archive directory")
-
+func (o *Options) AddFlags(fs *pflag.FlagSet) {
+	o.BuilderOptions.AddFlags(fs)
 	// specify the resource
-	set.StringVarP(&o.SourceObjectPath, "resource", "r", "", "The path to the resources defined as yaml or json")
+	fs.StringVarP(&o.SourceObjectPath, "resource", "r", "", "The path to the resources defined as yaml or json")
 }
 
 // generateSources parses component references from the given path and stdin.

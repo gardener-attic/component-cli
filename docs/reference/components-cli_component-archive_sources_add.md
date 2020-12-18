@@ -1,4 +1,4 @@
-## components-cli component-archive source add
+## components-cli component-archive sources add
 
 Adds a source to a component descriptor
 
@@ -40,15 +40,18 @@ input:
 
 
 ```
-components-cli component-archive source add [flags]
+components-cli component-archive sources add [flags]
 ```
 
 ### Options
 
 ```
-      --archive string    path to the component archive directory
-  -h, --help              help for add
-  -r, --resource string   The path to the resources defined as yaml or json
+  -a, --archive string             path to the component archive directory
+      --component-name string      name of the component
+      --component-version string   version of the component
+  -h, --help                       help for add
+      --repo-ctx string            repository context url for component to upload. The repository url will be automatically added to the repository contexts.
+  -r, --resource string            The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands
@@ -64,5 +67,5 @@ components-cli component-archive source add [flags]
 
 ### SEE ALSO
 
-* [components-cli component-archive source](components-cli_component-archive_source.md)	 - command to modify sources of a component descriptor
+* [components-cli component-archive sources](components-cli_component-archive_sources.md)	 - command to modify sources of a component descriptor
 

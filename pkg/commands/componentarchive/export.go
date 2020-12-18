@@ -17,16 +17,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
 const defaultOutputPath = "./componentarchive"
-
-const (
-	OutputFormatFilesystem = "fs"
-	OutputFormatTar        = "tar"
-	OutputFormatTarGzip    = "tgz"
-)
 
 // ExportOptions defines all options for the export command.
 type ExportOptions struct {
@@ -34,8 +29,8 @@ type ExportOptions struct {
 	ComponentArchivePath string
 	// OutputPath defines the path where the exported component archive should be written to.
 	OutputPath string
-	//
-	OutputFormat string
+	// OutputFormat defines the output format of the component archive.
+	OutputFormat componentarchive.OutputFormat
 }
 
 // NewExportCommand creates a new export command that packages a component archive and
@@ -81,7 +76,7 @@ func (o *ExportOptions) Run(ctx context.Context, fs vfs.FileSystem) error {
 		if err != nil {
 			return err
 		}
-		return o.export(fs, ca, OutputFormatTar)
+		return o.export(fs, ca, componentarchive.OutputFormatTar)
 	} else {
 		ca, err := o.caAsFile(fs)
 		if err != nil {
@@ -90,7 +85,7 @@ func (o *ExportOptions) Run(ctx context.Context, fs vfs.FileSystem) error {
 		if err := ca.WriteToFilesystem(fs, o.OutputPath); err != nil {
 			return fmt.Errorf("unable to write componant archive to %q: %s", o.OutputPath, err.Error())
 		}
-		return o.export(fs, ca, OutputFormatFilesystem)
+		return o.export(fs, ca, componentarchive.OutputFormatFilesystem)
 	}
 }
 
@@ -149,42 +144,12 @@ func (o *ExportOptions) caAsFile(fs vfs.FileSystem) (*ctf.ComponentArchive, erro
 	}
 }
 
-func (o *ExportOptions) export(fs vfs.FileSystem, ca *ctf.ComponentArchive, defaultFormat string) error {
+func (o *ExportOptions) export(fs vfs.FileSystem, ca *ctf.ComponentArchive, defaultFormat componentarchive.OutputFormat) error {
 	if len(o.OutputFormat) == 0 {
 		o.OutputFormat = defaultFormat
 	}
 
-	if o.OutputFormat != OutputFormatFilesystem && o.OutputFormat != OutputFormatTar && o.OutputFormat != OutputFormatTarGzip {
-		return fmt.Errorf("unsupported output format %q, use %q, %q or %q",
-			o.OutputFormat, OutputFormatFilesystem, OutputFormatTar, OutputFormatTarGzip)
-	}
-
-	if o.OutputFormat == OutputFormatFilesystem {
-		if err := ca.WriteToFilesystem(fs, o.OutputPath); err != nil {
-			return fmt.Errorf("unable to write componant archive to %q: %s", o.OutputPath, err.Error())
-		}
-		return nil
-	}
-
-	// output format is either tar or tgz
-
-	out, err := fs.OpenFile(o.OutputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("unable to open exported file %s: %s", o.OutputPath, err.Error())
-	}
-	if o.OutputFormat == OutputFormatTarGzip {
-		if err := ca.WriteTarGzip(out); err != nil {
-			return fmt.Errorf("unable to export file to %s: %s", o.OutputPath, err.Error())
-		}
-	} else {
-		if err := ca.WriteTar(out); err != nil {
-			return fmt.Errorf("unable to export file to %s: %s", o.OutputPath, err.Error())
-		}
-	}
-	if err := out.Close(); err != nil {
-		return fmt.Errorf("unable to close file: %w", err)
-	}
-	return nil
+	return componentarchive.Write(fs, o.OutputPath, ca, o.OutputFormat)
 }
 
 // Complete parses the given command arguments and applies default options.
@@ -202,16 +167,10 @@ func (o *ExportOptions) Complete(args []string) error {
 }
 
 func (o *ExportOptions) validate() error {
-	switch o.OutputFormat {
-	case "", OutputFormatFilesystem, OutputFormatTar, OutputFormatTarGzip:
-	default:
-		return fmt.Errorf("unsupported output format %q, use %q, %q, %q or leave it empty to be defaulted",
-			o.OutputFormat, OutputFormatFilesystem, OutputFormatTar, OutputFormatTarGzip)
-	}
-	return nil
+	return componentarchive.ValidateOutputFormat(o.OutputFormat, true)
 }
 
 func (o *ExportOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.OutputPath, "out", "o", "", "writes the resulting archive to the given path")
-	fs.StringVarP(&o.OutputFormat, "format", "f", "", "output format of the component archive. Can be 'fs', 'tar' or 'tgz'")
+	componentarchive.OutputFormatVarP(fs, &o.OutputFormat, "format", "f", "", componentarchive.DefaultOutputFormatUsage)
 }

@@ -23,6 +23,6 @@ func NewComponentArchiveCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(NewExportCommand(ctx))
 	cmd.AddCommand(resources.NewResourcesCommand(ctx))
 	cmd.AddCommand(componentreferences.NewCompRefCommand(ctx))
-	cmd.AddCommand(sources.NewSourceCommand(ctx))
+	cmd.AddCommand(sources.NewSourcesCommand(ctx))
 	return cmd
 }

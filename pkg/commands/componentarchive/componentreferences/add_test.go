@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/componentreferences"
+	"github.com/gardener/component-cli/pkg/componentarchive"
 )
 
 func TestConfig(t *testing.T) {
@@ -44,7 +45,7 @@ var _ = Describe("Add", func() {
 	It("should add a reference defined by a file", func() {
 
 		opts := &componentreferences.Options{
-			ComponentArchivePath:         "./00-component",
+			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			ComponentReferenceObjectPath: "./resources/00-ref.yaml",
 		}
 
@@ -76,7 +77,7 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &componentreferences.Options{
-			ComponentArchivePath: "./00-component",
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -98,7 +99,7 @@ var _ = Describe("Add", func() {
 	It("should add multiple reference defined by a multi doc file", func() {
 
 		opts := &componentreferences.Options{
-			ComponentArchivePath:         "./00-component",
+			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			ComponentReferenceObjectPath: "./resources/01-multi-doc.yaml",
 		}
 
@@ -125,7 +126,7 @@ var _ = Describe("Add", func() {
 
 	It("should throw an error if an invalid resource is defined", func() {
 		opts := &componentreferences.Options{
-			ComponentArchivePath:         "./00-component",
+			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			ComponentReferenceObjectPath: "./resources/10-invalid.yaml",
 		}
 
