@@ -30,6 +30,14 @@ var _ = Describe("Keyrings", func() {
 			Expect(auth.Username).To(Equal("test"))
 		})
 
+		It("should return false if no auth match the url", func() {
+			keyring, err := credentials.CreateOCIRegistryKeyring(nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, ok := keyring.Get("eu.gcr.io/my-project/myimage/")
+			Expect(ok).To(BeFalse())
+		})
+
 		It("should parse authentication config from a dockerconfig and match the hostname with protocol", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig.json"})
 			Expect(err).ToNot(HaveOccurred())
