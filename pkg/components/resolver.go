@@ -27,7 +27,7 @@ type ComponentResolver interface {
 	Resolve(ctx context.Context, repoCtx cdv2.RepositoryContext, name, version string) (*cdv2.ComponentDescriptor, error)
 }
 
-// Resolver is component resolver that wraps the component descriptor ComponentResolver and adds supports
+// Resolver is component resolver that wraps the component descriptor ComponentResolver and adds support
 // for a local cache.
 type Resolver struct {
 	log         logr.Logger

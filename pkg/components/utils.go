@@ -11,7 +11,7 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
-// ResolveTransitiveComponentDescriptors resolves all component descriptors of a gioven root component descriptor
+// ResolveTransitiveComponentDescriptors resolves all component descriptors of a given root component descriptor.
 func ResolveTransitiveComponentDescriptors(ctx context.Context, resolver ComponentResolver, root *cdv2.ComponentDescriptor) (*cdv2.ComponentDescriptorList, error) {
 	list := &cdv2.ComponentDescriptorList{}
 	if err := resolveTransitiveComponentDescriptors(ctx, resolver, list, root); err != nil {
@@ -23,13 +23,17 @@ func ResolveTransitiveComponentDescriptors(ctx context.Context, resolver Compone
 func resolveTransitiveComponentDescriptors(ctx context.Context, resolver ComponentResolver, list *cdv2.ComponentDescriptorList, root *cdv2.ComponentDescriptor) error {
 	repoCtx := root.GetEffectiveRepositoryContext()
 	for _, ref := range root.ComponentReferences {
+		if _, err := list.GetComponent(ref.ComponentName, ref.Version); err == nil {
+			continue
+		}
 		cd, err := resolver.Resolve(ctx, repoCtx, ref.ComponentName, ref.Version)
 		if err != nil {
 			return fmt.Errorf("unable to resolve component %q:%q: %w", ref.ComponentName, ref.Version, err)
 		}
+
 		list.Components = append(list.Components, *cd)
 		// resolve transitive dependencies
-		if err := resolveTransitiveComponentDescriptors(ctx, resolver, list, root); err != nil {
+		if err := resolveTransitiveComponentDescriptors(ctx, resolver, list, cd); err != nil {
 			return fmt.Errorf("unable to resolve transitive dependencies of %q:%q: %w", ref.ComponentName, ref.Version, err)
 		}
 	}
