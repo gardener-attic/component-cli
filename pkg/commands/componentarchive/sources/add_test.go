@@ -117,7 +117,7 @@ var _ = Describe("Add", func() {
 			"Type":    Equal("git"),
 		}))
 		Expect(cd.Sources[1].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
-			"Name":    Equal("baseRepo"),
+			"Name":    Equal("base-repo"),
 			"Version": Equal("v18.4.0"),
 			"Type":    Equal("git"),
 		}))

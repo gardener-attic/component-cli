@@ -1,6 +1,6 @@
 component:
   componentReferences: []
-  name: test/component
+  name: example.com/component
   provider: internal
   repositoryContexts:
   - baseUrl: eu.gcr.io/gardener-project/components/dev
