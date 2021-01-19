@@ -173,6 +173,7 @@ var _ = Describe("Add", func() {
 			"Name":          Equal("cluster-autoscaler"),
 			"ComponentName": Equal("github.com/gardener/autoscaler"),
 			"Version":       Equal("v0.10.0"),
+			"ExtraIdentity": HaveKeyWithValue("imagevector-gardener-cloud+tag", "v0.10.0"),
 		}))
 
 		imageLabelBytes, ok := cd.ComponentReferences[0].GetLabels().Get(imagevector.ImagesLabel)
