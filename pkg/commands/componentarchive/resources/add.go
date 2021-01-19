@@ -27,6 +27,7 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
 	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 // Options defines the options that are used to add resources to a component descriptor
@@ -125,7 +126,10 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return err
 	}
 
+	log.V(3).Info(fmt.Sprintf("Adding %d resources...", len(resources)))
 	for _, resource := range resources {
+		utils.PrintPrettyYaml(resource, log.V(5).Enabled())
+
 		if resource.Input != nil {
 			log.Info(fmt.Sprintf("add input blob from %q", resource.Input.Path))
 			if err := o.addInputBlob(fs, archive, &resource); err != nil {
@@ -148,7 +152,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		}
 
 		if err := cdvalidation.Validate(archive.ComponentDescriptor); err != nil {
-			return fmt.Errorf("invalid resource: %w", err)
+			return fmt.Errorf("invalid component descriptor: %w", err)
 		}
 
 		data, err := yaml.Marshal(archive.ComponentDescriptor)
@@ -165,6 +169,9 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 }
 
 func (o *Options) Complete(args []string) error {
+	if len(args) != 0 {
+		o.BuilderOptions.ComponentArchivePath = args[0]
+	}
 	o.BuilderOptions.Default()
 	return o.validate()
 }
