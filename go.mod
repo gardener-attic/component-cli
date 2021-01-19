@@ -8,7 +8,7 @@ require (
 	github.com/deislabs/oras v0.8.1
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/gardener/component-spec/bindings-go v0.0.27
+	github.com/gardener/component-spec/bindings-go v0.0.28-0.20210119120517-8a3773c214e9
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0

@@ -246,9 +246,11 @@ func (o *Options) addInputBlob(fs vfs.FileSystem, archive *ctf.ComponentArchive,
 	if err != nil {
 		return err
 	}
+	// default media type to binary data if nothing else is defined
+	resource.Input.SetMediaTypeIfNotDefined(input.MediaTypeOctetStream)
 
 	err = archive.AddResource(&resource.Resource, ctf.BlobInfo{
-		MediaType: resource.Type,
+		MediaType: resource.Input.MediaType,
 		Digest:    blob.Digest,
 		Size:      blob.Size,
 	}, blob.Reader)
