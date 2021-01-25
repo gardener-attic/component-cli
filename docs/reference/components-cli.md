@@ -19,6 +19,5 @@ components cli
 * [components-cli component-archive](components-cli_component-archive.md)	 - 
 * [components-cli ctf](components-cli_ctf.md)	 - 
 * [components-cli image-vector](components-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
-* [components-cli remote](components-cli_remote.md)	 - command to interact with component descriptors stored in an oci registry
 * [components-cli version](components-cli_version.md)	 - displays the version
 

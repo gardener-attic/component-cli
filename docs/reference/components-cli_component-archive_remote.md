@@ -1,21 +1,11 @@
-## components-cli remote get
+## components-cli component-archive remote
 
-fetch the component descriptor from a oci registry
-
-### Synopsis
-
-
-get fetches the component descriptor from a baseurl with the given name and Version.
-
-
-```
-components-cli remote get [baseurl] [componentname] [Version] [flags]
-```
+command to interact with component descriptors stored in an oci registry
 
 ### Options
 
 ```
-  -h, --help   help for get
+  -h, --help   help for remote
 ```
 
 ### Options inherited from parent commands
@@ -31,5 +21,7 @@ components-cli remote get [baseurl] [componentname] [Version] [flags]
 
 ### SEE ALSO
 
-* [components-cli remote](components-cli_remote.md)	 - command to interact with component descriptors stored in an oci registry
+* [components-cli component-archive](components-cli_component-archive.md)	 - 
+* [components-cli component-archive remote get](components-cli_component-archive_remote_get.md)	 - fetch the component descriptor from a oci registry
+* [components-cli component-archive remote push](components-cli_component-archive_remote_push.md)	 - pushes a component archive to an oci repository
 
