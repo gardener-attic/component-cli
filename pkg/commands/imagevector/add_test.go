@@ -54,8 +54,69 @@ var _ = Describe("Add", func() {
 			"Relation": Equal(cdv2.ExternalRelation),
 		}))
 		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
-			"Name":    Equal("pause-container"),
-			"Version": Equal("3.1"),
+			"Name":          Equal("pause-container"),
+			"Version":       Equal("3.1"),
+			"ExtraIdentity": HaveKeyWithValue(imagevector.TagExtraIdentity, "3.1"),
+			"Labels": ContainElements(
+				cdv2.Label{
+					Name:  imagevector.NameLabel,
+					Value: json.RawMessage(`"pause-container"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.RepositoryLabel,
+					Value: json.RawMessage(`"gcr.io/google_containers/pause-amd64"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.SourceRepositoryLabel,
+					Value: json.RawMessage(`"github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile"`),
+				},
+			),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(MatchKeys(IgnoreExtras, Keys{
+			"imageReference": Equal("gcr.io/google_containers/pause-amd64:3.1"),
+		}))
+	})
+
+	It("should add a image source with a digest as tag", func() {
+
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/03-sha.yaml",
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ExternalRelation),
+		}))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("pause-container"),
+			"Version":       Equal("v0.0.0"),
+			"ExtraIdentity": HaveKeyWithValue(imagevector.TagExtraIdentity, "sha256:179e67c248007299e05791db36298c41cbf0992372204a68473e12795a51b06b"),
+			"Labels": ContainElements(
+				cdv2.Label{
+					Name:  imagevector.NameLabel,
+					Value: json.RawMessage(`"pause-container"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.RepositoryLabel,
+					Value: json.RawMessage(`"gcr.io/google_containers/pause-amd64"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.SourceRepositoryLabel,
+					Value: json.RawMessage(`"github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile"`),
+				},
+			),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(MatchKeys(IgnoreExtras, Keys{
+			"imageReference": Equal("gcr.io/google_containers/pause-amd64@sha256:179e67c248007299e05791db36298c41cbf0992372204a68473e12795a51b06b"),
 		}))
 	})
 
@@ -81,10 +142,63 @@ var _ = Describe("Add", func() {
 		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
 			"Name":    Equal("pause-container"),
 			"Version": Equal("3.1"),
-			"Labels": ContainElement(cdv2.Label{
-				Name:  "my-label",
-				Value: json.RawMessage(`"myval"`),
-			}),
+			"Labels": ContainElements(
+				cdv2.Label{
+					Name:  "my-label",
+					Value: json.RawMessage(`"myval"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.NameLabel,
+					Value: json.RawMessage(`"pause-container"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.RepositoryLabel,
+					Value: json.RawMessage(`"gcr.io/google_containers/pause-amd64"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.SourceRepositoryLabel,
+					Value: json.RawMessage(`"github.com/kubernetes/kubernetes/blob/master/build/pause/Dockerfile"`),
+				},
+			),
+		}))
+	})
+
+	It("should add imagevector labels for inline image definitions", func() {
+
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./05-inline/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/02-inline.yaml",
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.LocalRelation),
+		}))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("gardenlet"),
+			"Version": Equal("v0.0.0"),
+			"Labels": ContainElements(
+				cdv2.Label{
+					Name:  imagevector.NameLabel,
+					Value: json.RawMessage(`"gardenlet"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.RepositoryLabel,
+					Value: json.RawMessage(`"eu.gcr.io/gardener-project/gardener/gardenlet"`),
+				},
+				cdv2.Label{
+					Name:  imagevector.SourceRepositoryLabel,
+					Value: json.RawMessage(`"github.com/gardener/gardener"`),
+				},
+			),
 		}))
 	})
 

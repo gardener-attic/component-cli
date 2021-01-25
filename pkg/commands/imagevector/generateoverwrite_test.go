@@ -35,7 +35,7 @@ var _ = Describe("GenerateOverwrite", func() {
 	It("should generate a simple image with tag from a component descriptor", func() {
 		imageVector := runGenerateOverwrite(testdataFs, "./01-component/component-descriptor.yaml")
 
-		Expect(imageVector.Images).To(HaveLen(2))
+		Expect(imageVector.Images).To(HaveLen(3))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name": Equal("pause-container"),
 			"Tag":  PointTo(Equal("3.1")),
@@ -43,6 +43,10 @@ var _ = Describe("GenerateOverwrite", func() {
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name": Equal("pause-container"),
 			"Tag":  PointTo(Equal("sha256:eb9086d472747453ad2d5cfa10f80986d9b0afb9ae9c4256fe2887b029566d06")),
+		})))
+		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Name": Equal("gardenlet"),
+			"Tag":  PointTo(Equal("v0.0.0")),
 		})))
 	})
 

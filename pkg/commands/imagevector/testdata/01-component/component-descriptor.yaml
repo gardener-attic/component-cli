@@ -46,3 +46,16 @@ component:
     access:
       type: ociRegistry
       imageReference: gcr.io/google_containers/pause-amd64@sha256:eb9086d472747453ad2d5cfa10f80986d9b0afb9ae9c4256fe2887b029566d06
+  - name: gardenlet
+    version: "v0.0.0"
+    type: ociImage
+    labels:
+    - name: imagevector.gardener.cloud/name
+      value: gardenlet
+    - name: imagevector.gardener.cloud/repository
+      value: eu.gcr.io/gardener-project/gardener/gardenlet
+    - name: imagevector.gardener.cloud/source-repository
+      value: github.com/gardener/gardener
+    access:
+      type: ociRegistry
+      imageReference: eu.gcr.io/gardener-project/gardener/gardenlet:v0.0.0
