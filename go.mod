@@ -9,7 +9,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce // indirect
 	github.com/docker/docker-credential-helpers v0.6.3 // indirect
-	github.com/gardener/component-spec/bindings-go v0.0.31
+	github.com/gardener/component-spec/bindings-go v0.0.32
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0
