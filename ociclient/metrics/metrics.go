@@ -20,7 +20,7 @@ var (
 			Name:      "memory_usage_bytes",
 			Help:      "Bytes in memory currently used by cache instance.",
 		},
-		[]string{"path"},
+		[]string{"id"},
 	)
 
 	// CacheDiskUsage discloses disk used by caches
@@ -31,7 +31,7 @@ var (
 			Name:      "disk_usage_bytes",
 			Help:      "Bytes on disk currently used by cache instance.",
 		},
-		[]string{"path"},
+		[]string{"id"},
 	)
 
 	// CachedItems discloses the number of items stored by caches
@@ -42,7 +42,7 @@ var (
 			Name:      "items_total",
 			Help:      "Total number of items currently cached by instance.",
 		},
-		[]string{"path"},
+		[]string{"id"},
 	)
 
 	// CacheHitsDisk discloses the number of hits for items cached on disk
@@ -53,7 +53,7 @@ var (
 			Name:      "disk_hits_total",
 			Help:      "Total number of hits for items cached on disk by an instance.",
 		},
-		[]string{"path"},
+		[]string{"id"},
 	)
 
 	// CacheHitsMemory discloses the number of hits for items cached in memory
@@ -64,7 +64,7 @@ var (
 			Name:      "memory_hits_total",
 			Help:      "Total number of hits for items cached in memory by an instance.",
 		},
-		[]string{"path"},
+		[]string{"id"},
 	)
 )
 
