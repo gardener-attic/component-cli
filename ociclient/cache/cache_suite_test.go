@@ -53,6 +53,7 @@ var _ = Describe("Cache", func() {
 
 		Context("metrics", func() {
 			It("should read data from the in memory cache", func() {
+				uid := "unit-test"
 				dir, err := ioutil.TempDir(os.TempDir(), "test-")
 				Expect(err).ToNot(HaveOccurred())
 				defer func() {
@@ -64,7 +65,7 @@ var _ = Describe("Cache", func() {
 				metrics.CacheDiskUsage.Reset()
 				metrics.CacheMemoryUsage.Reset()
 
-				c, err := NewCache(testlog.NullLogger{}, WithBasePath(dir), WithInMemoryOverlay(true))
+				c, err := NewCache(testlog.NullLogger{}, WithBasePath(dir), WithInMemoryOverlay(true), WithUID(uid))
 				Expect(err).ToNot(HaveOccurred())
 				defer c.Close()
 
@@ -74,27 +75,27 @@ var _ = Describe("Cache", func() {
 				expected := `
 				# HELP ociclient_cache_items_total Total number of items currently cached by instance.
                 # TYPE ociclient_cache_items_total gauge
-                ociclient_cache_items_total{path="%s"} 1
+                ociclient_cache_items_total{id="%s"} 1
 				`
-				Expect(testutil.CollectAndCompare(metrics.CachedItems, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CachedItems, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_disk_hits_total Total number of hits for items cached on disk by an instance.
                 # TYPE ociclient_cache_disk_hits_total counter
-                ociclient_cache_disk_hits_total{path="%s"} 0
+                ociclient_cache_disk_hits_total{id="%s"} 0
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheHitsDisk, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheHitsDisk, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_memory_hits_total Total number of hits for items cached in memory by an instance.
                 # TYPE ociclient_cache_memory_hits_total counter
-                ociclient_cache_memory_hits_total{path="%s"} 0
+                ociclient_cache_memory_hits_total{id="%s"} 0
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheHitsMemory, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheHitsMemory, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_memory_usage_bytes Bytes in memory currently used by cache instance.
                 # TYPE ociclient_cache_memory_usage_bytes gauge
-                ociclient_cache_memory_usage_bytes{path="%s"} 0
+                ociclient_cache_memory_usage_bytes{id="%s"} 0
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheMemoryUsage, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheMemoryUsage, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 
 				r, err := c.Get(desc)
 				Expect(err).ToNot(HaveOccurred())
@@ -108,33 +109,33 @@ var _ = Describe("Cache", func() {
 				expected = `
 				# HELP ociclient_cache_items_total Total number of items currently cached by instance.
                 # TYPE ociclient_cache_items_total gauge
-                ociclient_cache_items_total{path="%s"} 1
+                ociclient_cache_items_total{id="%s"} 1
 				`
-				Expect(testutil.CollectAndCompare(metrics.CachedItems, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CachedItems, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_disk_usage_bytes Bytes on disk currently used by cache instance.
                 # TYPE ociclient_cache_disk_usage_bytes gauge
-                ociclient_cache_disk_usage_bytes{path="%s"} 10
+                ociclient_cache_disk_usage_bytes{id="%s"} 10
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheDiskUsage, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheDiskUsage, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_disk_hits_total Total number of hits for items cached on disk by an instance.
                 # TYPE ociclient_cache_disk_hits_total counter
-                ociclient_cache_disk_hits_total{path="%s"} 1
+                ociclient_cache_disk_hits_total{id="%s"} 1
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheHitsDisk, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheHitsDisk, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_memory_hits_total Total number of hits for items cached in memory by an instance.
                 # TYPE ociclient_cache_memory_hits_total counter
-                ociclient_cache_memory_hits_total{path="%s"} 1
+                ociclient_cache_memory_hits_total{id="%s"} 1
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheHitsMemory, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheHitsMemory, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 				expected = `
 				# HELP ociclient_cache_memory_usage_bytes Bytes in memory currently used by cache instance.
                 # TYPE ociclient_cache_memory_usage_bytes gauge
-                ociclient_cache_memory_usage_bytes{path="%s"} 10
+                ociclient_cache_memory_usage_bytes{id="%s"} 10
 				`
-				Expect(testutil.CollectAndCompare(metrics.CacheMemoryUsage, strings.NewReader(fmt.Sprintf(expected, dir)))).To(Succeed())
+				Expect(testutil.CollectAndCompare(metrics.CacheMemoryUsage, strings.NewReader(fmt.Sprintf(expected, uid)))).To(Succeed())
 			})
 		})
 	})

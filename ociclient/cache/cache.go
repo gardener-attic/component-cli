@@ -28,8 +28,6 @@ type layeredCache struct {
 
 	baseFs    *FileSystem
 	overlayFs *FileSystem
-
-	basePath string
 }
 
 // NewCache creates a new cache with the given options.
@@ -61,13 +59,13 @@ func NewCache(log logr.Logger, options ...Option) (*layeredCache, error) {
 
 	//initialize metrics
 	baseCFs.WithMetrics(
-		metrics.CachedItems.WithLabelValues(opts.BasePath),
-		metrics.CacheDiskUsage.WithLabelValues(opts.BasePath),
-		metrics.CacheHitsDisk.WithLabelValues(opts.BasePath))
+		metrics.CachedItems.WithLabelValues(opts.UID),
+		metrics.CacheDiskUsage.WithLabelValues(opts.UID),
+		metrics.CacheHitsDisk.WithLabelValues(opts.UID))
 	if opts.InMemoryOverlay {
 		overlayCFs.WithMetrics(nil,
-			metrics.CacheMemoryUsage.WithLabelValues(opts.BasePath),
-			metrics.CacheHitsMemory.WithLabelValues(opts.BasePath))
+			metrics.CacheMemoryUsage.WithLabelValues(opts.UID),
+			metrics.CacheHitsMemory.WithLabelValues(opts.UID))
 	}
 
 	return &layeredCache{
@@ -75,7 +73,6 @@ func NewCache(log logr.Logger, options ...Option) (*layeredCache, error) {
 		mux:       sync.RWMutex{},
 		baseFs:    baseCFs,
 		overlayFs: overlayCFs,
-		basePath:  opts.BasePath,
 	}, nil
 }
 

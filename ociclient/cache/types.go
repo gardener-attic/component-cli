@@ -9,6 +9,8 @@ import (
 	"io"
 
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -56,6 +58,9 @@ type Options struct {
 
 	// BaseGCConfig defines the garbage collection configuration for the in base cache.
 	BaseGCConfig GarbageCollectionConfiguration
+
+	// UID is the identity of a cache, if not specified a UID will be generated
+	UID string
 }
 
 // Option is the interface to specify different cache options
@@ -76,6 +81,10 @@ func (o *Options) ApplyOptions(opts []Option) *Options {
 func (o *Options) ApplyDefaults() {
 	if o.InMemoryOverlay && len(o.InMemoryGCConfig.Size) == 0 {
 		o.InMemoryGCConfig.Size = "200Mi"
+	}
+
+	if len(o.UID) == 0 {
+		o.UID = uuid.New().String()
 	}
 }
 
@@ -134,4 +143,11 @@ type WithInMemoryGCConfig GarbageCollectionConfiguration
 func (p WithInMemoryGCConfig) ApplyOption(options *Options) {
 	cfg := GarbageCollectionConfiguration(p)
 	cfg.Merge(&options.InMemoryGCConfig)
+}
+
+// WithUID is the option to give a cache an identity
+type WithUID string
+
+func (p WithUID) ApplyOption(options *Options) {
+	options.UID = string(p)
 }
