@@ -301,6 +301,37 @@ var _ = Describe("Add", func() {
 		})))
 	})
 
+	It("should not add a image sources that match a given pattern as component reference but is excluded", func() {
+
+		opts := &ivcmd.AddOptions{
+			ComponentDescriptorPath: "./00-component/component-descriptor.yaml",
+			ImageVectorPath:         "./resources/20-comp-ref.yaml",
+			ParseImageOptions: imagevector.ParseImageOptions{
+				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
+				ExcludeComponentReference:  []string{"cluster-autoscaler"},
+			},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.ComponentReferences).To(HaveLen(0))
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ExternalRelation),
+		}))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("cluster-autoscaler"),
+			"Version":       Equal("v0.10.0"),
+			"ExtraIdentity": HaveKeyWithValue(imagevector.TagExtraIdentity, "v0.10.0"),
+		}))
+	})
+
 	It("should add two image sources that match a given pattern as component reference", func() {
 
 		opts := &ivcmd.AddOptions{
