@@ -31,7 +31,7 @@ func (o *BuilderOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.ComponentArchivePath, "archive", "a", "", "path to the component archive directory")
 	fs.StringVar(&o.Name, "component-name", "", "name of the component")
 	fs.StringVar(&o.Version, "component-version", "", "version of the component")
-	fs.StringVar(&o.BaseUrl, "repo-ctx", "", "repository context url for component to upload. The repository url will be automatically added to the repository contexts.")
+	fs.StringVar(&o.BaseUrl, "repo-ctx", "", "[OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.")
 }
 
 // Default applies defaults to the builder options
@@ -51,9 +51,6 @@ func (o *BuilderOptions) Validate() error {
 	if len(o.Name) != 0 {
 		if len(o.Version) == 0 {
 			return errors.New("a version has to be provided for a minimal component descriptor")
-		}
-		if len(o.BaseUrl) == 0 {
-			return errors.New("a repository context base url has to be provided for a minimal component descriptor")
 		}
 	}
 	return nil
@@ -100,11 +97,13 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 	cd.ComponentSpec.Name = o.Name
 	cd.ComponentSpec.Version = o.Version
 	cd.Provider = cdv2.InternalProvider
-	cd.RepositoryContexts = []cdv2.RepositoryContext{
-		{
-			Type:    cdv2.OCIRegistryType,
-			BaseURL: o.BaseUrl,
-		},
+	if len(o.BaseUrl) == 0 {
+		cd.RepositoryContexts = []cdv2.RepositoryContext{
+			{
+				Type:    cdv2.OCIRegistryType,
+				BaseURL: o.BaseUrl,
+			},
+		}
 	}
 	if err := cdv2.DefaultComponent(cd); err != nil {
 		return nil, fmt.Errorf("unable to default component descriptor: %w", err)
