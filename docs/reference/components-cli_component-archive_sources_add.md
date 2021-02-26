@@ -28,7 +28,7 @@ input:
 ...
 ---
 name: 'myothersrc'
-type: 'json'
+type: 'git'
 input:
   type: "dir"
   path: /my/path

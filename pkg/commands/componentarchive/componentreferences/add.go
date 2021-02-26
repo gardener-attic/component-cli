@@ -91,7 +91,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return err
 	}
 
-	refs, err := o.generateComponentReferences(fs, archive.ComponentDescriptor)
+	refs, err := o.generateComponentReferences(log, fs, archive.ComponentDescriptor)
 	if err != nil {
 		return err
 	}
@@ -143,30 +143,36 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 // generateComponentReferences parses component references from the given path and stdin.
-func (o *Options) generateComponentReferences(fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]cdv2.ComponentReference, error) {
-	refs := make([]cdv2.ComponentReference, 0)
-	if len(o.ComponentReferenceObjectPath) != 0 {
-		refObjectReader, err := fs.Open(o.ComponentReferenceObjectPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ComponentReferenceObjectPath, err)
-		}
-		defer refObjectReader.Close()
-		refs, err = generateComponentReferenceFromReader(refObjectReader)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read refs from %s: %w", o.ComponentReferenceObjectPath, err)
-		}
+func (o *Options) generateComponentReferences(log logr.Logger, fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]cdv2.ComponentReference, error) {
+	if len(o.ComponentReferenceObjectPath) == 0 {
+		log.Info("no component-reference definition path defined")
+		return nil, nil
 	}
 
-	stdinInfo, err := os.Stdin.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("unable to read from stdin: %w", err)
-	}
-	if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-		stdinRef, err := generateComponentReferenceFromReader(os.Stdin)
+	if o.ComponentReferenceObjectPath == "-" {
+		componentReferences := make([]cdv2.ComponentReference, 0)
+		stdinInfo, err := os.Stdin.Stat()
 		if err != nil {
 			return nil, fmt.Errorf("unable to read from stdin: %w", err)
 		}
-		refs = append(refs, stdinRef...)
+		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
+			stdinResources, err := generateComponentReferenceFromReader(os.Stdin)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read from stdin: %w", err)
+			}
+			componentReferences = append(componentReferences, stdinResources...)
+		}
+		return componentReferences, nil
+	}
+
+	refObjectReader, err := fs.Open(o.ComponentReferenceObjectPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ComponentReferenceObjectPath, err)
+	}
+	defer refObjectReader.Close()
+	refs, err := generateComponentReferenceFromReader(refObjectReader)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read refs from %s: %w", o.ComponentReferenceObjectPath, err)
 	}
 	return refs, nil
 }

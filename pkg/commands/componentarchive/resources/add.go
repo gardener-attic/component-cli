@@ -121,7 +121,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return err
 	}
 
-	resources, err := o.generateResources(fs, archive.ComponentDescriptor)
+	resources, err := o.generateResources(log, fs, archive.ComponentDescriptor)
 	if err != nil {
 		return err
 	}
@@ -186,32 +186,39 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.ResourceObjectPath, "resource", "r", "", "The path to the resources defined as yaml or json")
 }
 
-func (o *Options) generateResources(fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]ResourceOptions, error) {
-	resources := make([]ResourceOptions, 0)
-	if len(o.ResourceObjectPath) != 0 {
-		resourceObjectReader, err := fs.Open(o.ResourceObjectPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ResourceObjectPath, err)
-		}
-		defer resourceObjectReader.Close()
-		resources, err = generateResourcesFromReader(cd, resourceObjectReader)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read resources from %s: %w", o.ResourceObjectPath, err)
-		}
+func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]ResourceOptions, error) {
+	if len(o.ResourceObjectPath) == 0 {
+		log.Info("no resource path defined")
+		return nil, nil
 	}
 
-	stdinInfo, err := os.Stdin.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("unable to read from stdin: %w", err)
-	}
-	if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-		stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
+	if o.ResourceObjectPath == "-" {
+		resources := make([]ResourceOptions, 0)
+		stdinInfo, err := os.Stdin.Stat()
 		if err != nil {
 			return nil, fmt.Errorf("unable to read from stdin: %w", err)
 		}
-		resources = append(resources, stdinResources...)
+		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
+			stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read from stdin: %w", err)
+			}
+			resources = append(resources, stdinResources...)
+		}
+		return resources, nil
 	}
-	return resources, nil
+
+	resourceObjectReader, err := fs.Open(o.ResourceObjectPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read resource object from %s: %w", o.ResourceObjectPath, err)
+	}
+	defer resourceObjectReader.Close()
+	resources, err := generateResourcesFromReader(cd, resourceObjectReader)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read resources from %s: %w", o.ResourceObjectPath, err)
+	}
+	return resources, err
+
 }
 
 // generateResourcesFromPath generates a resource given resource options and a resource template file.

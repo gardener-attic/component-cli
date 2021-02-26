@@ -77,7 +77,8 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &componentreferences.Options{
-			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ComponentReferenceObjectPath: "-",
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())

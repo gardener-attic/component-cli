@@ -30,7 +30,7 @@ cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
 printf "> Add Linux Binary\n"
 ARTIFACT_PATH="$(pwd)/dist/componentcli-linux-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
+cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH" -r -
 name: cli-binary-linux
 type: executable
 extraIdentity:
@@ -44,7 +44,7 @@ EOF
 
 printf "> Add Darwin Binary\n"
 ARTIFACT_PATH="$(pwd)/dist/componentcli-darwin-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH"
+cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH" -r -
 name: cli-binary-darwin
 type: executable
 extraIdentity:

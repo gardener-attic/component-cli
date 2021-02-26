@@ -76,7 +76,7 @@ input:
 ...
 ---
 name: 'myothersrc'
-type: 'json'
+type: 'git'
 input:
   type: "dir"
   path: /my/path
@@ -112,7 +112,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return err
 	}
 
-	sources, err := o.generateSources(fs)
+	sources, err := o.generateSources(log, fs)
 	if err != nil {
 		return err
 	}
@@ -175,30 +175,36 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 // generateSources parses component references from the given path and stdin.
-func (o *Options) generateSources(fs vfs.FileSystem) ([]SourceOptions, error) {
-	sources := make([]SourceOptions, 0)
-	if len(o.SourceObjectPath) != 0 {
-		resourceObjectReader, err := fs.Open(o.SourceObjectPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read resource object from %s: %w", o.SourceObjectPath, err)
-		}
-		defer resourceObjectReader.Close()
-		sources, err = generateSourcesFromReader(resourceObjectReader)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read sources from %s: %w", o.SourceObjectPath, err)
-		}
+func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]SourceOptions, error) {
+	if len(o.SourceObjectPath) == 0 {
+		log.Info("no source path defined")
+		return nil, nil
 	}
 
-	stdinInfo, err := os.Stdin.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("unable to read from stdin: %w", err)
-	}
-	if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-		stdinSources, err := generateSourcesFromReader(os.Stdin)
+	if o.SourceObjectPath == "-" {
+		sources := make([]SourceOptions, 0)
+		stdinInfo, err := os.Stdin.Stat()
 		if err != nil {
 			return nil, fmt.Errorf("unable to read from stdin: %w", err)
 		}
-		sources = append(sources, stdinSources...)
+		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
+			stdinResources, err := generateSourcesFromReader(os.Stdin)
+			if err != nil {
+				return nil, fmt.Errorf("unable to read from stdin: %w", err)
+			}
+			sources = append(sources, stdinResources...)
+		}
+		return sources, nil
+	}
+
+	resourceObjectReader, err := fs.Open(o.SourceObjectPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read resource object from %s: %w", o.SourceObjectPath, err)
+	}
+	defer resourceObjectReader.Close()
+	sources, err := generateSourcesFromReader(resourceObjectReader)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read sources from %s: %w", o.SourceObjectPath, err)
 	}
 	return sources, nil
 }

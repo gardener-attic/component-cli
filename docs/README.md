@@ -31,7 +31,7 @@ $ component-cli ca resources add -r ./resource.yaml
 The resources can also be added using stdin.
 ```shell script
 # define by file
-$ cat <<EOF | component-cli ca resources add
+$ cat <<EOF | component-cli ca resources add -r -
 name: 'ubuntu'
 version: 'v0.0.1'
 type: 'ociImage'
