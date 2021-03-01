@@ -18,7 +18,7 @@ export PATH="/go/bin:$PATH"
 cd "$(dirname $0)/.."
 
 # build the component-cli
-make cross-build
+make cross-build EFFECTIVE_VERSION="$(cat VERSION)"
 
 COMPONENT_CLI="./dist/componentcli-linux-amd64"
 
