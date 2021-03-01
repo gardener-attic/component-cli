@@ -37,6 +37,11 @@ github.com/docker/docker/pkg/homedir
 ## explicit
 github.com/docker/docker-credential-helpers/client
 github.com/docker/docker-credential-helpers/credentials
+# github.com/drone/envsubst v1.0.2
+## explicit
+github.com/drone/envsubst
+github.com/drone/envsubst/parse
+github.com/drone/envsubst/path
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
 # github.com/gardener/component-spec/bindings-go v0.0.32

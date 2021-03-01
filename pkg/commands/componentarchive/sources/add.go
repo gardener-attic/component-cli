@@ -5,6 +5,7 @@
 package sources
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -27,11 +28,13 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
 	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/template"
 )
 
 // Options defines the options that are used to add resources to a component descriptor
 type Options struct {
 	componentarchive.BuilderOptions
+	TemplateOptions template.Options
 
 	// SourceObjectPaths defines the path to the source defined as yaml or json.
 	// either components can be added by a yaml resource template or by input flags
@@ -62,7 +65,7 @@ func NewAddCommand(ctx context.Context) *cobra.Command {
 		Use:   "add [component descriptor path] [source file]...",
 		Args:  cobra.MinimumNArgs(1),
 		Short: "Adds a source to a component descriptor",
-		Long: `
+		Long: fmt.Sprintf(`
 add adds sources to the defined component descriptor.
 The sources can be defined in a file or given through stdin.
 
@@ -95,7 +98,9 @@ input:
 ...
 
 </pre>
-`,
+
+%s
+`, opts.TemplateOptions.Usage()),
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
@@ -172,6 +177,10 @@ func (o *Options) Complete(args []string) error {
 	}
 	o.BuilderOptions.Default()
 
+	if err := o.TemplateOptions.Complete(args); err != nil {
+		return err
+	}
+
 	if len(args) > 1 {
 		o.SourceObjectPaths = append(o.SourceObjectPaths, args[1:]...)
 	}
@@ -208,7 +217,7 @@ func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]Interna
 			return nil, nil
 		}
 		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-			stdinResources, err := generateSourcesFromReader(os.Stdin)
+			stdinResources, err := o.generateSourcesFromReader(os.Stdin)
 			if err != nil {
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
@@ -225,7 +234,7 @@ func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]Interna
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
 			if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-				stdinResources, err := generateSourcesFromReader(os.Stdin)
+				stdinResources, err := o.generateSourcesFromReader(os.Stdin)
 				if err != nil {
 					return nil, fmt.Errorf("unable to read from stdin: %w", err)
 				}
@@ -238,7 +247,7 @@ func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]Interna
 		if err != nil {
 			return nil, fmt.Errorf("unable to read source object from %s: %w", resourcePath, err)
 		}
-		newResources, err := generateSourcesFromReader(resourceObjectReader)
+		newResources, err := o.generateSourcesFromReader(resourceObjectReader)
 		if err != nil {
 			if err2 := resourceObjectReader.Close(); err2 != nil {
 				log.Error(err, "unable to close file reader", "path", resourcePath)
@@ -251,6 +260,18 @@ func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]Interna
 		sourceOptions = append(sourceOptions, convertToInternalSourceOptions(newResources, resourcePath)...)
 	}
 	return sourceOptions, nil
+}
+
+func (o *Options) generateSourcesFromReader(reader io.Reader) ([]SourceOptions, error) {
+	var data bytes.Buffer
+	if _, err := io.Copy(&data, reader); err != nil {
+		return nil, fmt.Errorf("unable to read sources: %w", err)
+	}
+	tmplData, err := o.TemplateOptions.Template(data.String())
+	if err != nil {
+		return nil, fmt.Errorf("unable to template source definition: %w", err)
+	}
+	return generateSourcesFromReader(bytes.NewBufferString(tmplData))
 }
 
 // generateSourcesFromReader generates a resource given resource options and a resource template file.

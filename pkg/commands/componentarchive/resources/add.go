@@ -5,6 +5,7 @@
 package resources
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -27,12 +28,14 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
 	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/template"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
 // Options defines the options that are used to add resources to a component descriptor
 type Options struct {
 	componentarchive.BuilderOptions
+	TemplateOptions template.Options
 
 	// either components can be added by a yaml resource template or by input flags
 	// ResourceObjectPaths defines the path to the resources defined as yaml or json
@@ -62,7 +65,7 @@ func NewAddCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [component archive path] [resource-path]...",
 		Short: "Adds a resource to an component archive",
-		Long: `
+		Long: fmt.Sprintf(`
 add generates resources from a resource template and adds it to the given component descriptor in the component archive.
 If the resource is already defined (quality by identity) in the component-descriptor it will be overwritten.
 
@@ -104,7 +107,9 @@ input:
 ...
 
 </pre>
-`,
+
+%s
+`, opts.TemplateOptions.Usage()),
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
@@ -184,6 +189,10 @@ func (o *Options) Complete(args []string) error {
 	}
 	o.BuilderOptions.Default()
 
+	if err := o.TemplateOptions.Complete(args); err != nil {
+		return err
+	}
+
 	// parse input files
 	if len(args) > 1 {
 		o.ResourceObjectPaths = append(o.ResourceObjectPaths, args[1:]...)
@@ -220,7 +229,7 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 			return nil, nil
 		}
 		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-			stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
+			stdinResources, err := o.generateResourcesFromReader(cd, os.Stdin)
 			if err != nil {
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
@@ -237,7 +246,7 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
 			if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-				stdinResources, err := generateResourcesFromReader(cd, os.Stdin)
+				stdinResources, err := o.generateResourcesFromReader(cd, os.Stdin)
 				if err != nil {
 					return nil, fmt.Errorf("unable to read from stdin: %w", err)
 				}
@@ -250,7 +259,7 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 		if err != nil {
 			return nil, fmt.Errorf("unable to read resource object from %s: %w", resourcePath, err)
 		}
-		newResources, err := generateResourcesFromReader(cd, resourceObjectReader)
+		newResources, err := o.generateResourcesFromReader(cd, resourceObjectReader)
 		if err != nil {
 			if err2 := resourceObjectReader.Close(); err2 != nil {
 				log.Error(err, "unable to close file reader", "path", resourcePath)
@@ -264,6 +273,20 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 	}
 
 	return resources, nil
+}
+
+// generateResourcesFromPath generates a resource given resource options and a resource template file.
+func (o *Options) generateResourcesFromReader(cd *cdv2.ComponentDescriptor, reader io.Reader) ([]ResourceOptions, error) {
+	var data bytes.Buffer
+	if _, err := io.Copy(&data, reader); err != nil {
+		return nil, err
+	}
+	// template data
+	tmplData, err := o.TemplateOptions.Template(data.String())
+	if err != nil {
+		return nil, fmt.Errorf("unable to template resource: %w", err)
+	}
+	return generateResourcesFromReader(cd, bytes.NewBuffer([]byte(tmplData)))
 }
 
 // generateResourcesFromPath generates a resource given resource options and a resource template file.

@@ -39,6 +39,27 @@ input:
 </pre>
 
 
+Templating:
+All yaml/json defined resources can be templated using simple envsubst syntax.
+Variables are specified after a "--" and follow the syntax "<name>=<value>".
+
+Note: Variable names are case-sensitive.
+
+Example:
+<pre>
+<command> [args] [--flags] -- MY_VAL=test
+</pre>
+
+<pre>
+
+key:
+  subkey: "abc ${MY_VAL}"
+
+</pre>
+
+
+
+
 ```
 components-cli component-archive sources add [component descriptor path] [source file]... [flags]
 ```

@@ -5,6 +5,7 @@
 package componentreferences
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -25,11 +26,13 @@ import (
 
 	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/template"
 )
 
 // Options defines the options that are used to add resources to a component descriptor
 type Options struct {
 	componentarchive.BuilderOptions
+	TemplateOptions template.Options
 
 	// ComponentReferenceObjectPaths describe the paths to the component reference resources defined as yaml or json.
 	// either components can be added by a yaml resource template or by input flags
@@ -47,7 +50,7 @@ func NewAddCommand(ctx context.Context) *cobra.Command {
 		Use:   "add [component descriptor path] [component-reference path]...",
 		Args:  cobra.MinimumNArgs(1),
 		Short: "Adds a component reference to a component descriptor",
-		Long: `
+		Long: fmt.Sprintf(`
 add adds component references to the defined component descriptor.
 The component references can be defined in a file or given through stdin.
 
@@ -67,7 +70,9 @@ version: 'v0.0.2'
 ...
 
 </pre>
-`,
+
+%s
+`, opts.TemplateOptions.Usage()),
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
@@ -132,6 +137,9 @@ func (o *Options) Complete(args []string) error {
 		o.BuilderOptions.ComponentArchivePath = args[0]
 	}
 	o.BuilderOptions.Default()
+	if err := o.TemplateOptions.Complete(args); err != nil {
+		return err
+	}
 
 	if len(args) > 1 {
 		o.ComponentReferenceObjectPaths = append(o.ComponentReferenceObjectPaths, args[1:]...)
@@ -163,7 +171,7 @@ func (o *Options) generateComponentReferences(log logr.Logger, fs vfs.FileSystem
 			return nil, nil
 		}
 		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-			stdinResources, err := generateComponentReferenceFromReader(os.Stdin)
+			stdinResources, err := o.generateComponentReferenceFromReader(os.Stdin)
 			if err != nil {
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
@@ -180,7 +188,7 @@ func (o *Options) generateComponentReferences(log logr.Logger, fs vfs.FileSystem
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
 			if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-				stdinResources, err := generateComponentReferenceFromReader(os.Stdin)
+				stdinResources, err := o.generateComponentReferenceFromReader(os.Stdin)
 				if err != nil {
 					return nil, fmt.Errorf("unable to read from stdin: %w", err)
 				}
@@ -193,7 +201,7 @@ func (o *Options) generateComponentReferences(log logr.Logger, fs vfs.FileSystem
 		if err != nil {
 			return nil, fmt.Errorf("unable to read component reference from %s: %w", resourcePath, err)
 		}
-		newResources, err := generateComponentReferenceFromReader(resourceObjectReader)
+		newResources, err := o.generateComponentReferenceFromReader(resourceObjectReader)
 		if err != nil {
 			if err2 := resourceObjectReader.Close(); err2 != nil {
 				log.Error(err, "unable to close file reader", "path", resourcePath)
@@ -206,6 +214,18 @@ func (o *Options) generateComponentReferences(log logr.Logger, fs vfs.FileSystem
 		componentReferences = append(componentReferences, newResources...)
 	}
 	return componentReferences, nil
+}
+
+func (o *Options) generateComponentReferenceFromReader(reader io.Reader) ([]cdv2.ComponentReference, error) {
+	var data bytes.Buffer
+	if _, err := io.Copy(&data, reader); err != nil {
+		return nil, err
+	}
+	tmplData, err := o.TemplateOptions.Template(data.String())
+	if err != nil {
+		return nil, err
+	}
+	return generateComponentReferenceFromReader(bytes.NewBufferString(tmplData))
 }
 
 // generateComponentReferenceFromReader generates a resource given resource options and a resource template file.

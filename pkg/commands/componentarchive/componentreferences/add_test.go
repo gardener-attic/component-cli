@@ -25,6 +25,7 @@ import (
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/componentreferences"
 	"github.com/gardener/component-cli/pkg/componentarchive"
+	"github.com/gardener/component-cli/pkg/template"
 )
 
 func TestConfig(t *testing.T) {
@@ -188,6 +189,32 @@ var _ = Describe("Add", func() {
 		cd := &cdv2.ComponentDescriptor{}
 		Expect(codec.Decode(data, cd)).To(Succeed())
 		Expect(cd.ComponentReferences).To(HaveLen(0))
+	})
+
+	It("should add a reference defined by a file with a template", func() {
+		opts := &componentreferences.Options{
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			TemplateOptions: template.Options{
+				Vars: map[string]string{
+					"MY_VERSION": "v0.0.2",
+				},
+			},
+			ComponentReferenceObjectPaths: []string{"./resources/02-ref.yaml"},
+		}
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.ComponentReferences).To(HaveLen(1))
+		Expect(cd.ComponentReferences[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("ubuntu"),
+			"ComponentName": Equal("github.com/gardener/ubuntu"),
+			"Version":       Equal("v0.0.2"),
+		}))
 	})
 
 })

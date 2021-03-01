@@ -25,6 +25,7 @@ import (
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/resources"
 	"github.com/gardener/component-cli/pkg/componentarchive"
+	"github.com/gardener/component-cli/pkg/template"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -48,7 +49,6 @@ var _ = Describe("Add", func() {
 			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			ResourceObjectPaths: []string{"./resources/00-res.yaml"},
 		}
-		Expect(opts.Complete([]string{})).To(Succeed())
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
@@ -385,6 +385,39 @@ var _ = Describe("Add", func() {
 			Expect(mimetype).To(Equal("application/x-gzip"))
 		})
 
+	})
+
+	It("should add a resource defined by a file with a template", func() {
+		opts := &resources.Options{
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			TemplateOptions: template.Options{
+				Vars: map[string]string{
+					"MY_VERSION": "v0.0.2",
+				},
+			},
+			ResourceObjectPaths: []string{"./resources/04-res.yaml"},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("ubuntu"),
+			"Version":       Equal("v0.0.2"),
+			"Type":          Equal("ociImage"),
+			"ExtraIdentity": HaveLen(1),
+		}))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ResourceRelation("external")),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("type", "ociRegistry"))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("imageReference", "ubuntu:v0.0.2"))
 	})
 
 })

@@ -25,6 +25,7 @@ import (
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/sources"
 	"github.com/gardener/component-cli/pkg/componentarchive"
+	"github.com/gardener/component-cli/pkg/template"
 )
 
 func TestConfig(t *testing.T) {
@@ -43,7 +44,6 @@ var _ = Describe("Add", func() {
 	})
 
 	It("should add a source defined by a file", func() {
-
 		opts := &sources.Options{
 			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			SourceObjectPaths: []string{"./resources/00-src.yaml"},
@@ -217,6 +217,33 @@ var _ = Describe("Add", func() {
 		opts := &sources.Options{
 			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
 			SourceObjectPaths: []string{"./resources/02-overwrite.yaml"},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.2"),
+			"Type":    Equal("git"),
+		}))
+	})
+
+	It("should add a templated source defined by a file", func() {
+		opts := &sources.Options{
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			TemplateOptions: template.Options{
+				Vars: map[string]string{
+					"MY_VERSION": "v0.0.2",
+				},
+			},
+			SourceObjectPaths: []string{"./resources/03-src.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
