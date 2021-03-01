@@ -43,10 +43,9 @@ var _ = Describe("Add", func() {
 	})
 
 	It("should add a reference defined by a file", func() {
-
 		opts := &componentreferences.Options{
-			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ComponentReferenceObjectPath: "./resources/00-ref.yaml",
+			BuilderOptions:                componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ComponentReferenceObjectPaths: []string{"./resources/00-ref.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -65,7 +64,27 @@ var _ = Describe("Add", func() {
 		}))
 	})
 
-	It("should add a component reference defined by stdin", func() {
+	It("should add a reference defined by arguments", func() {
+		opts := &componentreferences.Options{}
+		Expect(opts.Complete([]string{"./00-component", "./resources/00-ref.yaml"}))
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.ComponentReferences).To(HaveLen(1))
+		Expect(cd.ComponentReferences[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("ubuntu"),
+			"ComponentName": Equal("github.com/gardener/ubuntu"),
+			"Version":       Equal("v0.0.1"),
+		}))
+	})
+
+	It("should add a component reference from stdin defined by '-'", func() {
 		input, err := os.Open("./testdata/resources/00-ref.yaml")
 		Expect(err).ToNot(HaveOccurred())
 		defer input.Close()
@@ -77,8 +96,39 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &componentreferences.Options{
-			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ComponentReferenceObjectPath: "-",
+			BuilderOptions:                componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ComponentReferenceObjectPaths: []string{"-"},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.ComponentReferences).To(HaveLen(1))
+		Expect(cd.ComponentReferences[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("ubuntu"),
+			"ComponentName": Equal("github.com/gardener/ubuntu"),
+			"Version":       Equal("v0.0.1"),
+		}))
+	})
+
+	It("should add a component reference from stdin if no other paths are defined", func() {
+		input, err := os.Open("./testdata/resources/00-ref.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		defer input.Close()
+
+		oldstdin := os.Stdin
+		defer func() {
+			os.Stdin = oldstdin
+		}()
+		os.Stdin = input
+
+		opts := &componentreferences.Options{
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -100,8 +150,8 @@ var _ = Describe("Add", func() {
 	It("should add multiple reference defined by a multi doc file", func() {
 
 		opts := &componentreferences.Options{
-			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ComponentReferenceObjectPath: "./resources/01-multi-doc.yaml",
+			BuilderOptions:                componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ComponentReferenceObjectPaths: []string{"./resources/01-multi-doc.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -127,8 +177,8 @@ var _ = Describe("Add", func() {
 
 	It("should throw an error if an invalid resource is defined", func() {
 		opts := &componentreferences.Options{
-			BuilderOptions:               componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ComponentReferenceObjectPath: "./resources/10-invalid.yaml",
+			BuilderOptions:                componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ComponentReferenceObjectPaths: []string{"./resources/10-invalid.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())

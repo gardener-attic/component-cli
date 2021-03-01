@@ -45,9 +45,65 @@ var _ = Describe("Add", func() {
 
 	It("should add a resource defined by a file", func() {
 		opts := &resources.Options{
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/00-res.yaml"},
+		}
+		Expect(opts.Complete([]string{})).To(Succeed())
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("ubuntu"),
+			"Version":       Equal("v0.0.1"),
+			"Type":          Equal("ociImage"),
+			"ExtraIdentity": HaveLen(1),
+		}))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ResourceRelation("external")),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("type", "ociRegistry"))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("imageReference", "ubuntu:18.0"))
+	})
+
+	It("should add a resource defined arguments", func() {
+		opts := &resources.Options{}
+		Expect(opts.Complete([]string{"./00-component", "./resources/00-res.yaml"})).To(Succeed())
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":          Equal("ubuntu"),
+			"Version":       Equal("v0.0.1"),
+			"Type":          Equal("ociImage"),
+			"ExtraIdentity": HaveLen(1),
+		}))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ResourceRelation("external")),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("type", "ociRegistry"))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("imageReference", "ubuntu:18.0"))
+	})
+
+	It("should add a resource defined by the deprecated -r option", func() {
+		opts := &resources.Options{
 			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			ResourceObjectPath: "./resources/00-res.yaml",
 		}
+		Expect(opts.Complete([]string{})).To(Succeed())
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
@@ -82,8 +138,43 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &resources.Options{
-			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ResourceObjectPath: "-",
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"-"},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(1))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("ubuntu"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("ociImage"),
+		}))
+		Expect(cd.Resources[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Relation": Equal(cdv2.ResourceRelation("external")),
+		}))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("type", "ociRegistry"))
+		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("imageReference", "ubuntu:18.0"))
+	})
+
+	It("should add a resource defined by stdin if nothing is defined", func() {
+		input, err := os.Open("./testdata/resources/00-res.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		defer input.Close()
+		oldstdin := os.Stdin
+		defer func() {
+			os.Stdin = oldstdin
+		}()
+		os.Stdin = input
+
+		opts := &resources.Options{
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -109,8 +200,8 @@ var _ = Describe("Add", func() {
 
 	It("should automatically set the version for a local resource", func() {
 		opts := &resources.Options{
-			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ResourceObjectPath: "./resources/01-local.yaml",
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/01-local.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -131,8 +222,8 @@ var _ = Describe("Add", func() {
 
 	It("should add multiple resources via multi yaml docs", func() {
 		opts := &resources.Options{
-			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ResourceObjectPath: "./resources/02-multidoc.yaml",
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/02-multidoc.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -158,8 +249,8 @@ var _ = Describe("Add", func() {
 
 	It("should overwrite the version of a already existing resource", func() {
 		opts := &resources.Options{
-			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
-			ResourceObjectPath: "./resources/03-overwrite.yaml",
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
+			ResourceObjectPaths: []string{"./resources/03-overwrite.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -185,8 +276,8 @@ var _ = Describe("Add", func() {
 
 	It("should throw an error if an invalid resource is defined", func() {
 		opts := &resources.Options{
-			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			ResourceObjectPath: "./resources/10-res-invalid.yaml",
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/10-res-invalid.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())
@@ -203,7 +294,7 @@ var _ = Describe("Add", func() {
 			opts := &resources.Options{
 				BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 				// jsonschema example copied from https://json-schema.org/learn/miscellaneous-examples.html
-				ResourceObjectPath: "./resources/20-res-json.yaml",
+				ResourceObjectPaths: []string{"./resources/20-res-json.yaml"},
 			}
 
 			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -232,8 +323,8 @@ var _ = Describe("Add", func() {
 
 		It("should automatically tar a directory input and add it as resource", func() {
 			opts := &resources.Options{
-				BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-				ResourceObjectPath: "./resources/20-res-json.yaml",
+				BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+				ResourceObjectPaths: []string{"./resources/20-res-json.yaml"},
 			}
 
 			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -262,8 +353,8 @@ var _ = Describe("Add", func() {
 
 		It("should gzip a input blob and add it as resource if the gzip flag is provided", func() {
 			opts := &resources.Options{
-				BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-				ResourceObjectPath: "./resources/21-res-dir-zip.yaml",
+				BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+				ResourceObjectPaths: []string{"./resources/21-res-dir-zip.yaml"},
 			}
 
 			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())

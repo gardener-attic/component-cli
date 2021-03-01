@@ -27,7 +27,7 @@ version: 'v0.0.2'
 
 
 ```
-components-cli component-archive component-references add [component descriptor path] [flags]
+components-cli component-archive component-references add [component descriptor path] [component-reference path]... [flags]
 ```
 
 ### Options

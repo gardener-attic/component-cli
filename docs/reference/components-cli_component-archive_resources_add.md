@@ -49,7 +49,7 @@ input:
 
 
 ```
-components-cli component-archive resources add [component archive path] [-r resource-path] [flags]
+components-cli component-archive resources add [component archive path] [resource-path]... [flags]
 ```
 
 ### Options
@@ -60,7 +60,6 @@ components-cli component-archive resources add [component archive path] [-r reso
       --component-version string   version of the component
   -h, --help                       help for add
       --repo-ctx string            [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
-  -r, --resource string            The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands

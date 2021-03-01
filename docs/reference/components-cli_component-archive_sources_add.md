@@ -40,7 +40,7 @@ input:
 
 
 ```
-components-cli component-archive sources add [component descriptor path] [flags]
+components-cli component-archive sources add [component descriptor path] [source file]... [flags]
 ```
 
 ### Options
@@ -51,7 +51,6 @@ components-cli component-archive sources add [component descriptor path] [flags]
       --component-version string   version of the component
   -h, --help                       help for add
       --repo-ctx string            [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
-  -r, --resource string            The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands

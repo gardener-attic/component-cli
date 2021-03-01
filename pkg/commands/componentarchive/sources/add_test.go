@@ -45,8 +45,8 @@ var _ = Describe("Add", func() {
 	It("should add a source defined by a file", func() {
 
 		opts := &sources.Options{
-			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			SourceObjectPath: "./resources/00-src.yaml",
+			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPaths: []string{"./resources/00-src.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -65,7 +65,50 @@ var _ = Describe("Add", func() {
 		}))
 	})
 
-	It("should add a source defined by stdin", func() {
+	It("should add a source defined by the arguments", func() {
+		opts := &sources.Options{}
+		Expect(opts.Complete([]string{"./00-component", "./resources/00-src.yaml"})).To(Succeed())
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("git"),
+		}))
+	})
+
+	It("should add a source file defined by the deprecated -r flag", func() {
+		opts := &sources.Options{
+			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPath: "./resources/00-src.yaml",
+		}
+		Expect(opts.Complete([]string{})).To(Succeed())
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("git"),
+		}))
+	})
+
+	It("should add a source defined by stdin when the resource path is '-'", func() {
 		input, err := os.Open("./testdata/resources/00-src.yaml")
 		Expect(err).ToNot(HaveOccurred())
 		defer input.Close()
@@ -76,8 +119,38 @@ var _ = Describe("Add", func() {
 		os.Stdin = input
 
 		opts := &sources.Options{
-			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			SourceObjectPath: "-",
+			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPaths: []string{"-"},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Sources).To(HaveLen(1))
+		Expect(cd.Sources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("repo"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("git"),
+		}))
+	})
+
+	It("should add a source defined by stdin when no other inputs are defined.", func() {
+		input, err := os.Open("./testdata/resources/00-src.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		defer input.Close()
+		oldstdin := os.Stdin
+		defer func() {
+			os.Stdin = oldstdin
+		}()
+		os.Stdin = input
+
+		opts := &sources.Options{
+			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -99,8 +172,8 @@ var _ = Describe("Add", func() {
 	It("should add multiple sources defined by a multi doc file", func() {
 
 		opts := &sources.Options{
-			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			SourceObjectPath: "./resources/01-multi-doc.yaml",
+			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPaths: []string{"./resources/01-multi-doc.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
@@ -126,8 +199,8 @@ var _ = Describe("Add", func() {
 
 	It("should throw an error if an invalid source is defined", func() {
 		opts := &sources.Options{
-			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
-			SourceObjectPath: "./resources/10-invalid.yaml",
+			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			SourceObjectPaths: []string{"./resources/10-invalid.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())
@@ -142,8 +215,8 @@ var _ = Describe("Add", func() {
 	It("should overwrite the version of a already existing source", func() {
 
 		opts := &sources.Options{
-			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
-			SourceObjectPath: "./resources/02-overwrite.yaml",
+			BuilderOptions:    componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
+			SourceObjectPaths: []string{"./resources/02-overwrite.yaml"},
 		}
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
