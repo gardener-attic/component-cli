@@ -30,7 +30,7 @@ cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
 printf "> Add Linux Binary\n"
 ARTIFACT_PATH="$(pwd)/dist/componentcli-linux-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH" -r -
+cat <<EOF | $COMPONENT_CLI ca resources add "$COMPONENT_ARCHIVE_PATH" -
 name: cli-binary-linux
 type: executable
 extraIdentity:
@@ -44,7 +44,7 @@ EOF
 
 printf "> Add Darwin Binary\n"
 ARTIFACT_PATH="$(pwd)/dist/componentcli-darwin-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add --archive="$COMPONENT_ARCHIVE_PATH" -r -
+cat <<EOF | $COMPONENT_CLI ca resources add "$COMPONENT_ARCHIVE_PATH" -
 name: cli-binary-darwin
 type: executable
 extraIdentity:
@@ -59,9 +59,5 @@ EOF
 printf "> Modified Component Descriptor\n"
 cat "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
-printf "> create ca archive\n"
-COMPONENT_ARCHIVE_ARTIFACT_PATH="/tmp/ca.tar"
-$COMPONENT_CLI ca export "$COMPONENT_ARCHIVE_PATH" -f tar -o "$COMPONENT_ARCHIVE_ARTIFACT_PATH"
-
-printf "> create ctf\n"
-$COMPONENT_CLI ctf add "$CTF_PATH" -f "$COMPONENT_ARCHIVE_ARTIFACT_PATH"
+printf "> add ca to ctf\n"
+$COMPONENT_CLI ctf add "$CTF_PATH" -f "$COMPONENT_ARCHIVE_PATH"

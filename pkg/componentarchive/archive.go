@@ -5,6 +5,7 @@
 package componentarchive
 
 import (
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"os"
@@ -16,7 +17,9 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/pflag"
 
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
 	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type BuilderOptions struct {
@@ -111,4 +114,67 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 	}
 
 	return ctf.NewComponentArchive(cd, archiveFs), nil
+}
+
+// Parse parses a component archive from a given path.
+// It automatically detects the archive format.
+// Supported formats are fs, tar or tgz
+func Parse(fs vfs.FileSystem, path string) (*ctf.ComponentArchive, ctf.ArchiveFormat, error) {
+	info, err := fs.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, "", fmt.Errorf("component archive at %q does not exist", path)
+		}
+		return nil, "", fmt.Errorf("unable to read %q: %w", path, err)
+	}
+
+	// if the path points to a directory we expect that the ca is in a fs format
+	if info.IsDir() {
+		archiveFs, err := projectionfs.New(fs, path)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to create filesystem from %s: %s", path, err.Error())
+		}
+		ca, err := ctf.NewComponentArchiveFromFilesystem(archiveFs)
+		return ca, ctf.ArchiveFormatFilesystem, err
+	}
+
+	// the path points to a file
+	mimetype, err := utils.GetFileType(fs, path)
+	if err != nil {
+		return nil, "", fmt.Errorf("unable to get mimetype of %q: %s", path, err.Error())
+	}
+	file, err := fs.Open(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("unable to read component archive rom %q: %s", path, err.Error())
+	}
+
+	switch mimetype {
+	case "application/x-gzip", input.MediaTypeGZip, "application/tar+gzip":
+		zr, err := gzip.NewReader(file)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to open gzip reader: %w", err)
+		}
+		ca, err := ctf.NewComponentArchiveFromTarReader(zr)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to unzip componentarchive: %s", err.Error())
+		}
+		if err := zr.Close(); err != nil {
+			return nil, "", fmt.Errorf("unable to close gzip reader: %w", err)
+		}
+		if err := file.Close(); err != nil {
+			return nil, "", fmt.Errorf("unable to close file reader: %w", err)
+		}
+		return ca, ctf.ArchiveFormatTar, nil
+	case "application/octet-stream": // expect that is has to be a tar
+		ca, err := ctf.NewComponentArchiveFromTarReader(file)
+		if err != nil {
+			return nil, "", fmt.Errorf("unable to unzip componentarchive: %s", err.Error())
+		}
+		if err := file.Close(); err != nil {
+			return nil, "", fmt.Errorf("unable to close file reader: %w", err)
+		}
+		return ca, ctf.ArchiveFormatTarGzip, nil
+	default:
+		return nil, "", fmt.Errorf("unsupported file type %q. Expected a tar or a tar.gz", mimetype)
+	}
 }

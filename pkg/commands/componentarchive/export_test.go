@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive"
-	ca "github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -44,7 +43,7 @@ var _ = Describe("Export", func() {
 			opts := &componentarchive.ExportOptions{
 				ComponentArchivePath: "00-ca",
 				OutputPath:           "ca.tar",
-				OutputFormat:         ca.OutputFormatTar,
+				OutputFormat:         ctf.ArchiveFormatTar,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())
@@ -57,7 +56,7 @@ var _ = Describe("Export", func() {
 			opts := &componentarchive.ExportOptions{
 				ComponentArchivePath: "00-ca",
 				OutputPath:           "ca.tar.gz",
-				OutputFormat:         ca.OutputFormatTarGzip,
+				OutputFormat:         ctf.ArchiveFormatTarGzip,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())
@@ -74,7 +73,7 @@ var _ = Describe("Export", func() {
 			opts := &componentarchive.ExportOptions{
 				ComponentArchivePath: "00-ca",
 				OutputPath:           "ca.tar",
-				OutputFormat:         ca.OutputFormatTar,
+				OutputFormat:         ctf.ArchiveFormatTar,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())
@@ -82,7 +81,7 @@ var _ = Describe("Export", func() {
 			opts = &componentarchive.ExportOptions{
 				ComponentArchivePath: "ca.tar",
 				OutputPath:           "ca",
-				OutputFormat:         ca.OutputFormatFilesystem,
+				OutputFormat:         ctf.ArchiveFormatFilesystem,
 			}
 
 			Expect(opts.Run(context.TODO(), testdataFs)).To(Succeed())

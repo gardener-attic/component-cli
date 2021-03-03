@@ -19,7 +19,7 @@ components-cli component-archive export [component-archive-path] [-o output-dir/
 ### Options
 
 ```
-  -f, --format CAOutputFormat   output format of the component archive. Can be "fs"', "tar"' or "tgz"'
+      --format CAOutputFormat   output format of the component archive. Can be "fs", "tar" or "tgz"
   -h, --help                    help for export
   -o, --out string              writes the resulting archive to the given path
 ```
