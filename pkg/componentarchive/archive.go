@@ -97,6 +97,7 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 	cd.ComponentSpec.Name = o.Name
 	cd.ComponentSpec.Version = o.Version
 	cd.Provider = cdv2.InternalProvider
+	cd.RepositoryContexts = make([]cdv2.RepositoryContext, 0)
 	if len(o.BaseUrl) == 0 {
 		cd.RepositoryContexts = []cdv2.RepositoryContext{
 			{
