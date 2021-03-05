@@ -24,19 +24,23 @@ var _ = Describe("Template", func() {
 
 		It("should parse one argument after a '--'", func() {
 			opts := template.Options{}
-			Expect(opts.Complete([]string{"--", "MY_VAR=test"})).To(Succeed())
+			Expect(opts.Parse([]string{"MY_VAR=test"})).To(BeNil())
 			Expect(opts.Vars).To(HaveKeyWithValue("MY_VAR", "test"))
 		})
 
-		It("should parse no argument if no '--' separator is provided", func() {
+		It("should return non variable arguments", func() {
 			opts := template.Options{}
-			Expect(opts.Complete([]string{"MY_VAR=test"})).To(Succeed())
-			Expect(opts.Vars).To(HaveLen(0))
+
+			args := opts.Parse([]string{"--", "MY_VAR=test", "my-arg"})
+			Expect(args).To(Equal([]string{
+				"--", "my-arg",
+			}))
+			Expect(opts.Vars).To(HaveKeyWithValue("MY_VAR", "test"))
 		})
 
-		It("should parse multiple values after a '--'", func() {
+		It("should parse multiple values", func() {
 			opts := template.Options{}
-			Expect(opts.Complete([]string{"--", "MY_VAR=test", "myOtherVar=true"})).To(Succeed())
+			Expect(opts.Parse([]string{"MY_VAR=test", "myOtherVar=true"})).To(BeNil())
 			Expect(opts.Vars).To(HaveKeyWithValue("MY_VAR", "test"))
 			Expect(opts.Vars).To(HaveKeyWithValue("myOtherVar", "true"))
 		})

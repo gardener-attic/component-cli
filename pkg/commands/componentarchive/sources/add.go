@@ -7,6 +7,7 @@ package sources
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -172,18 +173,16 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 }
 
 func (o *Options) Complete(args []string) error {
-	if len(args) != 0 {
-		o.BuilderOptions.ComponentArchivePath = args[0]
+	args = o.TemplateOptions.Parse(args)
+
+	if len(args) == 0 {
+		return errors.New("at least a component archive path argument has to be defined")
 	}
+
+	o.BuilderOptions.ComponentArchivePath = args[0]
 	o.BuilderOptions.Default()
 
-	if err := o.TemplateOptions.Complete(args); err != nil {
-		return err
-	}
-
-	if len(args) > 1 {
-		o.SourceObjectPaths = append(o.SourceObjectPaths, args[1:]...)
-	}
+	o.SourceObjectPaths = append(o.SourceObjectPaths, args[1:]...)
 	if len(o.SourceObjectPath) != 0 {
 		o.SourceObjectPaths = append(o.SourceObjectPaths, o.SourceObjectPath)
 	}
@@ -204,10 +203,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 // generateSources parses component references from the given path and stdin.
 func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]InternalSourceOptions, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("unable to get current working directory: %w", err)
-	}
 	if len(o.SourceObjectPaths) == 0 {
 		// try to read from stdin if no resources are defined
 		sourceOptions := make([]InternalSourceOptions, 0)
@@ -221,7 +216,7 @@ func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]Interna
 			if err != nil {
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
-			sourceOptions = append(sourceOptions, convertToInternalSourceOptions(stdinResources, wd)...)
+			sourceOptions = append(sourceOptions, convertToInternalSourceOptions(stdinResources, "")...)
 		}
 		return sourceOptions, nil
 	}
@@ -238,7 +233,7 @@ func (o *Options) generateSources(log logr.Logger, fs vfs.FileSystem) ([]Interna
 				if err != nil {
 					return nil, fmt.Errorf("unable to read from stdin: %w", err)
 				}
-				sourceOptions = append(sourceOptions, convertToInternalSourceOptions(stdinResources, wd)...)
+				sourceOptions = append(sourceOptions, convertToInternalSourceOptions(stdinResources, "")...)
 			}
 			continue
 		}

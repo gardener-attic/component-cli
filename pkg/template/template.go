@@ -5,6 +5,8 @@
 package template
 
 import (
+	"strings"
+
 	"github.com/drone/envsubst"
 )
 
@@ -37,33 +39,21 @@ key:
 `
 }
 
-// Complete parses commandline argument variables.
-func (o *Options) Complete(args []string) error {
-	parseVars := false
+// Parse parses commandline argument variables.
+// it returns all non variable arguments
+func (o *Options) Parse(args []string) []string {
 	o.Vars = make(map[string]string)
+	var addArgs []string
 	for _, arg := range args {
-		// only start parsing after "--"
-		if arg == "--" {
-			parseVars = true
+		if i := strings.Index(arg, "="); i > 0 {
+			value := arg[i+1:]
+			name := arg[0:i]
+			o.Vars[name] = value
 			continue
 		}
-		if !parseVars {
-			continue
-		}
-
-		// parse value
-		name := ""
-		value := ""
-		for i := 1; i < len(arg); i++ { // equals cannot be first
-			if arg[i] == '=' {
-				value = arg[i+1:]
-				name = arg[0:i]
-				break
-			}
-		}
-		o.Vars[name] = value
+		addArgs = append(addArgs, arg)
 	}
-	return nil
+	return addArgs
 }
 
 // Template templates a string with the parsed vars.

@@ -7,6 +7,7 @@ package resources
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -64,6 +65,7 @@ func NewAddCommand(ctx context.Context) *cobra.Command {
 	opts := &Options{}
 	cmd := &cobra.Command{
 		Use:   "add [component archive path] [resource-path]...",
+		Args:  cobra.MinimumNArgs(1),
 		Short: "Adds a resource to an component archive",
 		Long: fmt.Sprintf(`
 add generates resources from a resource template and adds it to the given component descriptor in the component archive.
@@ -186,19 +188,15 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 }
 
 func (o *Options) Complete(args []string) error {
-	if len(args) != 0 {
-		o.BuilderOptions.ComponentArchivePath = args[0]
+	args = o.TemplateOptions.Parse(args)
+
+	if len(args) == 0 {
+		return errors.New("at least a component archive path argument has to be defined")
 	}
+	o.BuilderOptions.ComponentArchivePath = args[0]
 	o.BuilderOptions.Default()
 
-	if err := o.TemplateOptions.Complete(args); err != nil {
-		return err
-	}
-
-	// parse input files
-	if len(args) > 1 {
-		o.ResourceObjectPaths = append(o.ResourceObjectPaths, args[1:]...)
-	}
+	o.ResourceObjectPaths = append(o.ResourceObjectPaths, args[1:]...)
 	if len(o.ResourceObjectPath) != 0 {
 		o.ResourceObjectPaths = append(o.ResourceObjectPaths, o.ResourceObjectPath)
 	}
@@ -218,10 +216,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2.ComponentDescriptor) ([]InternalResourceOptions, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("unable to get current working directory: %w", err)
-	}
 	if len(o.ResourceObjectPaths) == 0 {
 		// try to read from stdin if no resources are defined
 		resources := make([]InternalResourceOptions, 0)
@@ -231,11 +225,11 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 			return nil, nil
 		}
 		if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-			stdinResources, err := o.generateResourcesFromReader(cd, os.Stdin)
+			stdinResources, err := o.generateResourcesFromReader(log, cd, os.Stdin)
 			if err != nil {
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
-			resources = append(resources, convertToInternalResourceOptions(stdinResources, wd)...)
+			resources = append(resources, convertToInternalResourceOptions(stdinResources, "")...)
 		}
 		return resources, nil
 	}
@@ -248,11 +242,11 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 				return nil, fmt.Errorf("unable to read from stdin: %w", err)
 			}
 			if (stdinInfo.Mode()&os.ModeNamedPipe != 0) || stdinInfo.Size() != 0 {
-				stdinResources, err := o.generateResourcesFromReader(cd, os.Stdin)
+				stdinResources, err := o.generateResourcesFromReader(log, cd, os.Stdin)
 				if err != nil {
 					return nil, fmt.Errorf("unable to read from stdin: %w", err)
 				}
-				resources = append(resources, convertToInternalResourceOptions(stdinResources, wd)...)
+				resources = append(resources, convertToInternalResourceOptions(stdinResources, "")...)
 			}
 			continue
 		}
@@ -261,7 +255,7 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 		if err != nil {
 			return nil, fmt.Errorf("unable to read resource object from %s: %w", resourcePath, err)
 		}
-		newResources, err := o.generateResourcesFromReader(cd, resourceObjectReader)
+		newResources, err := o.generateResourcesFromReader(log, cd, resourceObjectReader)
 		if err != nil {
 			if err2 := resourceObjectReader.Close(); err2 != nil {
 				log.Error(err, "unable to close file reader", "path", resourcePath)
@@ -278,7 +272,7 @@ func (o *Options) generateResources(log logr.Logger, fs vfs.FileSystem, cd *cdv2
 }
 
 // generateResourcesFromPath generates a resource given resource options and a resource template file.
-func (o *Options) generateResourcesFromReader(cd *cdv2.ComponentDescriptor, reader io.Reader) ([]ResourceOptions, error) {
+func (o *Options) generateResourcesFromReader(log logr.Logger, cd *cdv2.ComponentDescriptor, reader io.Reader) ([]ResourceOptions, error) {
 	var data bytes.Buffer
 	if _, err := io.Copy(&data, reader); err != nil {
 		return nil, err
@@ -288,6 +282,7 @@ func (o *Options) generateResourcesFromReader(cd *cdv2.ComponentDescriptor, read
 	if err != nil {
 		return nil, fmt.Errorf("unable to template resource: %w", err)
 	}
+	log.V(5).Info(tmplData)
 	return generateResourcesFromReader(cd, bytes.NewBuffer([]byte(tmplData)))
 }
 

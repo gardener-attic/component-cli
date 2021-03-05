@@ -1,3 +1,4 @@
+---
 name: 'ubuntu'
 version: '${MY_VERSION}'
 type: 'ociImage'
@@ -7,3 +8,4 @@ extraIdentity:
 access:
   type: 'ociRegistry'
   imageReference: 'ubuntu:${MY_VERSION}'
+---

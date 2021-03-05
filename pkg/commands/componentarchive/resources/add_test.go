@@ -100,10 +100,9 @@ var _ = Describe("Add", func() {
 
 	It("should add a resource defined by the deprecated -r option", func() {
 		opts := &resources.Options{
-			BuilderOptions:     componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			ResourceObjectPath: "./resources/00-res.yaml",
 		}
-		Expect(opts.Complete([]string{})).To(Succeed())
+		Expect(opts.Complete([]string{"./00-component"})).To(Succeed())
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 

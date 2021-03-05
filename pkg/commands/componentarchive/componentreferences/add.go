@@ -7,6 +7,7 @@ package componentreferences
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -133,13 +134,12 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 }
 
 func (o *Options) Complete(args []string) error {
-	if len(args) != 0 {
-		o.BuilderOptions.ComponentArchivePath = args[0]
+	args = o.TemplateOptions.Parse(args)
+	if len(args) == 0 {
+		return errors.New("at least a component archive path argument has to be defined")
 	}
+	o.BuilderOptions.ComponentArchivePath = args[0]
 	o.BuilderOptions.Default()
-	if err := o.TemplateOptions.Complete(args); err != nil {
-		return err
-	}
 
 	if len(args) > 1 {
 		o.ComponentReferenceObjectPaths = append(o.ComponentReferenceObjectPaths, args[1:]...)

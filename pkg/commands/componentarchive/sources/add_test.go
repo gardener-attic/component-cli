@@ -87,10 +87,9 @@ var _ = Describe("Add", func() {
 
 	It("should add a source file defined by the deprecated -r flag", func() {
 		opts := &sources.Options{
-			BuilderOptions:   componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 			SourceObjectPath: "./resources/00-src.yaml",
 		}
-		Expect(opts.Complete([]string{})).To(Succeed())
+		Expect(opts.Complete([]string{"./00-component"})).To(Succeed())
 
 		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
 
