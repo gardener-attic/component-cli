@@ -20,6 +20,7 @@ import (
 
 	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type AddOptions struct {
@@ -97,7 +98,12 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 		if err != nil {
 			return err
 		}
-		if err := ctfArchive.AddComponentArchive(ca, o.ArchiveFormat); err != nil {
+		if err := ctfArchive.AddComponentArchiveWithName(
+			utils.CTFComponentArchiveFilename(ca.ComponentDescriptor.GetName(),
+				ca.ComponentDescriptor.GetVersion()),
+				ca,
+				o.ArchiveFormat,
+			); err != nil {
 			return fmt.Errorf("unable to add component archive %q to ctf: %s", ca.ComponentDescriptor.GetName(), err.Error())
 		}
 		log.Info(fmt.Sprintf("Successfully added component archive from %q", caPath))
