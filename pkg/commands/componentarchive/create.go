@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"github.com/gardener/component-cli/pkg/componentarchive"
+	"github.com/gardener/component-cli/pkg/logger"
 )
 
 // CreateOptions defines all options for the create command.
@@ -24,7 +26,7 @@ type CreateOptions struct {
 
 // NewCreateCommand creates a new component descriptor
 func NewCreateCommand(ctx context.Context) *cobra.Command {
-	opts := &ExportOptions{}
+	opts := &CreateOptions{}
 	cmd := &cobra.Command{
 		Use:   "create [component-archive-path]",
 		Args:  cobra.ExactArgs(1),
@@ -37,11 +39,11 @@ Create command creates a new component archive directory with a "component-descr
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
-			if err := opts.Run(ctx, osfs.New()); err != nil {
+			if err := opts.Run(ctx, logger.Log, osfs.New()); err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
-			fmt.Printf("Successfully created component archive at %s\n", opts.OutputPath)
+			fmt.Printf("Successfully created component archive at %s\n", args[0])
 		},
 	}
 	opts.AddFlags(cmd.Flags())
@@ -49,7 +51,10 @@ Create command creates a new component archive directory with a "component-descr
 }
 
 // Run runs the export for a component archive.
-func (o *CreateOptions) Run(ctx context.Context, fs vfs.FileSystem) error {
+func (o *CreateOptions) Run(_ context.Context, log logr.Logger, fs vfs.FileSystem) error {
+	if o.Overwrite {
+		log.V(3).Info("overwrite enabled")
+	}
 	_, err := o.BuilderOptions.Build(fs)
 	return err
 }
@@ -70,4 +75,5 @@ func (o *CreateOptions) validate() error {
 
 func (o *CreateOptions) AddFlags(fs *pflag.FlagSet) {
 	o.BuilderOptions.AddFlags(fs)
+	fs.BoolVarP(&o.BuilderOptions.Overwrite, "overwrite", "w", false, "overwrites the existing component")
 }

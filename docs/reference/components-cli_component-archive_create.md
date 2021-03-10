@@ -15,9 +15,12 @@ components-cli component-archive create [component-archive-path] [flags]
 ### Options
 
 ```
-      --format CAOutputFormat   output format of the component archive. Can be "fs", "tar" or "tgz"
-  -h, --help                    help for create
-  -o, --out string              writes the resulting archive to the given path
+  -a, --archive string             path to the component archive directory
+      --component-name string      name of the component
+      --component-version string   version of the component
+  -h, --help                       help for create
+  -w, --overwrite                  overwrites the existing component
+      --repo-ctx string            [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
 ```
 
 ### Options inherited from parent commands

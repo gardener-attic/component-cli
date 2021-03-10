@@ -34,8 +34,8 @@ var _ = Describe("Add", func() {
 		ctx := context.Background()
 		defer ctx.Done()
 		opts := cmd.AddOptions{
-			CTFPath: "/component.ctf",
-			ArchiveFormat: ctf.ArchiveFormatTar,
+			CTFPath:           "/component.ctf",
+			ArchiveFormat:     ctf.ArchiveFormatTar,
 			ComponentArchives: []string{"./00-ca"},
 		}
 

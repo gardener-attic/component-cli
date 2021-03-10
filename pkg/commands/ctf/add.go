@@ -101,9 +101,9 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 		if err := ctfArchive.AddComponentArchiveWithName(
 			utils.CTFComponentArchiveFilename(ca.ComponentDescriptor.GetName(),
 				ca.ComponentDescriptor.GetVersion()),
-				ca,
-				o.ArchiveFormat,
-			); err != nil {
+			ca,
+			o.ArchiveFormat,
+		); err != nil {
 			return fmt.Errorf("unable to add component archive %q to ctf: %s", ca.ComponentDescriptor.GetName(), err.Error())
 		}
 		log.Info(fmt.Sprintf("Successfully added component archive from %q", caPath))

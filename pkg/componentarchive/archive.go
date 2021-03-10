@@ -16,6 +16,7 @@ import (
 	"github.com/mandelsoft/vfs/pkg/projectionfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/pflag"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/input"
 	"github.com/gardener/component-cli/pkg/commands/constants"
@@ -28,6 +29,8 @@ type BuilderOptions struct {
 	Name    string
 	Version string
 	BaseUrl string
+
+	Overwrite bool
 }
 
 func (o *BuilderOptions) AddFlags(fs *pflag.FlagSet) {
@@ -67,22 +70,23 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 	}
 
 	compDescFilePath := filepath.Join(o.ComponentArchivePath, ctf.ComponentDescriptorFileName)
-	_, err := fs.Stat(compDescFilePath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-
-	if err == nil {
-		// add the input to the ctf format
-		archiveFs, err := projectionfs.New(fs, o.ComponentArchivePath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create projectionfilesystem: %w", err)
+	if !o.Overwrite {
+		_, err := fs.Stat(compDescFilePath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
 		}
-		archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse component archive from %s: %w", o.ComponentArchivePath, err)
+		if err == nil {
+			// add the input to the ctf format
+			archiveFs, err := projectionfs.New(fs, o.ComponentArchivePath)
+			if err != nil {
+				return nil, fmt.Errorf("unable to create projectionfilesystem: %w", err)
+			}
+			archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse component archive from %s: %w", o.ComponentArchivePath, err)
+			}
+			return archive, nil
 		}
-		return archive, nil
 	}
 
 	// build minimal archive
@@ -110,7 +114,18 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 		}
 	}
 	if err := cdv2.DefaultComponent(cd); err != nil {
+		utils.PrintPrettyYaml(cd, true)
 		return nil, fmt.Errorf("unable to default component descriptor: %w", err)
+	}
+
+	data, err := yaml.Marshal(cd)
+	if err != nil {
+		utils.PrintPrettyYaml(cd, true)
+		return nil, fmt.Errorf("unable to marshal component descriptor: %w", err)
+	}
+	if err := vfs.WriteFile(fs, compDescFilePath, data, os.ModePerm); err != nil {
+		utils.PrintPrettyYaml(cd, true)
+		return nil, fmt.Errorf("unable to write component descriptor to %s: %w", compDescFilePath, err)
 	}
 
 	return ctf.NewComponentArchive(cd, archiveFs), nil
