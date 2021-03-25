@@ -73,8 +73,8 @@ github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5Kwzbycv
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.4.9 h1:hsms1Qyu0jgnwNXIxa+/V/PDsU6CfLf6CNO8H7IWoS4=
 github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4IgpuI1SZQ=
-github.com/gardener/component-spec/bindings-go v0.0.33 h1:QBUseDfO2AwlpUkEzldPBA8Or8LXZoNoop9P1RLH+Ms=
-github.com/gardener/component-spec/bindings-go v0.0.33/go.mod h1:53EIwICsuMgbY/MFCv5/lbOR5e1MQe1HY674Io+nGYE=
+github.com/gardener/component-spec/bindings-go v0.0.36 h1:1QOnP2Xe12/CUVXMPXDbsqulekdnCt+M7M4NhhnRVu4=
+github.com/gardener/component-spec/bindings-go v0.0.36/go.mod h1:53EIwICsuMgbY/MFCv5/lbOR5e1MQe1HY674Io+nGYE=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0 h1:wQHKEahhL6wmXdzwWG11gIVCkOv05bNOh+Rxn0yngAk=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
