@@ -95,6 +95,7 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/mandelsoft/filepath/pkg/filepath
 # github.com/mandelsoft/vfs v0.0.0-20201002134249-3c471f64a4d1
 ## explicit
+github.com/mandelsoft/vfs/pkg/composefs
 github.com/mandelsoft/vfs/pkg/layerfs
 github.com/mandelsoft/vfs/pkg/memoryfs
 github.com/mandelsoft/vfs/pkg/osfs

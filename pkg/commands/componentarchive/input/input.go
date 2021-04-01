@@ -14,6 +14,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/mandelsoft/vfs/pkg/composefs"
+	"github.com/mandelsoft/vfs/pkg/memoryfs"
+
 	"github.com/mandelsoft/vfs/pkg/projectionfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/opencontainers/go-digest"
@@ -74,7 +77,7 @@ func (input *BlobInput) SetMediaTypeIfNotDefined(mediaType string) {
 }
 
 // Read reads the configured blob and returns a reader to the given file.
-func (input *BlobInput) Read(fs vfs.FileSystem, inputFilePath string) (*BlobOutput, error) {
+func (input *BlobInput) Read(fs vfs.FileSystem, inputFilePath string, includeRootDir bool) (*BlobOutput, error) {
 	inputPath := input.Path
 	if !filepath.IsAbs(input.Path) {
 		var wd string
@@ -104,6 +107,24 @@ func (input *BlobInput) Read(fs vfs.FileSystem, inputFilePath string) (*BlobOutp
 		if err != nil {
 			return nil, fmt.Errorf("unable to create internal fs for %q: %w", inputPath, err)
 		}
+
+		if includeRootDir {
+			dir := string(filepath.Separator) + filepath.Base(inputPath)
+			fs := memoryfs.New()
+			err = fs.Mkdir(dir, os.FileMode(0777))
+			if err != nil {
+				return nil, err
+			}
+
+			composedFs := composefs.New(fs)
+			err = composedFs.Mount(dir, blobFs)
+			if err != nil {
+				return nil, err
+			}
+
+			blobFs = composedFs
+		}
+
 		var (
 			data bytes.Buffer
 		)
