@@ -23,4 +23,6 @@
 
 * [components-cli](components-cli.md)	 - components cli
 * [components-cli oci pull](components-cli_oci_pull.md)	 - Pulls a oci artifact from a registry
+* [components-cli oci repositories](components-cli_oci_repositories.md)	 - Lists all repositories of the registry
+* [components-cli oci tags](components-cli_oci_tags.md)	 - Lists all tags of artifact reference
 
