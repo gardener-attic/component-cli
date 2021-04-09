@@ -3,7 +3,7 @@
 Adds component archives to a ctf
 
 ```
-components-cli ctf add [ctf-path] [-f component-archive]... [flags]
+components-cli ctf add CTF_PATH [-f component-archive]... [flags]
 ```
 
 ### Options

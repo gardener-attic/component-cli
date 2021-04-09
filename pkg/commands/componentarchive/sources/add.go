@@ -63,7 +63,7 @@ type InternalSourceOptions struct {
 func NewAddCommand(ctx context.Context) *cobra.Command {
 	opts := &Options{}
 	cmd := &cobra.Command{
-		Use:   "add [component descriptor path] [source file]...",
+		Use:   "add COMPONENT_ARCHIVE_PATH [source file]...",
 		Args:  cobra.MinimumNArgs(1),
 		Short: "Adds a source to a component descriptor",
 		Long: fmt.Sprintf(`

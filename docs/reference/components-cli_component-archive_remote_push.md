@@ -17,7 +17,7 @@ push [baseurl] [componentname] [Version] [path to component descriptor]
 
 
 ```
-components-cli component-archive remote push [path to component descriptor] [flags]
+components-cli component-archive remote push COMPONENT_DESCRIPTOR_PATH [flags]
 ```
 
 ### Options

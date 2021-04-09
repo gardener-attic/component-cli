@@ -61,7 +61,7 @@ key:
 
 
 ```
-components-cli component-archive sources add [component descriptor path] [source file]... [flags]
+components-cli component-archive sources add COMPONENT_ARCHIVE_PATH [source file]... [flags]
 ```
 
 ### Options

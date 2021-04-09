@@ -9,7 +9,7 @@ get fetches the component descriptor from a baseurl with the given name and Vers
 
 
 ```
-components-cli component-archive remote get [baseurl] [componentname] [Version] [flags]
+components-cli component-archive remote get BASE_URL COMPONENT_NAME VERSION [flags]
 ```
 
 ### Options

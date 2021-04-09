@@ -15,7 +15,7 @@ If no output directory is specified, the artifact manifest is written to stdout.
 
 
 ```
-components-cli oci pull [artifact reference] [config | blob digest] [flags]
+components-cli oci pull ARTIFACT_REFERENCE [config | blob digest] [flags]
 ```
 
 ### Options

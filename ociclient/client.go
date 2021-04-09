@@ -267,7 +267,7 @@ func (c *client) ListTags(ctx context.Context, ref string) ([]string, error) {
 	}
 
 	var tags []string
-	err = doWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
+	err = doRequestWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
 		resp, err := c.doRequest(ctx, hostConfig, u, "")
 		if err != nil {
 			return nil, err
@@ -322,7 +322,7 @@ func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, er
 	}
 
 	repositories := make([]string, 0)
-	err = doWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
+	err = doRequestWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
 		resp, err := c.doRequest(ctx, hostConfig, u, "registry:catalog:*")
 		if err != nil {
 			return nil, err
@@ -422,7 +422,8 @@ func (c *client) doRequest(ctx context.Context, registry docker.RegistryHost, ur
 
 type pagingFunc func(ctx context.Context, url *url.URL) (*http.Response, error)
 
-func doWithPaging(ctx context.Context, u *url.URL, pFunc pagingFunc) error {
+// doRequestWithPaging implements the oci spec paging for repositories and tags.
+func doRequestWithPaging(ctx context.Context, u *url.URL, pFunc pagingFunc) error {
 	nextUrl := u
 	for {
 		resp, err := pFunc(ctx, nextUrl)

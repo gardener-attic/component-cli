@@ -10,7 +10,7 @@ tags lists all tags for a specific artifact reference that is known by the regis
 
 
 ```
-components-cli oci tags [artifact reference] [flags]
+components-cli oci tags ARTIFACT_REFERENCE [flags]
 ```
 
 ### Options

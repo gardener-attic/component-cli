@@ -10,7 +10,7 @@ repositories lists all known repositories of the registry.
 
 
 ```
-components-cli oci repositories [registry host] [flags]
+components-cli oci repositories REPOSITORY_PREFIX [flags]
 ```
 
 ### Options
