@@ -34,3 +34,10 @@ Install the cli tool locally by running `make install` or `go install ./cmd/...`
 The cli is installed into `$GOBIN/component-cli` and can be used accordingly.
 
 In addition, an OCI Image is provided `docker run eu.gcr.io/gardener-project/component/cli --help`
+
+### Development
+
+#### Adding a new command
+
+Commands of the cli are hierarchically defined in [pkg/commands](./pkg/commands).
+When a new command should be added make sure to commply to the google docs guidline for cli command (https://developers.google.com/style/code-syntax#required-items).
