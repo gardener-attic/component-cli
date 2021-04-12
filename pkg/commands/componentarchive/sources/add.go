@@ -288,7 +288,7 @@ func generateSourcesFromReader(reader io.Reader) ([]SourceOptions, error) {
 }
 
 func (o *Options) addInputBlob(fs vfs.FileSystem, archive *ctf.ComponentArchive, src InternalSourceOptions) error {
-	blob, err := src.Input.Read(fs, src.Path, false)
+	blob, err := src.Input.Read(fs, src.Path)
 	if err != nil {
 		return err
 	}

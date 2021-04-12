@@ -58,6 +58,9 @@ type BlobInput struct {
 	Path string `json:"path"`
 	// CompressWithGzip defines that the blob should be automatically compressed using gzip.
 	CompressWithGzip *bool `json:"compress,omitempty"`
+	// PreserveDir defines that the directory specified in the Path field should be included in the blob.
+	// Only supported for Type dir.
+	PreserveDir bool `json:"preserveDir,omitempty"`
 }
 
 // Compress returns if the blob should be compressed using gzip.
@@ -77,7 +80,7 @@ func (input *BlobInput) SetMediaTypeIfNotDefined(mediaType string) {
 }
 
 // Read reads the configured blob and returns a reader to the given file.
-func (input *BlobInput) Read(fs vfs.FileSystem, inputFilePath string, includeRootDir bool) (*BlobOutput, error) {
+func (input *BlobInput) Read(fs vfs.FileSystem, inputFilePath string) (*BlobOutput, error) {
 	inputPath := input.Path
 	if !filepath.IsAbs(input.Path) {
 		var wd string
@@ -108,7 +111,7 @@ func (input *BlobInput) Read(fs vfs.FileSystem, inputFilePath string, includeRoo
 			return nil, fmt.Errorf("unable to create internal fs for %q: %w", inputPath, err)
 		}
 
-		if includeRootDir {
+		if input.PreserveDir {
 			dir := string(filepath.Separator) + filepath.Base(inputPath)
 			fs := memoryfs.New()
 			err = fs.Mkdir(dir, os.FileMode(0777))

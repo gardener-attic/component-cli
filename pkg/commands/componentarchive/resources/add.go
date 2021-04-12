@@ -314,8 +314,7 @@ func generateResourcesFromReader(cd *cdv2.ComponentDescriptor, reader io.Reader)
 }
 
 func (o *Options) addInputBlob(fs vfs.FileSystem, archive *ctf.ComponentArchive, resource *InternalResourceOptions) error {
-	includeRootDir := resource.Type == "helm"
-	blob, err := resource.Input.Read(fs, resource.Path, includeRootDir)
+	blob, err := resource.Input.Read(fs, resource.Path)
 	if err != nil {
 		return err
 	}
