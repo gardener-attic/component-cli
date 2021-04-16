@@ -41,7 +41,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 // Builds a new oci client based on the given options
-func (o *Options) Build(log logr.Logger, fs vfs.FileSystem) (ociclient.Client, cache.Cache, error) {
+func (o *Options) Build(log logr.Logger, fs vfs.FileSystem) (ociclient.ExtendedClient, cache.Cache, error) {
 	cache, err := cache.NewCache(log, cache.WithBasePath(o.CacheDir))
 	if err != nil {
 		return nil, nil, err

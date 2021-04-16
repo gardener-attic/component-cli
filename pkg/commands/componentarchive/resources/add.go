@@ -64,7 +64,7 @@ type InternalResourceOptions struct {
 func NewAddCommand(ctx context.Context) *cobra.Command {
 	opts := &Options{}
 	cmd := &cobra.Command{
-		Use:   "add [component archive path] [resource-path]...",
+		Use:   "add COMPONENT_ARCHIVE_PATH [RESOURCE_PATH...]",
 		Args:  cobra.MinimumNArgs(1),
 		Short: "Adds a resource to an component archive",
 		Long: fmt.Sprintf(`

@@ -7,7 +7,6 @@ package componentarchive_test
 import (
 	"context"
 	"path/filepath"
-	"testing"
 
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
@@ -21,11 +20,6 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/componentarchive"
 	"github.com/gardener/component-cli/pkg/utils"
 )
-
-func TestConfig(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ComponentArchive Test Suite")
-}
 
 var _ = Describe("Export", func() {
 

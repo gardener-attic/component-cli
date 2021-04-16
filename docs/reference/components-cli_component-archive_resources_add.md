@@ -72,7 +72,7 @@ key:
 
 
 ```
-components-cli component-archive resources add [component archive path] [resource-path]... [flags]
+components-cli component-archive resources add COMPONENT_ARCHIVE_PATH [RESOURCE_PATH...] [flags]
 ```
 
 ### Options

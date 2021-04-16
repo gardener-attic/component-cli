@@ -1,19 +1,16 @@
-## components-cli ctf push
+## components-cli oci tags
 
-Pushes all archives of a ctf to a remote repository
+Lists all tags of artifact reference
 
 ### Synopsis
 
 
-Push pushes all component archives and oci artifacts to the defined oci repository.
+tags lists all tags for a specific artifact reference that is known by the registry.
 
-The oci repository is automatically determined based on the component/artifact descriptor (repositoryContext, component name and version).
-
-Note: Currently only component archives are supoprted. Generic OCI Artifacts will be supported in the future.
 
 
 ```
-components-cli ctf push CTF_PATH [flags]
+components-cli oci tags ARTIFACT_REFERENCE [flags]
 ```
 
 ### Options
@@ -21,10 +18,8 @@ components-cli ctf push CTF_PATH [flags]
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
       --cc-config string         path to the local concourse config file
-  -h, --help                     help for push
+  -h, --help                     help for tags
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
-      --repo-ctx string          repository context url for component to upload. The repository url will be automatically added to the repository contexts.
-  -t, --tag stringArray          set additional tags on the oci artifact
 ```
 
 ### Options inherited from parent commands
@@ -40,5 +35,5 @@ components-cli ctf push CTF_PATH [flags]
 
 ### SEE ALSO
 
-* [components-cli ctf](components-cli_ctf.md)	 - 
+* [components-cli oci](components-cli_oci.md)	 - 
 

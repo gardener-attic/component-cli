@@ -9,7 +9,7 @@ Create command creates a new component archive directory with a "component-descr
 
 
 ```
-components-cli component-archive create [component-archive-path] [flags]
+components-cli component-archive create COMPONENT_ARCHIVE_PATH [flags]
 ```
 
 ### Options
