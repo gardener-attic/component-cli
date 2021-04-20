@@ -34,6 +34,7 @@ input:
   path: /my/path
   compress: true # defaults to false
   exclude: "*.txt"
+  preserveDir: true # optional, defaulted to false; if true, the top level folder "my/path" is included
 ...
 
 </pre>
