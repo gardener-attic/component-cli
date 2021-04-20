@@ -348,7 +348,9 @@ func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, er
 			prefix := refspec.Repository
 			for _, repo := range repositoryList.Repositories {
 				if strings.HasPrefix(repo, prefix) || strings.HasPrefix(repo, name) {
-					repositories = append(repositories, repo)
+					r := refspec.DeepCopy()
+					r.Repository = repo
+					repositories = append(repositories, r.Name())
 				}
 			}
 			return resp, nil

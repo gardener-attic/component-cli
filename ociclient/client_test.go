@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("client", func() {
 
-	Context("List", func() {
+	Context("ListTags", func() {
 
 		var (
 			server  *httptest.Server
@@ -66,6 +66,56 @@ var _ = Describe("client", func() {
 			tags, err := client.ListTags(ctx, makeRef(repository))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(tags).To(ConsistOf("0.0.1", "0.0.2"))
+		})
+
+	})
+
+	Context("ListRepositories", func() {
+
+		var (
+			server  *httptest.Server
+			host    string
+			handler func(http.ResponseWriter, *http.Request)
+			makeRef = func(repo string) string {
+				return fmt.Sprintf("%s/%s", host, repo)
+			}
+		)
+
+		BeforeEach(func() {
+			server = httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				handler(writer, request)
+			}))
+
+			hostUrl, err := url.Parse(server.URL)
+			Expect(err).ToNot(HaveOccurred())
+			host = hostUrl.Host
+		})
+
+		AfterEach(func() {
+			server.Close()
+		})
+
+		It("should return a list of repositories", func() {
+			var (
+				ctx        = context.Background()
+				repository = "myproject/repo"
+			)
+			defer ctx.Done()
+			handler = func(w http.ResponseWriter, req *http.Request) {
+				Expect(req.URL.String()).To(Equal("/v2/_catalog?n=1000"))
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte(`
+{
+  "repositories": [ "myproject/repo/image1", "myproject/repo/image2" ]
+}
+`))
+			}
+
+			client, err := ociclient.NewClient(testlog.NullLogger{}, ociclient.AllowPlainHttp(true))
+			Expect(err).ToNot(HaveOccurred())
+			repos, err := client.ListRepositories(ctx, makeRef(repository))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(repos).To(ConsistOf(makeRef("myproject/repo/image1"), makeRef("myproject/repo/image2")))
 		})
 
 	})
