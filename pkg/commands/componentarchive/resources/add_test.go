@@ -5,6 +5,7 @@
 package resources_test
 
 import (
+	"archive/tar"
 	"context"
 	"os"
 	"path/filepath"
@@ -417,6 +418,34 @@ var _ = Describe("Add", func() {
 		}))
 		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("type", "ociRegistry"))
 		Expect(cd.Resources[0].Access.Object).To(HaveKeyWithValue("imageReference", "ubuntu:v0.0.2"))
+	})
+
+	It("should preserve the directory", func() {
+		opts := &resources.Options{
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/23-res-dir.yaml"},
+		}
+
+		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+
+		blobs, err := vfs.ReadDir(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(blobs).To(HaveLen(1))
+
+		blobPath := filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName, blobs[0].Name())
+		blobFile, err := testdataFs.Open(blobPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		tarReader := tar.NewReader(blobFile)
+		header, err := tarReader.Next()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(header).ToNot(BeNil())
+		Expect(header.Name).To(Equal("22-dir-json"))
+
+		header, err = tarReader.Next()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(header).ToNot(BeNil())
+		Expect(header.Name).To(Equal("22-dir-json/21-jsonschema.json"))
 	})
 
 })
