@@ -32,7 +32,7 @@ test:
 
 .PHONY: generate
 generate:
-	@$(REPO_ROOT)/hack/generate.sh $(REPO_ROOT)/pkg... $(REPO_ROOT)/cmd...
+	@$(REPO_ROOT)/hack/generate.sh $(REPO_ROOT)/pkg... $(REPO_ROOT)/cmd... $(REPO_ROOT)/ociclient...
 
 .PHONY: verify
 verify: check

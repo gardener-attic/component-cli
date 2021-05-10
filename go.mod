@@ -15,8 +15,8 @@ require (
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0
 	github.com/golang/mock v1.4.4
+	github.com/google/go-containerregistry v0.5.0
 	github.com/google/uuid v1.1.1
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/mandelsoft/vfs v0.0.0-20201002134249-3c471f64a4d1
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
@@ -24,7 +24,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.1
 	github.com/prometheus/client_golang v0.9.3
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.16.0

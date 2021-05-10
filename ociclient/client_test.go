@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/component-cli/ociclient/credentials"
+
 	"github.com/gardener/component-cli/ociclient"
 )
 
@@ -52,6 +54,11 @@ var _ = Describe("client", func() {
 			)
 			defer ctx.Done()
 			handler = func(w http.ResponseWriter, req *http.Request) {
+				if req.URL.Path == "/v2/" {
+					// first auth discovery call by the library
+					w.WriteHeader(200)
+					return
+				}
 				Expect(req.URL.String()).To(Equal("/v2/myproject/repo/myimage/tags/list?n=1000"))
 				w.WriteHeader(200)
 				_, _ = w.Write([]byte(`
@@ -61,7 +68,9 @@ var _ = Describe("client", func() {
 `))
 			}
 
-			client, err := ociclient.NewClient(testlog.NullLogger{}, ociclient.AllowPlainHttp(true))
+			client, err := ociclient.NewClient(testlog.NullLogger{},
+				ociclient.AllowPlainHttp(true),
+				ociclient.WithKeyring(credentials.New()))
 			Expect(err).ToNot(HaveOccurred())
 			tags, err := client.ListTags(ctx, makeRef(repository))
 			Expect(err).ToNot(HaveOccurred())
@@ -102,6 +111,11 @@ var _ = Describe("client", func() {
 			)
 			defer ctx.Done()
 			handler = func(w http.ResponseWriter, req *http.Request) {
+				if req.URL.Path == "/v2/" {
+					// first auth discovery call by the library
+					w.WriteHeader(200)
+					return
+				}
 				Expect(req.URL.String()).To(Equal("/v2/_catalog?n=1000"))
 				w.WriteHeader(200)
 				_, _ = w.Write([]byte(`
@@ -111,7 +125,9 @@ var _ = Describe("client", func() {
 `))
 			}
 
-			client, err := ociclient.NewClient(testlog.NullLogger{}, ociclient.AllowPlainHttp(true))
+			client, err := ociclient.NewClient(testlog.NullLogger{},
+				ociclient.AllowPlainHttp(true),
+				ociclient.WithKeyring(credentials.New()))
 			Expect(err).ToNot(HaveOccurred())
 			repos, err := client.ListRepositories(ctx, makeRef(repository))
 			Expect(err).ToNot(HaveOccurred())
