@@ -248,6 +248,15 @@ func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispec
 	return nil
 }
 
+func (c *client) getHttpClient() *http.Client {
+	return &http.Client{
+		Transport:     c.httpClient.Transport,
+		CheckRedirect: c.httpClient.CheckRedirect,
+		Jar:           c.httpClient.Jar,
+		Timeout:       c.httpClient.Timeout,
+	}
+}
+
 // getTransportForRef returns the authenticated transport for a reference.
 func (c *client) getTransportForRef(ctx context.Context, ref string, scopes ...string) (http.RoundTripper, error) {
 	repo, err := name.ParseReference(ref)
@@ -276,9 +285,10 @@ func (c *client) getResolverForRef(ctx context.Context, ref string, scopes ...st
 	if err != nil {
 		return nil, fmt.Errorf("unable to create transport: %w", err)
 	}
-	c.httpClient.Transport = trp
+	httpClient := c.getHttpClient()
+	httpClient.Transport = trp
 	return docker.NewResolver(docker.ResolverOptions{
-		Client: c.httpClient,
+		Client: httpClient,
 	}), nil
 }
 
@@ -302,7 +312,8 @@ func (c *client) ListTags(ctx context.Context, ref string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create transport: %w", err)
 	}
-	c.httpClient.Transport = trp
+	httpClient := c.getHttpClient()
+	httpClient.Transport = trp
 
 	u := &url.URL{
 		Scheme: hostConfig.Scheme,
@@ -315,7 +326,7 @@ func (c *client) ListTags(ctx context.Context, ref string) ([]string, error) {
 
 	var tags []string
 	err = doRequestWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
-		resp, err := c.doRequest(ctx, c.httpClient, u)
+		resp, err := c.doRequest(ctx, httpClient, u)
 		if err != nil {
 			return nil, err
 		}
@@ -357,7 +368,8 @@ func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, er
 	if err != nil {
 		return nil, fmt.Errorf("unable to create transport: %w", err)
 	}
-	c.httpClient.Transport = trp
+	httpClient := c.getHttpClient()
+	httpClient.Transport = trp
 
 	hosts, err := c.getHostConfig(repo.Context().RegistryStr())
 	if err != nil {
@@ -384,7 +396,7 @@ func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, er
 	}
 	repositories := make([]string, 0)
 	err = doRequestWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
-		resp, err := c.doRequest(ctx, c.httpClient, u)
+		resp, err := c.doRequest(ctx, httpClient, u)
 		if err != nil {
 			return nil, err
 		}
