@@ -13,3 +13,8 @@ curl -sfL "https://install.goreleaser.com/github.com/golangci/golangci-lint.sh" 
 
 GO111MODULE=off go get golang.org/x/tools/cmd/goimports
 
+echo "> Install Registry test binaries"
+
+mkdir -p ${PROJECT_ROOT}/tmp/test/bin
+curl -L "https://github.com/gardener/component-cli/raw/registry/bin/registry-$(go env GOOS)-$(go env GOARCH)" --output ${PROJECT_ROOT}/tmp/test/bin/registry
+chmod +x ${PROJECT_ROOT}/tmp/test/bin/registry

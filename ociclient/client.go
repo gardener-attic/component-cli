@@ -497,6 +497,9 @@ func doRequestWithPaging(ctx context.Context, u *url.URL, pFunc pagingFunc) erro
 }
 
 func createDescriptorFromManifest(cache cache.Cache, manifest *ocispecv1.Manifest) (ocispecv1.Descriptor, error) {
+	if manifest.SchemaVersion == 0 {
+		manifest.SchemaVersion = 2
+	}
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		return ocispecv1.Descriptor{}, err
