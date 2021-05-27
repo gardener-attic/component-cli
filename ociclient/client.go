@@ -118,7 +118,7 @@ func (c *client) InjectCache(cache cache.Cache) error {
 }
 
 func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
-	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
 	if err != nil {
 		return nil, err
 	}
