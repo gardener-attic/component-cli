@@ -220,7 +220,7 @@ func (ss *SecretServer) read() (io.ReadCloser, error) {
 		}
 		block, err := aes.NewCipher(ss.key)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create ciphr for %q; %w", ss.cipherAlgorithm, err)
+			return nil, fmt.Errorf("unable to create cipher for %q; %w", ss.cipherAlgorithm, err)
 		}
 		dst := make([]byte, srcBuf.Len())
 		if err := ECBDecrypt(block, dst, srcBuf.Bytes()); err != nil {
