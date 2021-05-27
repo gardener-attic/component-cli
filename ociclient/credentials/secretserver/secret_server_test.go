@@ -39,6 +39,7 @@ var _ = Describe("secret server", func() {
 		}))
 		defer svr.Close()
 		Expect(os.Setenv(secretserver.EndpointEnvVarName, svr.URL)).To(Succeed())
+		Expect(os.Unsetenv(secretserver.SecretKeyEnvVarName))
 
 		ss, err := secretserver.NewSecretServer()
 		Expect(err).ToNot(HaveOccurred())
