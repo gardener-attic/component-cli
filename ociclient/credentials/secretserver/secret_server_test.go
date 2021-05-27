@@ -50,9 +50,12 @@ var _ = Describe("secret server", func() {
 
 	It("should read from encrypted server", func() {
 		svr := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			defer GinkgoRecover()
 			writer.WriteHeader(200)
 			data, _ := base64.StdEncoding.DecodeString("gqxpvIjAFda7NS3XAVqn/SIVujnGsG0dPjG5s0S5+TyszCVEQ8QF9di+7ZpVpHnCnRXUuZ6HSKV2B1tRi+Lf6MQxr7U5QGix6FB3/8YdYr8=")
-			_, _ = writer.Write(data)
+			n, err := writer.Write(data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(80))
 		}))
 		defer svr.Close()
 		Expect(os.Setenv(secretserver.EndpointEnvVarName, svr.URL)).To(Succeed())
