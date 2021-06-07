@@ -1,17 +1,11 @@
-## components-cli ctf add
+## component-cli component-archive remote
 
-Adds component archives to a ctf
-
-```
-components-cli ctf add CTF_PATH [-f component-archive]... [flags]
-```
+command to interact with component descriptors stored in an oci registry
 
 ### Options
 
 ```
-  -f, --component-archive stringArray   path to the component archives to be added. Note that the component archives have to be tar archives.
-      --format CAOutputFormat           archive format of the component archive. Can be "tar" or "tgz" (default tar)
-  -h, --help                            help for add
+  -h, --help   help for remote
 ```
 
 ### Options inherited from parent commands
@@ -27,5 +21,7 @@ components-cli ctf add CTF_PATH [-f component-archive]... [flags]
 
 ### SEE ALSO
 
-* [components-cli ctf](components-cli_ctf.md)	 - 
+* [component-cli component-archive](component-cli_component-archive.md)	 - 
+* [component-cli component-archive remote get](component-cli_component-archive_remote_get.md)	 - fetch the component descriptor from a oci registry
+* [component-cli component-archive remote push](component-cli_component-archive_remote_push.md)	 - pushes a component archive to an oci repository
 

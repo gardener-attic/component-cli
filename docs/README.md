@@ -1,7 +1,7 @@
 # Documentation
 
 This document gives an overview and simple examples about the usage of the component-cli.
-For a comprehensive documentation see the [generated docs](./reference/components-cli.md).
+For a comprehensive documentation see the [generated docs](./reference/component-cli.md).
 
 __Index__:
 - [Resource](#add-a-resource)
@@ -83,13 +83,13 @@ input:
   type: "file"
   path: "./blob.raw" # path is realtive to the current resource file
   mediaType: "application/x-elf" # optional, will be defaulted to application/octet-stream
-EOF 
+EOF
 
 $ cat <<EOF > ./blob.raw
 {
   "key": "value"
 }
-EOF 
+EOF
 
 $ component-cli ca resources add ./resource.yaml
 ```
@@ -136,7 +136,7 @@ labels:
   mylabel: efg
   mysecondlabel:
     key: true
-EOF 
+EOF
 $ component-cli ca component-reference add ./comp-ref.yaml
 ```
 
@@ -168,7 +168,7 @@ With the command `component-cli ca resource add <myfile> -- VARIABLE=v0.0.2` it 
 
 The `remote` subcommand contains utility functions to interact with component referneces stored in a remote component respoitory (oci repository).
 
-:warning: Currently the component-cli uses the default docker config for authentication. 
+:warning: Currently the component-cli uses the default docker config for authentication.
 Use `docker login` to authenticate against a oci repository.
 
 ### Push

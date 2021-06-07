@@ -1,16 +1,15 @@
-## components-cli oci repositories
+## component-cli component-archive remote get
 
-Lists all repositories of the registry
+fetch the component descriptor from a oci registry
 
 ### Synopsis
 
 
-repositories lists all known repositories of the registry.
-
+get fetches the component descriptor from a baseurl with the given name and Version.
 
 
 ```
-components-cli oci repositories REPOSITORY_PREFIX [flags]
+component-cli component-archive remote get BASE_URL COMPONENT_NAME VERSION [flags]
 ```
 
 ### Options
@@ -18,7 +17,7 @@ components-cli oci repositories REPOSITORY_PREFIX [flags]
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
       --cc-config string         path to the local concourse config file
-  -h, --help                     help for repositories
+  -h, --help                     help for get
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
 ```
 
@@ -35,5 +34,5 @@ components-cli oci repositories REPOSITORY_PREFIX [flags]
 
 ### SEE ALSO
 
-* [components-cli oci](components-cli_oci.md)	 - 
+* [component-cli component-archive remote](component-cli_component-archive_remote.md)	 - command to interact with component descriptors stored in an oci registry
 

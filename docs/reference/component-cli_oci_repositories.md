@@ -1,15 +1,25 @@
-## components-cli version
+## component-cli oci repositories
 
-displays the version
+Lists all repositories of the registry
+
+### Synopsis
+
+
+repositories lists all known repositories of the registry.
+
+
 
 ```
-components-cli version [flags]
+component-cli oci repositories REPOSITORY_PREFIX [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for version
+      --allow-plain-http         allows the fallback to http if the oci registry does not support https
+      --cc-config string         path to the local concourse config file
+  -h, --help                     help for repositories
+      --registry-config string   path to the dockerconfig.json with the oci registry authentication information
 ```
 
 ### Options inherited from parent commands
@@ -25,5 +35,5 @@ components-cli version [flags]
 
 ### SEE ALSO
 
-* [components-cli](components-cli.md)	 - components cli
+* [component-cli oci](component-cli_oci.md)	 - 
 

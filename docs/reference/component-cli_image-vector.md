@@ -1,11 +1,11 @@
-## components-cli oci
+## component-cli image-vector
 
-
+command to add resource from a image vector and retrieve from a component descriptor
 
 ### Options
 
 ```
-  -h, --help   help for oci
+  -h, --help   help for image-vector
 ```
 
 ### Options inherited from parent commands
@@ -21,9 +21,7 @@
 
 ### SEE ALSO
 
-* [components-cli](components-cli.md)	 - components cli
-* [components-cli oci copy](components-cli_oci_copy.md)	 - Copies a oci artifact from a registry to another
-* [components-cli oci pull](components-cli_oci_pull.md)	 - Pulls a oci artifact from a registry
-* [components-cli oci repositories](components-cli_oci_repositories.md)	 - Lists all repositories of the registry
-* [components-cli oci tags](components-cli_oci_tags.md)	 - Lists all tags of artifact reference
+* [component-cli](component-cli.md)	 - component cli
+* [component-cli image-vector add](component-cli_image-vector_add.md)	 - Adds all resources of a image vector to the component descriptor
+* [component-cli image-vector generate-overwrite](component-cli_image-vector_generate-overwrite.md)	 - Get parses a component descriptor and returns the defined image vector
 

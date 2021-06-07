@@ -1,16 +1,16 @@
-## components-cli oci copy
+## component-cli oci tags
 
-Copies a oci artifact from a registry to another
+Lists all tags of artifact reference
 
 ### Synopsis
 
 
-Copy copies a artifact from a source to a target registry.
-The artifact is copied without modification.
+tags lists all tags for a specific artifact reference that is known by the registry.
+
 
 
 ```
-components-cli oci copy SOURCE_ARTIFACT_REFERENCE TARGET_ARTIFACT_REFERENCE [flags]
+component-cli oci tags ARTIFACT_REFERENCE [flags]
 ```
 
 ### Options
@@ -18,7 +18,7 @@ components-cli oci copy SOURCE_ARTIFACT_REFERENCE TARGET_ARTIFACT_REFERENCE [fla
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
       --cc-config string         path to the local concourse config file
-  -h, --help                     help for copy
+  -h, --help                     help for tags
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
 ```
 
@@ -35,5 +35,5 @@ components-cli oci copy SOURCE_ARTIFACT_REFERENCE TARGET_ARTIFACT_REFERENCE [fla
 
 ### SEE ALSO
 
-* [components-cli oci](components-cli_oci.md)	 - 
+* [component-cli oci](component-cli_oci.md)	 - 
 

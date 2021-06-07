@@ -1,26 +1,40 @@
-## components-cli component-archive component-references add
+## component-cli component-archive sources add
 
-Adds a component reference to a component descriptor
+Adds a source to a component descriptor
 
 ### Synopsis
 
 
-add adds component references to the defined component descriptor.
-The component references can be defined in a file or given through stdin.
+add adds sources to the defined component descriptor.
+The sources can be defined in a file or given through stdin.
 
-The component references are expected to be a multidoc yaml of the following form
+The source definitions are expected to be a multidoc yaml of the following form
 
 <pre>
 
 ---
-name: 'ubuntu'
-componentName: 'github.com/gardener/ubuntu'
-version: 'v0.0.1'
+name: 'myrepo'
+type: 'git'
+access:
+  type: "git"
+  repository: github.com/gardener/component-cli
 ...
 ---
-name: 'myref'
-componentName: 'github.com/gardener/other'
-version: 'v0.0.2'
+name: 'myconfig'
+type: 'json'
+input:
+  type: "file"
+  path: "some/path"
+...
+---
+name: 'myothersrc'
+type: 'git'
+input:
+  type: "dir"
+  path: /my/path
+  compress: true # defaults to false
+  exclude: "*.txt"
+  preserveDir: true # optional, defaulted to false; if true, the top level folder "my/path" is included
 ...
 
 </pre>
@@ -48,7 +62,7 @@ key:
 
 
 ```
-components-cli component-archive component-references add COMPONENT_ARCHIVE_PATH [COMPONENT_REFERENCE_PATH...] [flags]
+component-cli component-archive sources add COMPONENT_ARCHIVE_PATH [source file]... [flags]
 ```
 
 ### Options
@@ -59,7 +73,6 @@ components-cli component-archive component-references add COMPONENT_ARCHIVE_PATH
       --component-version string   version of the component
   -h, --help                       help for add
       --repo-ctx string            [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
-  -r, --resource string            The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands
@@ -75,5 +88,5 @@ components-cli component-archive component-references add COMPONENT_ARCHIVE_PATH
 
 ### SEE ALSO
 
-* [components-cli component-archive component-references](components-cli_component-archive_component-references.md)	 - command to modify component references of a component descriptor
+* [component-cli component-archive sources](component-cli_component-archive_sources.md)	 - command to modify sources of a component descriptor
 

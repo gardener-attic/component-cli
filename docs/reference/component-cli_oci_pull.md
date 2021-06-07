@@ -1,16 +1,21 @@
-## components-cli oci tags
+## component-cli oci pull
 
-Lists all tags of artifact reference
+Pulls a oci artifact from a registry
 
 ### Synopsis
 
 
-tags lists all tags for a specific artifact reference that is known by the registry.
+Pull downloads the specified oci artifact from a registry.
+If no output directory is specified, the blob is written to stdout.
+
+If a blob digest is given, the artifact will download the specific blob.
+If no blob is given the whole artifact is downloaded and written to a directory.
+If no output directory is specified, the artifact manifest is written to stdout.
 
 
 
 ```
-components-cli oci tags ARTIFACT_REFERENCE [flags]
+component-cli oci pull ARTIFACT_REFERENCE [config | blob digest] [flags]
 ```
 
 ### Options
@@ -18,7 +23,8 @@ components-cli oci tags ARTIFACT_REFERENCE [flags]
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
       --cc-config string         path to the local concourse config file
-  -h, --help                     help for tags
+  -h, --help                     help for pull
+  -O, --output-dir string        specifies the output where the artifact should be written.
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
 ```
 
@@ -35,5 +41,5 @@ components-cli oci tags ARTIFACT_REFERENCE [flags]
 
 ### SEE ALSO
 
-* [components-cli oci](components-cli_oci.md)	 - 
+* [component-cli oci](component-cli_oci.md)	 - 
 
