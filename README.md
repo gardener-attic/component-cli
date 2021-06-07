@@ -2,7 +2,7 @@
 
 This repository contains a cli tool to upload component descriptors as defined by the [CTF](https://gardener.github.io/component-spec/).
 
-See the cli help (`component-cli --help`) or the [generated documentation](./docs/reference/components-cli.md) for detailed documentation details.
+See the cli help (`component-cli --help`) or the [generated documentation](./docs/reference/component-cli.md) for detailed documentation details.
 
 #### Usage
 
@@ -10,7 +10,7 @@ See the cli help (`component-cli --help`) or the [generated documentation](./doc
    ```
    curl -L https://github.com/gardener/component-cli/releases/download/$(curl -s https://api.github.com/repos/gardener/component-cli/releases/latest | jq -r '.tag_name')/componentcli-linux-amd64.gz | gzip -d > ./component-cli
    ```
-   > This example downloads the linux amd64 binary. Make sure to replace the system information with yours. 
+   > This example downloads the linux amd64 binary. Make sure to replace the system information with yours.
 
    To download a specific version, replace `$(curl -s https://api.github.com/repos/gardener/component-cli/releases/latest | jq -r '.tag_name')` with the specific version.
    ```

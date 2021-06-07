@@ -1,11 +1,11 @@
-## components-cli ctf
+## component-cli oci
 
 
 
 ### Options
 
 ```
-  -h, --help   help for ctf
+  -h, --help   help for oci
 ```
 
 ### Options inherited from parent commands
@@ -21,7 +21,9 @@
 
 ### SEE ALSO
 
-* [components-cli](components-cli.md)	 - components cli
-* [components-cli ctf add](components-cli_ctf_add.md)	 - Adds component archives to a ctf
-* [components-cli ctf push](components-cli_ctf_push.md)	 - Pushes all archives of a ctf to a remote repository
+* [component-cli](component-cli.md)	 - component cli
+* [component-cli oci copy](component-cli_oci_copy.md)	 - Copies a oci artifact from a registry to another
+* [component-cli oci pull](component-cli_oci_pull.md)	 - Pulls a oci artifact from a registry
+* [component-cli oci repositories](component-cli_oci_repositories.md)	 - Lists all repositories of the registry
+* [component-cli oci tags](component-cli_oci_tags.md)	 - Lists all tags of artifact reference
 

@@ -1,11 +1,11 @@
-## components-cli component-archive remote
+## component-cli component-archive resources
 
-command to interact with component descriptors stored in an oci registry
+command to modify resources of a component descriptor
 
 ### Options
 
 ```
-  -h, --help   help for remote
+  -h, --help   help for resources
 ```
 
 ### Options inherited from parent commands
@@ -21,7 +21,6 @@ command to interact with component descriptors stored in an oci registry
 
 ### SEE ALSO
 
-* [components-cli component-archive](components-cli_component-archive.md)	 - 
-* [components-cli component-archive remote get](components-cli_component-archive_remote_get.md)	 - fetch the component descriptor from a oci registry
-* [components-cli component-archive remote push](components-cli_component-archive_remote_push.md)	 - pushes a component archive to an oci repository
+* [component-cli component-archive](component-cli_component-archive.md)	 - 
+* [component-cli component-archive resources add](component-cli_component-archive_resources_add.md)	 - Adds a resource to an component archive
 

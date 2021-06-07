@@ -1,8 +1,14 @@
-## components-cli
+## component-cli ctf
 
-components cli
+
 
 ### Options
+
+```
+  -h, --help   help for ctf
+```
+
+### Options inherited from parent commands
 
 ```
       --cli                  logger runs as cli logger. enables cli logging
@@ -10,15 +16,12 @@ components cli
       --disable-caller       disable the caller of logs (default true)
       --disable-stacktrace   disable the stacktrace of error logs (default true)
       --disable-timestamp    disable timestamp output (default true)
-  -h, --help                 help for components-cli
   -v, --verbosity int        number for the log level verbosity (default 1)
 ```
 
 ### SEE ALSO
 
-* [components-cli component-archive](components-cli_component-archive.md)	 - 
-* [components-cli ctf](components-cli_ctf.md)	 - 
-* [components-cli image-vector](components-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
-* [components-cli oci](components-cli_oci.md)	 - 
-* [components-cli version](components-cli_version.md)	 - displays the version
+* [component-cli](component-cli.md)	 - component cli
+* [component-cli ctf add](component-cli_ctf_add.md)	 - Adds component archives to a ctf
+* [component-cli ctf push](component-cli_ctf_push.md)	 - Pushes all archives of a ctf to a remote repository
 

@@ -23,8 +23,8 @@ import (
 
 func NewComponentsCliCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "components-cli",
-		Short: "components cli",
+		Use:   "component-cli",
+		Short: "component cli",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			log, err := logger.NewCliLogger()
 			if err != nil {

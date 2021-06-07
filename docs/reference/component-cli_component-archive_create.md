@@ -1,4 +1,4 @@
-## components-cli component-archive create
+## component-cli component-archive create
 
 Creates a component archive with a component descriptor
 
@@ -9,7 +9,7 @@ Create command creates a new component archive directory with a "component-descr
 
 
 ```
-components-cli component-archive create COMPONENT_ARCHIVE_PATH [flags]
+component-cli component-archive create COMPONENT_ARCHIVE_PATH [flags]
 ```
 
 ### Options
@@ -36,5 +36,5 @@ components-cli component-archive create COMPONENT_ARCHIVE_PATH [flags]
 
 ### SEE ALSO
 
-* [components-cli component-archive](components-cli_component-archive.md)	 - 
+* [component-cli component-archive](component-cli_component-archive.md)	 - 
 

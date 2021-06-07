@@ -1,4 +1,4 @@
-## components-cli component-archive remote push
+## component-cli component-archive remote push
 
 pushes a component archive to an oci repository
 
@@ -17,7 +17,7 @@ push [baseurl] [componentname] [Version] [path to component descriptor]
 
 
 ```
-components-cli component-archive remote push COMPONENT_DESCRIPTOR_PATH [flags]
+component-cli component-archive remote push COMPONENT_DESCRIPTOR_PATH [flags]
 ```
 
 ### Options
@@ -44,5 +44,5 @@ components-cli component-archive remote push COMPONENT_DESCRIPTOR_PATH [flags]
 
 ### SEE ALSO
 
-* [components-cli component-archive remote](components-cli_component-archive_remote.md)	 - command to interact with component descriptors stored in an oci registry
+* [component-cli component-archive remote](component-cli_component-archive_remote.md)	 - command to interact with component descriptors stored in an oci registry
 

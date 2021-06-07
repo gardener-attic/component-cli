@@ -1,21 +1,19 @@
-## components-cli oci pull
+## component-cli ctf push
 
-Pulls a oci artifact from a registry
+Pushes all archives of a ctf to a remote repository
 
 ### Synopsis
 
 
-Pull downloads the specified oci artifact from a registry.
-If no output directory is specified, the blob is written to stdout.
+Push pushes all component archives and oci artifacts to the defined oci repository.
 
-If a blob digest is given, the artifact will download the specific blob.
-If no blob is given the whole artifact is downloaded and written to a directory.
-If no output directory is specified, the artifact manifest is written to stdout.
+The oci repository is automatically determined based on the component/artifact descriptor (repositoryContext, component name and version).
 
+Note: Currently only component archives are supoprted. Generic OCI Artifacts will be supported in the future.
 
 
 ```
-components-cli oci pull ARTIFACT_REFERENCE [config | blob digest] [flags]
+component-cli ctf push CTF_PATH [flags]
 ```
 
 ### Options
@@ -23,9 +21,10 @@ components-cli oci pull ARTIFACT_REFERENCE [config | blob digest] [flags]
 ```
       --allow-plain-http         allows the fallback to http if the oci registry does not support https
       --cc-config string         path to the local concourse config file
-  -h, --help                     help for pull
-  -O, --output-dir string        specifies the output where the artifact should be written.
+  -h, --help                     help for push
       --registry-config string   path to the dockerconfig.json with the oci registry authentication information
+      --repo-ctx string          repository context url for component to upload. The repository url will be automatically added to the repository contexts.
+  -t, --tag stringArray          set additional tags on the oci artifact
 ```
 
 ### Options inherited from parent commands
@@ -41,5 +40,5 @@ components-cli oci pull ARTIFACT_REFERENCE [config | blob digest] [flags]
 
 ### SEE ALSO
 
-* [components-cli oci](components-cli_oci.md)	 - 
+* [component-cli ctf](component-cli_ctf.md)	 - 
 

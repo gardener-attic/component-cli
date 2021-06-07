@@ -1,4 +1,4 @@
-## components-cli component-archive resources add
+## component-cli component-archive resources add
 
 Adds a resource to an component archive
 
@@ -73,7 +73,7 @@ key:
 
 
 ```
-components-cli component-archive resources add COMPONENT_ARCHIVE_PATH [RESOURCE_PATH...] [flags]
+component-cli component-archive resources add COMPONENT_ARCHIVE_PATH [RESOURCE_PATH...] [flags]
 ```
 
 ### Options
@@ -99,5 +99,5 @@ components-cli component-archive resources add COMPONENT_ARCHIVE_PATH [RESOURCE_
 
 ### SEE ALSO
 
-* [components-cli component-archive resources](components-cli_component-archive_resources.md)	 - command to modify resources of a component descriptor
+* [component-cli component-archive resources](component-cli_component-archive_resources.md)	 - command to modify resources of a component descriptor
 

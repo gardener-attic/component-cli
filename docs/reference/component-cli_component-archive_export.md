@@ -1,4 +1,4 @@
-## components-cli component-archive export
+## component-cli component-archive export
 
 Exports a component archive as defined by CTF
 
@@ -13,7 +13,7 @@ If the given path points to a file, the archive is read as tar or compressed tar
 
 
 ```
-components-cli component-archive export COMPONENT_ARCHIVE_PATH [-o output-dir/file] [-f {fs|tar|tgz}] [flags]
+component-cli component-archive export COMPONENT_ARCHIVE_PATH [-o output-dir/file] [-f {fs|tar|tgz}] [flags]
 ```
 
 ### Options
@@ -37,5 +37,5 @@ components-cli component-archive export COMPONENT_ARCHIVE_PATH [-o output-dir/fi
 
 ### SEE ALSO
 
-* [components-cli component-archive](components-cli_component-archive.md)	 - 
+* [component-cli component-archive](component-cli_component-archive.md)	 - 
 

@@ -1,4 +1,4 @@
-## components-cli component-archive component-references
+## component-cli component-archive component-references
 
 command to modify component references of a component descriptor
 
@@ -21,6 +21,6 @@ command to modify component references of a component descriptor
 
 ### SEE ALSO
 
-* [components-cli component-archive](components-cli_component-archive.md)	 - 
-* [components-cli component-archive component-references add](components-cli_component-archive_component-references_add.md)	 - Adds a component reference to a component descriptor
+* [component-cli component-archive](component-cli_component-archive.md)	 - 
+* [component-cli component-archive component-references add](component-cli_component-archive_component-references_add.md)	 - Adds a component reference to a component descriptor
 

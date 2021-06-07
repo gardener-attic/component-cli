@@ -1,4 +1,4 @@
-## components-cli image-vector generate-overwrite
+## component-cli image-vector generate-overwrite
 
 Get parses a component descriptor and returns the defined image vector
 
@@ -94,7 +94,7 @@ component:
 
 
 ```
-components-cli image-vector generate-overwrite [flags]
+component-cli image-vector generate-overwrite [flags]
 ```
 
 ### Options
@@ -126,5 +126,5 @@ components-cli image-vector generate-overwrite [flags]
 
 ### SEE ALSO
 
-* [components-cli image-vector](components-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
+* [component-cli image-vector](component-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
 

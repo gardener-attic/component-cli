@@ -1,9 +1,9 @@
-## components-cli component-archive
+## component-cli component-archive
 
 
 
 ```
-components-cli component-archive [component-archive-path] [ctf-path] [flags]
+component-cli component-archive [component-archive-path] [ctf-path] [flags]
 ```
 
 ### Options
@@ -34,11 +34,11 @@ components-cli component-archive [component-archive-path] [ctf-path] [flags]
 
 ### SEE ALSO
 
-* [components-cli](components-cli.md)	 - components cli
-* [components-cli component-archive component-references](components-cli_component-archive_component-references.md)	 - command to modify component references of a component descriptor
-* [components-cli component-archive create](components-cli_component-archive_create.md)	 - Creates a component archive with a component descriptor
-* [components-cli component-archive export](components-cli_component-archive_export.md)	 - Exports a component archive as defined by CTF
-* [components-cli component-archive remote](components-cli_component-archive_remote.md)	 - command to interact with component descriptors stored in an oci registry
-* [components-cli component-archive resources](components-cli_component-archive_resources.md)	 - command to modify resources of a component descriptor
-* [components-cli component-archive sources](components-cli_component-archive_sources.md)	 - command to modify sources of a component descriptor
+* [component-cli](component-cli.md)	 - component cli
+* [component-cli component-archive component-references](component-cli_component-archive_component-references.md)	 - command to modify component references of a component descriptor
+* [component-cli component-archive create](component-cli_component-archive_create.md)	 - Creates a component archive with a component descriptor
+* [component-cli component-archive export](component-cli_component-archive_export.md)	 - Exports a component archive as defined by CTF
+* [component-cli component-archive remote](component-cli_component-archive_remote.md)	 - command to interact with component descriptors stored in an oci registry
+* [component-cli component-archive resources](component-cli_component-archive_resources.md)	 - command to modify resources of a component descriptor
+* [component-cli component-archive sources](component-cli_component-archive_sources.md)	 - command to modify sources of a component descriptor
 

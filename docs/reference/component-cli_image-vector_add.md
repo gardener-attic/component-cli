@@ -1,4 +1,4 @@
-## components-cli image-vector add
+## component-cli image-vector add
 
 Adds all resources of a image vector to the component descriptor
 
@@ -151,7 +151,7 @@ resources:
 
 
 ```
-components-cli image-vector add --comp-desc component-descriptor-file --image-vector images.yaml [--component-prefixes "github.com/gardener/myproj"]... [--generic-dependency image-source-name]... [--generic-dependencies "image-name1,image-name2"] [flags]
+component-cli image-vector add --comp-desc component-descriptor-file --image-vector images.yaml [--component-prefixes "github.com/gardener/myproj"]... [--generic-dependency image-source-name]... [--generic-dependencies "image-name1,image-name2"] [flags]
 ```
 
 ### Options
@@ -179,5 +179,5 @@ components-cli image-vector add --comp-desc component-descriptor-file --image-ve
 
 ### SEE ALSO
 
-* [components-cli image-vector](components-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
+* [component-cli image-vector](component-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
 

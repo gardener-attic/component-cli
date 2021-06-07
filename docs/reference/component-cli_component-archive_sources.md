@@ -1,11 +1,11 @@
-## components-cli image-vector
+## component-cli component-archive sources
 
-command to add resource from a image vector and retrieve from a component descriptor
+command to modify sources of a component descriptor
 
 ### Options
 
 ```
-  -h, --help   help for image-vector
+  -h, --help   help for sources
 ```
 
 ### Options inherited from parent commands
@@ -21,7 +21,6 @@ command to add resource from a image vector and retrieve from a component descri
 
 ### SEE ALSO
 
-* [components-cli](components-cli.md)	 - components cli
-* [components-cli image-vector add](components-cli_image-vector_add.md)	 - Adds all resources of a image vector to the component descriptor
-* [components-cli image-vector generate-overwrite](components-cli_image-vector_generate-overwrite.md)	 - Get parses a component descriptor and returns the defined image vector
+* [component-cli component-archive](component-cli_component-archive.md)	 - 
+* [component-cli component-archive sources add](component-cli_component-archive_sources_add.md)	 - Adds a source to a component descriptor
 
