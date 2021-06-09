@@ -10,7 +10,7 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/ctf"
-	testlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -46,7 +46,7 @@ var _ = Describe("Add", func() {
 		}
 		opts.ComponentArchivePath = "./00-ca"
 
-		Expect(opts.Run(ctx, testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		ctfArchive, err := ctf.NewCTF(testdataFs, opts.CTFPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -64,7 +64,7 @@ var _ = Describe("Add", func() {
 		}
 		opts.ComponentArchivePath = "./testdata/00-ca"
 
-		Expect(opts.Run(ctx, testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		ctfArchive, err := ctf.NewCTF(testdataFs, opts.CTFPath)
 		Expect(err).ToNot(HaveOccurred())

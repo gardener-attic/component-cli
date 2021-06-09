@@ -14,7 +14,6 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
-	testlog "github.com/go-logr/logr/testing"
 	"github.com/golang/mock/gomock"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
@@ -79,7 +78,9 @@ var _ = Describe("Components", func() {
 				BaseURL: "eu.gcr.io/my-context/dev",
 			}
 
-			cd, err := components.New(testlog.NullLogger{}, testdatafs, mockOCIClient).Resolve(context.TODO(), repoCtx, "github.com/gardener/component-cli", "v0.1.0")
+			cd, err := cdoci.NewResolver(mockOCIClient).
+				WithCache(components.NewLocalComponentCache(testdatafs)).
+				Resolve(context.TODO(), repoCtx, "github.com/gardener/component-cli", "v0.1.0")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cd.Name).To(Equal("github.com/gardener/component-cli"))
 			Expect(cd.Version).To(Equal("v0.1.0"))
@@ -141,7 +142,9 @@ var _ = Describe("Components", func() {
 					return nil
 				})
 
-			cd, err := components.New(testlog.NullLogger{}, testdatafs, mockOCIClient).Resolve(context.TODO(), repoCtx, "github.com/gardener/component-cli", "v0.2.0")
+			cd, err := cdoci.NewResolver(mockOCIClient).
+				WithCache(components.NewLocalComponentCache(testdatafs)).
+				Resolve(context.TODO(), repoCtx, "github.com/gardener/component-cli", "v0.2.0")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cd.Name).To(Equal("github.com/gardener/component-cli"))
 			Expect(cd.Version).To(Equal("v0.2.0"))

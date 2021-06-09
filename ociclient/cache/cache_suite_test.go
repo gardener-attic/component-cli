@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	testlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
@@ -34,7 +34,7 @@ var _ = Describe("Cache", func() {
 
 	Context("Cache", func() {
 		It("should read data from the in memory cache", func() {
-			c, err := NewCache(testlog.NullLogger{}, WithInMemoryOverlay(true))
+			c, err := NewCache(logr.Discard(), WithInMemoryOverlay(true))
 			Expect(err).ToNot(HaveOccurred())
 			defer c.Close()
 
@@ -65,7 +65,7 @@ var _ = Describe("Cache", func() {
 				metrics.CacheDiskUsage.Reset()
 				metrics.CacheMemoryUsage.Reset()
 
-				c, err := NewCache(testlog.NullLogger{}, WithBasePath(dir), WithInMemoryOverlay(true), WithUID(uid))
+				c, err := NewCache(logr.Discard(), WithBasePath(dir), WithInMemoryOverlay(true), WithUID(uid))
 				Expect(err).ToNot(HaveOccurred())
 				defer c.Close()
 
@@ -142,7 +142,7 @@ var _ = Describe("Cache", func() {
 
 	Context("GC", func() {
 		It("should garbage collect when the cache reaches its max size", func() {
-			c, err := NewCache(testlog.NullLogger{}, WithBaseSize("1Ki"))
+			c, err := NewCache(logr.Discard(), WithBaseSize("1Ki"))
 			Expect(err).ToNot(HaveOccurred())
 			defer c.Close()
 
@@ -155,7 +155,7 @@ var _ = Describe("Cache", func() {
 		})
 
 		It("should garbage collect the in memory cache but not the base cache if the size exceeds", func() {
-			c, err := NewCache(testlog.NullLogger{}, WithInMemoryOverlay(true), WithInMemoryOverlaySize("1Ki"))
+			c, err := NewCache(logr.Discard(), WithInMemoryOverlay(true), WithInMemoryOverlaySize("1Ki"))
 			Expect(err).ToNot(HaveOccurred())
 			defer c.Close()
 
@@ -180,7 +180,7 @@ var _ = Describe("Cache", func() {
 		})
 
 		It("should delete files until the low threshold has been reached", func() {
-			c, err := NewCache(testlog.NullLogger{}, WithBaseSize("1Ki"))
+			c, err := NewCache(logr.Discard(), WithBaseSize("1Ki"))
 			Expect(err).ToNot(HaveOccurred())
 			defer c.Close()
 

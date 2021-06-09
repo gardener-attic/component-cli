@@ -64,7 +64,7 @@ const (
 	ExternalRelation ResourceRelation = "external"
 )
 
-// Spec defines a versioned virtual component with a source and dependencies.
+// ComponentDescriptor defines a versioned component with a source and dependencies.
 // +k8s:deepcopy-gen=true
 // +k8s:openapi-gen=true
 type ComponentDescriptor struct {
@@ -93,7 +93,6 @@ type ComponentSpec struct {
 	Resources []Resource `json:"resources"`
 }
 
-// +k8s:deepcopy-gen=true
 // RepositoryContext describes a repository context.
 // +k8s:deepcopy-gen=true
 // +k8s:openapi-gen=true
@@ -104,8 +103,8 @@ type RepositoryContext struct {
 	BaseURL string `json:"baseUrl"`
 }
 
-// +k8s:deepcopy-gen=true
 // ObjectMeta defines a object that is uniquely identified by its name and version.
+// +k8s:deepcopy-gen=true
 type ObjectMeta struct {
 	// Name is the context unique name of the object.
 	Name string `json:"name"`
@@ -228,7 +227,7 @@ func (o *IdentityObjectMeta) SetExtraIdentity(identity Identity) {
 	o.ExtraIdentity = identity
 }
 
-// GetLabels returns the identity of the object.
+// GetIdentity returns the identity of the object.
 func (o *IdentityObjectMeta) GetIdentity() Identity {
 	identity := map[string]string{}
 	for k, v := range o.ExtraIdentity {
@@ -243,8 +242,8 @@ func (o *IdentityObjectMeta) GetIdentityDigest() []byte {
 	return o.GetIdentity().Digest()
 }
 
-// +k8s:deepcopy-gen=true
 // ObjectType describes the type of a object
+// +k8s:deepcopy-gen=true
 type ObjectType struct {
 	// Type describes the type of the object.
 	Type string `json:"type"`
@@ -333,7 +332,7 @@ func NewEmptyUnstructured(ttype string) *UnstructuredAccessType {
 	return NewUnstructuredType(ttype, nil)
 }
 
-// NewCustomType creates a new custom typed object.
+// NewUnstructuredType creates a new unstructured typed object.
 func NewUnstructuredType(ttype string, data map[string]interface{}) *UnstructuredAccessType {
 	unstr := &UnstructuredAccessType{}
 	unstr.Object = data
@@ -529,7 +528,7 @@ func (o *ComponentReference) SetLabels(labels []Label) {
 	o.Labels = labels
 }
 
-// GetLabels returns the identity of the object.
+// GetIdentity returns the identity of the object.
 func (o *ComponentReference) GetIdentity() Identity {
 	identity := map[string]string{}
 	for k, v := range o.ExtraIdentity {

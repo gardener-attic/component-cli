@@ -6,7 +6,6 @@ package components
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,57 +14,34 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
-	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 
-	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 )
 
-// ComponentResolver is a subset of the ctf Component Resolver that does not support a blob Resolver.
-type ComponentResolver interface {
-	Resolve(ctx context.Context, repoCtx cdv2.RepositoryContext, name, version string) (*cdv2.ComponentDescriptor, error)
+// LocalComponentCache implements a components oci cache for local files
+type LocalComponentCache struct {
+	fs         vfs.FileSystem
+	decodeOpts []codec.DecodeOption
 }
 
-// Resolver is component resolver that wraps the component descriptor ComponentResolver and adds support
-// for a local cache.
-type Resolver struct {
-	log           logr.Logger
-	fs            vfs.FileSystem
-	ociResolver   *cdoci.Resolver
-	decodeOptions []codec.DecodeOption
-}
-
-// New creates a new component Resolver.
-func New(log logr.Logger, fs vfs.FileSystem, ociClient ociclient.Client, decodeOpts ...codec.DecodeOption) ComponentResolver {
-	return &Resolver{
-		log:           log.WithName("componentResolver"),
-		fs:            fs,
-		ociResolver:   cdoci.NewResolver(decodeOpts...).WithOCIClient(ociClient),
-		decodeOptions: decodeOpts,
+// NewLocalComponentCache creates a new component cache that caches components on a filesystem.
+func NewLocalComponentCache(fs vfs.FileSystem, decodeOpts ...codec.DecodeOption) *LocalComponentCache {
+	return &LocalComponentCache{
+		fs:         fs,
+		decodeOpts: decodeOpts,
 	}
 }
 
-// Resolve resolves a component descriptor from a local cache and falls back to the oci registry.
-func (r Resolver) Resolve(ctx context.Context, repoCtx cdv2.RepositoryContext, name, version string) (*cdv2.ComponentDescriptor, error) {
-	cd, err := ResolveInLocalCache(r.fs, repoCtx, name, version, r.decodeOptions...)
-	if err != nil {
-		if !errors.Is(err, cdv2.NotFound) {
-			return nil, err
-		}
-		// fallback to oci
-		cd, _, err = r.ociResolver.WithRepositoryContext(repoCtx).Resolve(ctx, name, version)
-		if err != nil {
-			return nil, err
-		}
-		// try to write back to the local cache
-		if err := AddToLocalCache(r.fs, cd); err != nil {
-			r.log.Info("unable to store component descriptor in cache", "error", err.Error())
-		}
-		return cd, nil
-	}
-	return cd, err
+func (l LocalComponentCache) Get(ctx context.Context, repoCtx cdv2.RepositoryContext, name, version string) (*cdv2.ComponentDescriptor, error) {
+	return ResolveInLocalCache(l.fs, repoCtx, name, version, l.decodeOpts...)
 }
+
+func (l LocalComponentCache) Store(ctx context.Context, descriptor *cdv2.ComponentDescriptor) error {
+	return AddToLocalCache(l.fs, descriptor)
+}
+
+var _ cdoci.Cache = &LocalComponentCache{}
 
 // ResolveInLocalCache resolves a component descriptor from a local cache.
 // The local cache is expected to have its root at $COMPONENT_REPOSITORY_CACHE_DIR.

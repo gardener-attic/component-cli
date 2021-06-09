@@ -80,8 +80,8 @@ func (o *showOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
 	}
 
-	cdresolver := cdoci.NewResolver().WithOCIClient(ociClient).WithRepositoryContext(repoCtx)
-	cd, _, err := cdresolver.Resolve(ctx, o.componentName, o.version)
+	cdresolver := cdoci.NewResolver(ociClient)
+	cd, err := cdresolver.Resolve(ctx, repoCtx, o.componentName, o.version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 	}

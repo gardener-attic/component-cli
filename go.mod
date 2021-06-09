@@ -8,16 +8,16 @@ require (
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce // indirect
-	github.com/docker/docker-credential-helpers v0.6.3 // indirect
 	github.com/drone/envsubst v1.0.2
-	github.com/gardener/component-spec/bindings-go v0.0.36
+	github.com/gardener/component-spec v0.0.40 // indirect
+	github.com/gardener/component-spec/bindings-go v0.0.40
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-logr/logr v0.3.0
+	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.3.0
 	github.com/golang/mock v1.4.4
 	github.com/google/go-containerregistry v0.5.0
 	github.com/google/uuid v1.1.1
-	github.com/mandelsoft/vfs v0.0.0-20201002134249-3c471f64a4d1
+	github.com/mandelsoft/vfs v0.0.0-20210530103237-5249dc39ce91
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/distribution-spec v1.0.0-rc1

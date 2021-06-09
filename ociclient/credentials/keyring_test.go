@@ -7,7 +7,7 @@ package credentials_test
 import (
 	"testing"
 
-	testlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -32,7 +32,7 @@ var _ = Describe("Keyrings", func() {
 		})
 
 		It("should return false if no auth match the url", func() {
-			keyring, err := credentials.NewBuilder(testlog.NullLogger{}).DisableDefaultConfig().Build()
+			keyring, err := credentials.NewBuilder(logr.Discard()).DisableDefaultConfig().Build()
 			Expect(err).ToNot(HaveOccurred())
 
 			_, ok := keyring.Get("eu.gcr.io/my-project/myimage/")
@@ -85,7 +85,7 @@ var _ = Describe("Keyrings", func() {
 		})
 
 		It("should skip emtpy credentials if multiple are defined", func() {
-			keyring, err := credentials.NewBuilder(testlog.NullLogger{}).
+			keyring, err := credentials.NewBuilder(logr.Discard()).
 				FromConfigFiles("./testdata/dockerconfig-empty.json").
 				FromConfigFiles("./testdata/dockerconfig.json").
 				Build()
