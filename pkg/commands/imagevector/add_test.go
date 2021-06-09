@@ -10,7 +10,7 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
-	testlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -41,7 +41,7 @@ var _ = Describe("Add", func() {
 			ImageVectorPath:         "./resources/00-tag.yaml",
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -84,7 +84,7 @@ var _ = Describe("Add", func() {
 			ImageVectorPath:         "./resources/03-sha.yaml",
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("Add", func() {
 			ImageVectorPath:         "./resources/01-labels.yaml",
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -170,7 +170,7 @@ var _ = Describe("Add", func() {
 			ImageVectorPath:         "./resources/02-inline.yaml",
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -209,7 +209,7 @@ var _ = Describe("Add", func() {
 			ImageVectorPath:         "./resources/10-targetversion.yaml",
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -235,7 +235,7 @@ var _ = Describe("Add", func() {
 			ImageVectorPath:         "./resources/11-multi-targetversion.yaml",
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 		Expect(err).ToNot(HaveOccurred())
@@ -273,7 +273,7 @@ var _ = Describe("Add", func() {
 				},
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -307,7 +307,7 @@ var _ = Describe("Add", func() {
 				ImageVectorPath:         "./resources/23-comp-ref-label.yaml",
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -341,7 +341,7 @@ var _ = Describe("Add", func() {
 				ImageVectorPath:         "./resources/24-comp-ref-label.yaml",
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -378,7 +378,7 @@ var _ = Describe("Add", func() {
 				},
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -401,7 +401,7 @@ var _ = Describe("Add", func() {
 				},
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -431,7 +431,7 @@ var _ = Describe("Add", func() {
 				},
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -483,7 +483,7 @@ var _ = Describe("Add", func() {
 				},
 			}
 
-			Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, opts.ComponentDescriptorPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -610,7 +610,7 @@ func runAdd(fs vfs.FileSystem, caPath, ivPath string, addOpts ...*ivcmd.AddOptio
 	opts.ImageVectorPath = ivPath
 	Expect(opts.Complete(nil)).To(Succeed())
 
-	Expect(opts.Run(context.TODO(), testlog.NullLogger{}, fs)).To(Succeed())
+	Expect(opts.Run(context.TODO(), logr.Discard(), fs)).To(Succeed())
 
 	data, err := vfs.ReadFile(fs, opts.ComponentDescriptorPath)
 	Expect(err).ToNot(HaveOccurred())

@@ -114,7 +114,7 @@ func SetRawLabel(labels []v2.Label, name string, val []byte) []v2.Label {
 	})
 }
 
-// SetExtraIdentity sets a extra identity field of a identity object.
+// SetExtraIdentityField sets a extra identity field of a identity object.
 func SetExtraIdentityField(o *v2.IdentityObjectMeta, key, val string) {
 	if o.ExtraIdentity == nil {
 		o.ExtraIdentity = v2.Identity{}

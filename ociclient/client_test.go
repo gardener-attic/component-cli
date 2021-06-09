@@ -13,7 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	testlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
@@ -120,7 +120,7 @@ var _ = Describe("client", func() {
 `))
 				}
 
-				client, err := ociclient.NewClient(testlog.NullLogger{},
+				client, err := ociclient.NewClient(logr.Discard(),
 					ociclient.AllowPlainHttp(true),
 					ociclient.WithKeyring(credentials.New()))
 				Expect(err).ToNot(HaveOccurred())
@@ -177,7 +177,7 @@ var _ = Describe("client", func() {
 `))
 				}
 
-				client, err := ociclient.NewClient(testlog.NullLogger{},
+				client, err := ociclient.NewClient(logr.Discard(),
 					ociclient.AllowPlainHttp(true),
 					ociclient.WithKeyring(credentials.New()))
 				Expect(err).ToNot(HaveOccurred())

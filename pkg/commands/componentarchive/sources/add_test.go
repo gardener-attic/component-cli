@@ -13,7 +13,7 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
 	"github.com/gardener/component-spec/bindings-go/ctf"
-	testlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -49,7 +49,7 @@ var _ = Describe("Add", func() {
 			SourceObjectPaths: []string{"./resources/00-src.yaml"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -69,7 +69,7 @@ var _ = Describe("Add", func() {
 		opts := &sources.Options{}
 		Expect(opts.Complete([]string{"./00-component", "./resources/00-src.yaml"})).To(Succeed())
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -91,7 +91,7 @@ var _ = Describe("Add", func() {
 		}
 		Expect(opts.Complete([]string{"./00-component"})).To(Succeed())
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -122,7 +122,7 @@ var _ = Describe("Add", func() {
 			SourceObjectPaths: []string{"-"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -152,7 +152,7 @@ var _ = Describe("Add", func() {
 			BuilderOptions: componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -175,7 +175,7 @@ var _ = Describe("Add", func() {
 			SourceObjectPaths: []string{"./resources/01-multi-doc.yaml"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -202,7 +202,7 @@ var _ = Describe("Add", func() {
 			SourceObjectPaths: []string{"./resources/10-invalid.yaml"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(HaveOccurred())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(HaveOccurred())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -218,7 +218,7 @@ var _ = Describe("Add", func() {
 			SourceObjectPaths: []string{"./resources/02-overwrite.yaml"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())
@@ -245,7 +245,7 @@ var _ = Describe("Add", func() {
 			SourceObjectPaths: []string{"./resources/03-src.yaml"},
 		}
 
-		Expect(opts.Run(context.TODO(), testlog.NullLogger{}, testdataFs)).To(Succeed())
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
 		Expect(err).ToNot(HaveOccurred())

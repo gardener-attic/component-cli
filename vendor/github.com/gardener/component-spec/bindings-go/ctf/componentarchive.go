@@ -220,7 +220,7 @@ func (ca *ComponentArchive) AddSource(src *v2.Source, info BlobInfo, reader io.R
 	return nil
 }
 
-// AddResource adds a blob resource to the current archive.
+// AddResourceFromResolver adds a blob resource to the current archive.
 // If the specified resource already exists it will be overwritten.
 func (ca *ComponentArchive) AddResourceFromResolver(ctx context.Context, res *v2.Resource, resolver BlobResolver) error {
 	if res == nil {

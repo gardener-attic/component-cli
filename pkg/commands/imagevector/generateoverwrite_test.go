@@ -6,8 +6,12 @@ package imagevector_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
-	testlog "github.com/go-logr/logr/testing"
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/codec"
+	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -17,6 +21,9 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/components"
 
 	ivcmd "github.com/gardener/component-cli/pkg/commands/imagevector"
 	"github.com/gardener/component-cli/pkg/imagevector"
@@ -134,9 +141,19 @@ func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.Ge
 	opts.ImageVectorPath = "./out/imagevector.yaml"
 	Expect(opts.Complete(nil)).To(Succeed())
 
-	Expect(opts.Run(context.TODO(), testlog.NullLogger{}, fs)).To(Succeed())
+	// fake local cache with given component descriptor
+	data, err := vfs.ReadFile(fs, caPath)
+	Expect(err).ToNot(HaveOccurred())
+	cd := &cdv2.ComponentDescriptor{}
+	Expect(codec.Decode(data, cd)).To(Succeed())
+	Expect(os.Setenv(constants.ComponentRepositoryCacheDirEnvVar, "/tmp/components")).To(Succeed())
+	cdCachePath := components.LocalCachePath(cd.GetEffectiveRepositoryContext(), cd.Name, cd.Version)
+	Expect(fs.MkdirAll(filepath.Dir(cdCachePath), os.ModePerm)).To(Succeed())
+	Expect(vfs.WriteFile(fs, cdCachePath, data, os.ModePerm)).To(Succeed())
 
-	data, err := vfs.ReadFile(fs, opts.ImageVectorPath)
+	Expect(opts.Run(context.TODO(), logr.Discard(), fs)).To(Succeed())
+
+	data, err = vfs.ReadFile(fs, opts.ImageVectorPath)
 	Expect(err).ToNot(HaveOccurred())
 
 	imageVector := &imagevector.ImageVector{}

@@ -13,6 +13,9 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
+	"github.com/gardener/component-spec/bindings-go/ctf"
+	"github.com/gardener/component-spec/bindings-go/ctf/ctfutils"
+	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -190,7 +193,10 @@ func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs 
 	if err != nil {
 		return err
 	}
-	compResolver := components.New(log, fs, ociClient)
+	compCache := components.NewLocalComponentCache(fs)
+	compResolver := cdoci.NewResolver(ociClient).
+		WithLog(log).
+		WithCache(compCache)
 
 	root, main, err := o.getComponentDescriptor(ctx, fs, compResolver)
 	if err != nil {
@@ -274,7 +280,7 @@ func (o *GenerateOverwriteOptions) AddFlags(fs *pflag.FlagSet) {
 	o.OciOptions.AddFlags(fs)
 }
 
-func (o *GenerateOverwriteOptions) getComponentDescriptor(ctx context.Context, fs vfs.FileSystem, compResolver components.ComponentResolver) (root, main *cdv2.ComponentDescriptor, err error) {
+func (o *GenerateOverwriteOptions) getComponentDescriptor(ctx context.Context, fs vfs.FileSystem, compResolver ctf.ComponentResolver) (root, main *cdv2.ComponentDescriptor, err error) {
 	var cd *cdv2.ComponentDescriptor
 	if len(o.ComponentDescriptorPath) != 0 {
 		data, err := vfs.ReadFile(fs, o.ComponentDescriptorPath)
@@ -322,7 +328,7 @@ func (o *GenerateOverwriteOptions) getComponentDescriptor(ctx context.Context, f
 	return cd, cd, nil
 }
 
-func (o *GenerateOverwriteOptions) getComponentDescriptors(ctx context.Context, fs vfs.FileSystem, compResolver components.ComponentResolver, cd *cdv2.ComponentDescriptor) (*cdv2.ComponentDescriptorList, error) {
+func (o *GenerateOverwriteOptions) getComponentDescriptors(ctx context.Context, fs vfs.FileSystem, compResolver ctf.ComponentResolver, cd *cdv2.ComponentDescriptor) (*cdv2.ComponentDescriptorList, error) {
 	if len(o.ComponentDescriptorsPath) != 0 {
 		// parse all given additional component descriptors
 		cdList := &cdv2.ComponentDescriptorList{}
@@ -341,6 +347,8 @@ func (o *GenerateOverwriteOptions) getComponentDescriptors(ctx context.Context, 
 		}
 		return cdList, nil
 	}
-
-	return components.ResolveTransitiveComponentDescriptors(ctx, compResolver, cd)
+	if len(cd.ComponentReferences) == 0 {
+		return &cdv2.ComponentDescriptorList{}, nil
+	}
+	return ctfutils.ResolveList(ctx, compResolver, cd.GetEffectiveRepositoryContext(), cd.Name, cd.Version)
 }
