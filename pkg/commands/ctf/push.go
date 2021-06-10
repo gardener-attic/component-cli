@@ -103,14 +103,6 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 			return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 		}
 
-		uRepoCtx := ca.ComponentDescriptor.GetEffectiveRepositoryContext()
-		if uRepoCtx == nil {
-			return errors.New("no repository context defined")
-		}
-		var repoCtx cdv2.OCIRegistryRepository
-		if err := uRepoCtx.DecodeInto(&repoCtx); err != nil {
-			return err
-		}
 		ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
 		if err != nil {
 			return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
