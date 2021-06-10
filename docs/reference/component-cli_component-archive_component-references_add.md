@@ -54,12 +54,13 @@ component-cli component-archive component-references add COMPONENT_ARCHIVE_PATH 
 ### Options
 
 ```
-  -a, --archive string             path to the component archive directory
-      --component-name string      name of the component
-      --component-version string   version of the component
-  -h, --help                       help for add
-      --repo-ctx string            [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
-  -r, --resource string            The path to the resources defined as yaml or json
+  -a, --archive string                  path to the component archive directory
+      --component-name string           name of the component
+      --component-name-mapping string   [OPTIONAL] repository context name mapping (default "urlPath")
+      --component-version string        version of the component
+  -h, --help                            help for add
+      --repo-ctx string                 [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
+  -r, --resource string                 The path to the resources defined as yaml or json
 ```
 
 ### Options inherited from parent commands

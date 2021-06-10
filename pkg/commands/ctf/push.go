@@ -19,6 +19,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/gardener/component-cli/pkg/components"
+
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/utils"
@@ -92,14 +94,24 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 
 	err = ctfArchive.Walk(func(ca *ctf.ComponentArchive) error {
 		// update repository context
-		ca.ComponentDescriptor.RepositoryContexts = utils.AddRepositoryContext(ca.ComponentDescriptor.RepositoryContexts, cdv2.OCIRegistryType, o.BaseUrl)
+		if err := cdv2.InjectRepositoryContext(ca.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
+			return fmt.Errorf("unable to add repository context: %w", err)
+		}
 
 		manifest, err := cdoci.NewManifestBuilder(cache, ca).Build(ctx)
 		if err != nil {
 			return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 		}
 
-		ref, err := cdoci.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
+		uRepoCtx := ca.ComponentDescriptor.GetEffectiveRepositoryContext()
+		if uRepoCtx == nil {
+			return errors.New("no repository context defined")
+		}
+		var repoCtx cdv2.OCIRegistryRepository
+		if err := uRepoCtx.DecodeInto(&repoCtx); err != nil {
+			return err
+		}
+		ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
 		if err != nil {
 			return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
 		}
@@ -109,7 +121,7 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 		log.Info(fmt.Sprintf("Successfully uploaded component archive to %q", ref))
 
 		for _, tag := range o.AdditionalTags {
-			ref, err := cdoci.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), tag)
+			ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), tag)
 			if err != nil {
 				return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
 			}

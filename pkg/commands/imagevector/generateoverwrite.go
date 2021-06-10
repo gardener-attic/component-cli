@@ -295,10 +295,7 @@ func (o *GenerateOverwriteOptions) getComponentDescriptor(ctx context.Context, f
 		}
 	} else {
 		var err error
-		cd, err = compResolver.Resolve(ctx, cdv2.RepositoryContext{
-			Type:    cdv2.OCIRegistryType,
-			BaseURL: o.BaseURL,
-		}, o.ComponentName, o.ComponentVersion)
+		cd, err = compResolver.Resolve(ctx, cdv2.NewOCIRegistryRepository(o.BaseURL, ""), o.ComponentName, o.ComponentVersion)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to resolve upstream component descriptor %q:%q: %s", o.ComponentName, o.ComponentVersion, err.Error())
 		}
@@ -315,10 +312,7 @@ func (o *GenerateOverwriteOptions) getComponentDescriptor(ctx context.Context, f
 			return nil, nil, fmt.Errorf("the sub component %q is not unique in the component descriptor", o.SubComponentName)
 		}
 
-		main, err := compResolver.Resolve(ctx, cdv2.RepositoryContext{
-			Type:    cdv2.OCIRegistryType,
-			BaseURL: o.BaseURL,
-		}, ref[0].ComponentName, ref[0].Version)
+		main, err := compResolver.Resolve(ctx, cdv2.NewOCIRegistryRepository(o.BaseURL, ""), ref[0].ComponentName, ref[0].Version)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to resolve upstream subcomponent descriptor %q:%q: %s", ref[0].ComponentName, ref[0].Version, err.Error())
 		}

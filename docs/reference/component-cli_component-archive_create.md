@@ -15,12 +15,13 @@ component-cli component-archive create COMPONENT_ARCHIVE_PATH [flags]
 ### Options
 
 ```
-  -a, --archive string             path to the component archive directory
-      --component-name string      name of the component
-      --component-version string   version of the component
-  -h, --help                       help for create
-  -w, --overwrite                  overwrites the existing component
-      --repo-ctx string            [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
+  -a, --archive string                  path to the component archive directory
+      --component-name string           name of the component
+      --component-name-mapping string   [OPTIONAL] repository context name mapping (default "urlPath")
+      --component-version string        version of the component
+  -h, --help                            help for create
+  -w, --overwrite                       overwrites the existing component
+      --repo-ctx string                 [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
 ```
 
 ### Options inherited from parent commands

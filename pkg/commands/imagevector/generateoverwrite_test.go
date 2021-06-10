@@ -147,7 +147,9 @@ func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.Ge
 	cd := &cdv2.ComponentDescriptor{}
 	Expect(codec.Decode(data, cd)).To(Succeed())
 	Expect(os.Setenv(constants.ComponentRepositoryCacheDirEnvVar, "/tmp/components")).To(Succeed())
-	cdCachePath := components.LocalCachePath(cd.GetEffectiveRepositoryContext(), cd.Name, cd.Version)
+	repoCtx, err := components.GetOCIRepositoryContext(cd.GetEffectiveRepositoryContext())
+	Expect(err).ToNot(HaveOccurred())
+	cdCachePath := components.LocalCachePath(repoCtx, cd.Name, cd.Version)
 	Expect(fs.MkdirAll(filepath.Dir(cdCachePath), os.ModePerm)).To(Succeed())
 	Expect(vfs.WriteFile(fs, cdCachePath, data, os.ModePerm)).To(Succeed())
 

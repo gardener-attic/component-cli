@@ -15,10 +15,11 @@ component-cli component-archive remote get BASE_URL COMPONENT_NAME VERSION [flag
 ### Options
 
 ```
-      --allow-plain-http         allows the fallback to http if the oci registry does not support https
-      --cc-config string         path to the local concourse config file
-  -h, --help                     help for get
-      --registry-config string   path to the dockerconfig.json with the oci registry authentication information
+      --allow-plain-http                allows the fallback to http if the oci registry does not support https
+      --cc-config string                path to the local concourse config file
+      --component-name-mapping string   [OPTIONAL] repository context name mapping (default "urlPath")
+  -h, --help                            help for get
+      --registry-config string          path to the dockerconfig.json with the oci registry authentication information
 ```
 
 ### Options inherited from parent commands

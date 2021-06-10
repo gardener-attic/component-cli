@@ -59,8 +59,7 @@ var _ = Describe("Components", func() {
 	Context("#ResolveInLocalCache", func() {
 		It("should resolve a component from a local cache", func() {
 			Expect(os.Setenv(constants.ComponentRepositoryCacheDirEnvVar, "./cache")).To(Succeed())
-			repoCtx := cdv2.RepositoryContext{
-				Type:    cdv2.OCIRegistryType,
+			repoCtx := cdv2.OCIRegistryRepository{
 				BaseURL: "eu.gcr.io/my-context/dev",
 			}
 			cd, err := components.ResolveInLocalCache(testdatafs, repoCtx, "github.com/gardener/component-cli", "v0.1.0")
@@ -73,14 +72,12 @@ var _ = Describe("Components", func() {
 	Context("#Resolver", func() {
 		It("should resolve a component from a local cache", func() {
 			Expect(os.Setenv(constants.ComponentRepositoryCacheDirEnvVar, "./cache")).To(Succeed())
-			repoCtx := cdv2.RepositoryContext{
-				Type:    cdv2.OCIRegistryType,
-				BaseURL: "eu.gcr.io/my-context/dev",
-			}
+			repoCtx, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryRepository("eu.gcr.io/my-context/dev", ""))
+			Expect(err).ToNot(HaveOccurred())
 
 			cd, err := cdoci.NewResolver(mockOCIClient).
 				WithCache(components.NewLocalComponentCache(testdatafs)).
-				Resolve(context.TODO(), repoCtx, "github.com/gardener/component-cli", "v0.1.0")
+				Resolve(context.TODO(), &repoCtx, "github.com/gardener/component-cli", "v0.1.0")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cd.Name).To(Equal("github.com/gardener/component-cli"))
 			Expect(cd.Version).To(Equal("v0.1.0"))
@@ -90,10 +87,8 @@ var _ = Describe("Components", func() {
 			ctx := context.Background()
 			defer ctx.Done()
 			Expect(os.Setenv(constants.ComponentRepositoryCacheDirEnvVar, "./cache")).To(Succeed())
-			repoCtx := cdv2.RepositoryContext{
-				Type:    cdv2.OCIRegistryType,
-				BaseURL: "eu.gcr.io/my-context/dev",
-			}
+			repoCtx, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryRepository("eu.gcr.io/my-context/dev", ""))
+			Expect(err).ToNot(HaveOccurred())
 
 			mockOCIClient.EXPECT().GetManifest(ctx, gomock.Any()).Times(1).Return(
 				&ocispecv1.Manifest{
@@ -131,7 +126,7 @@ var _ = Describe("Components", func() {
 								Version: "v0.2.0",
 							},
 							Provider:           cdv2.InternalProvider,
-							RepositoryContexts: []cdv2.RepositoryContext{repoCtx},
+							RepositoryContexts: []*cdv2.UnstructuredTypedObject{&repoCtx},
 						},
 					}
 					Expect(cdv2.DefaultComponent(cd)).To(Succeed())
@@ -144,7 +139,7 @@ var _ = Describe("Components", func() {
 
 			cd, err := cdoci.NewResolver(mockOCIClient).
 				WithCache(components.NewLocalComponentCache(testdatafs)).
-				Resolve(context.TODO(), repoCtx, "github.com/gardener/component-cli", "v0.2.0")
+				Resolve(context.TODO(), &repoCtx, "github.com/gardener/component-cli", "v0.2.0")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cd.Name).To(Equal("github.com/gardener/component-cli"))
 			Expect(cd.Version).To(Equal("v0.2.0"))
