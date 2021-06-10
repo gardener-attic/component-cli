@@ -9,8 +9,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce // indirect
 	github.com/drone/envsubst v1.0.2
-	github.com/gardener/component-spec v0.0.40 // indirect
-	github.com/gardener/component-spec/bindings-go v0.0.40
+	github.com/gardener/component-spec/bindings-go v0.0.41
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.3.0

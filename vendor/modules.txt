@@ -46,7 +46,7 @@ github.com/drone/envsubst/path
 github.com/fsnotify/fsnotify
 # github.com/gardener/component-spec v0.0.40
 ## explicit
-# github.com/gardener/component-spec/bindings-go v0.0.40
+# github.com/gardener/component-spec/bindings-go v0.0.41
 ## explicit
 github.com/gardener/component-spec/bindings-go/apis
 github.com/gardener/component-spec/bindings-go/apis/v2
@@ -64,7 +64,6 @@ github.com/ghodss/yaml
 # github.com/go-logr/logr v0.4.0
 ## explicit
 github.com/go-logr/logr
-github.com/go-logr/logr/testing
 # github.com/go-logr/zapr v0.3.0
 ## explicit
 github.com/go-logr/zapr

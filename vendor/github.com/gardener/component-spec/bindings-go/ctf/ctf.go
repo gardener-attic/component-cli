@@ -44,8 +44,8 @@ var UnsupportedResolveType = errors.New("UnsupportedResolveType")
 
 // ComponentResolver describes a general interface to resolve a component descriptor
 type ComponentResolver interface {
-	Resolve(ctx context.Context, repoCtx v2.RepositoryContext, name, version string) (*v2.ComponentDescriptor, error)
-	ResolveWithBlobResolver(ctx context.Context, repoCtx v2.RepositoryContext, name, version string) (*v2.ComponentDescriptor, BlobResolver, error)
+	Resolve(ctx context.Context, repoCtx v2.Repository, name, version string) (*v2.ComponentDescriptor, error)
+	ResolveWithBlobResolver(ctx context.Context, repoCtx v2.Repository, name, version string) (*v2.ComponentDescriptor, BlobResolver, error)
 }
 
 // BlobResolver defines a resolver that can fetch

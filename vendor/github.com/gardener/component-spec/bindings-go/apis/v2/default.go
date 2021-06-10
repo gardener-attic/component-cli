@@ -17,7 +17,7 @@ package v2
 // DefaultComponent applies defaults to a component
 func DefaultComponent(component *ComponentDescriptor) error {
 	if component.RepositoryContexts == nil {
-		component.RepositoryContexts = make([]RepositoryContext, 0)
+		component.RepositoryContexts = make([]*UnstructuredTypedObject, 0)
 	}
 	if component.Sources == nil {
 		component.Sources = make([]Source, 0)

@@ -15,7 +15,6 @@
 package v2
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 )
@@ -81,7 +80,7 @@ type ComponentDescriptor struct {
 type ComponentSpec struct {
 	ObjectMeta `json:",inline"`
 	// RepositoryContexts defines the previous repositories of the component
-	RepositoryContexts []RepositoryContext `json:"repositoryContexts"`
+	RepositoryContexts []*UnstructuredTypedObject `json:"repositoryContexts"`
 	// Provider defines the provider type of a component.
 	// It can be external or internal.
 	Provider ProviderType `json:"provider"`
@@ -91,16 +90,6 @@ type ComponentSpec struct {
 	ComponentReferences []ComponentReference `json:"componentReferences"`
 	// Resources defines all resources that are created by the component and by a third party.
 	Resources []Resource `json:"resources"`
-}
-
-// RepositoryContext describes a repository context.
-// +k8s:deepcopy-gen=true
-// +k8s:openapi-gen=true
-type RepositoryContext struct {
-	// Type defines the type of the component repository to resolve references.
-	Type string `json:"type"`
-	// BaseURL is the base url of the repository to resolve components.
-	BaseURL string `json:"baseUrl"`
 }
 
 // ObjectMeta defines a object that is uniquely identified by its name and version.
@@ -321,131 +310,17 @@ type TypedObjectAccessor interface {
 	GetType() string
 	// SetType sets the type of the access object.
 	SetType(ttype string)
-	// GetData returns the custom data of a component.
-	GetData() ([]byte, error)
-	// SetData sets the custom data of a component.
-	SetData([]byte) error
 }
 
-// NewEmptyUnstructured creates a new typed object without additional data.
-func NewEmptyUnstructured(ttype string) *UnstructuredAccessType {
-	return NewUnstructuredType(ttype, nil)
-}
-
-// NewUnstructuredType creates a new unstructured typed object.
-func NewUnstructuredType(ttype string, data map[string]interface{}) *UnstructuredAccessType {
-	unstr := &UnstructuredAccessType{}
-	unstr.Object = data
-	unstr.SetType(ttype)
-	return unstr
-}
-
-// UnstructuredAccessType describes a generic access type.
-// +k8s:openapi-gen=true
-type UnstructuredAccessType struct {
-	ObjectType `json:",inline"`
-	Raw        []byte                 `json:"-"`
-	Object     map[string]interface{} `json:"object"`
-}
-
-func (u *UnstructuredAccessType) SetType(ttype string) {
-	u.ObjectType.SetType(ttype)
-	if u.Object == nil {
-		u.Object = make(map[string]interface{})
-	}
-	u.Object["type"] = ttype
-}
-
-// DeepCopyInto is deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (u *UnstructuredAccessType) DeepCopyInto(out *UnstructuredAccessType) {
-	*out = *u
-	raw := make([]byte, len(u.Raw))
-	copy(raw, u.Raw)
-	_ = out.SetData(raw)
-}
-
-// DeepCopy is deepcopy function, copying the receiver, creating a new UnstructuredAccessType.
-func (u *UnstructuredAccessType) DeepCopy() *UnstructuredAccessType {
-	if u == nil {
-		return nil
-	}
-	out := new(UnstructuredAccessType)
-	u.DeepCopyInto(out)
-	return out
-}
-
-func (u *UnstructuredAccessType) Decode(data []byte, into TypedObjectAccessor) error {
-	uObj, ok := into.(*UnstructuredAccessType)
-	if !ok {
-		return errors.New("unable to decode data into non unstructured type")
-	}
-
-	return json.Unmarshal(data, uObj)
-}
-
-func (u *UnstructuredAccessType) Encode(acc TypedObjectAccessor) ([]byte, error) {
-	uObj, ok := acc.(*UnstructuredAccessType)
-	if !ok {
-		return nil, errors.New("unable to decode data into non unstructured type")
-	}
-	return json.Marshal(uObj)
-}
-
-var _ TypedObjectCodec = &UnstructuredAccessType{}
-
-func (u UnstructuredAccessType) GetData() ([]byte, error) {
-	data, err := json.Marshal(u.Object)
-	if err != nil {
-		return nil, err
-	}
-	if n := bytes.Compare(data, u.Raw); n != 0 {
-		u.Raw = data
-	}
-	return u.Raw, nil
-}
-
-func (u *UnstructuredAccessType) SetData(data []byte) error {
-	obj := map[string]interface{}{}
-	if err := json.Unmarshal(data, &obj); err != nil {
-		return err
-	}
-	u.Raw = data
-	u.Object = obj
-	return nil
-}
-
-// UnmarshalJSON implements a custom json unmarshal method for a unstructured typed object.
-func (u *UnstructuredAccessType) UnmarshalJSON(data []byte) error {
-	typedObj := ObjectType{}
-	if err := json.Unmarshal(data, &typedObj); err != nil {
-		return err
-	}
-
-	obj := UnstructuredAccessType{
-		ObjectType: typedObj,
-	}
-	if err := obj.SetData(data); err != nil {
-		return err
-	}
-	*u = obj
-	return nil
-}
-
-// MarshalJSON implements a custom json unmarshal method for a unstructured type.
-func (u *UnstructuredAccessType) MarshalJSON() ([]byte, error) {
-	data, err := json.Marshal(u.Object)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
+// Repository is a specific type that indicated a typed repository object.
+type Repository TypedObjectAccessor
 
 // Source is the definition of a component's source.
 // +k8s:deepcopy-gen=true
 // +k8s:openapi-gen=true
 type Source struct {
 	IdentityObjectMeta `json:",inline"`
-	Access             *UnstructuredAccessType `json:"access"`
+	Access             *UnstructuredTypedObject `json:"access"`
 }
 
 // SourceRef defines a reference to a source
@@ -476,7 +351,7 @@ type Resource struct {
 
 	// Access describes the type specific method to
 	// access the defined resource.
-	Access *UnstructuredAccessType `json:"access"`
+	Access *UnstructuredTypedObject `json:"access"`
 }
 
 // ComponentReference describes the reference to another component in the registry.

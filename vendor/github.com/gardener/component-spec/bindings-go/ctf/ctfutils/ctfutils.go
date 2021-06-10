@@ -15,7 +15,7 @@ import (
 // ResolveList resolves all component descriptors of a given root component descriptor.
 func ResolveList(ctx context.Context,
 	resolver ctf.ComponentResolver,
-	repoCtx cdv2.RepositoryContext,
+	repoCtx cdv2.Repository,
 	name,
 	version string) (*cdv2.ComponentDescriptorList, error) {
 
@@ -42,14 +42,14 @@ type ResolvedCallbackFunc func(descriptor *cdv2.ComponentDescriptor) (stop bool,
 // - the callback returns true for the stop parameter
 // - the callback returns an error
 // - all components are successfully resolved.
-func ResolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoCtx cdv2.RepositoryContext, name, version string, cb ResolvedCallbackFunc) error {
+func ResolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoCtx cdv2.Repository, name, version string, cb ResolvedCallbackFunc) error {
 	cd, err := resolver.Resolve(ctx, repoCtx, name, version)
 	if err != nil {
-		return fmt.Errorf("unable to resolve component descriptor for %q %q %q: %w", repoCtx.BaseURL, name, version, err)
+		return fmt.Errorf("unable to resolve component descriptor for %q %q %q: %w", repoCtx.GetType(), name, version, err)
 	}
 	stop, err := cb(cd)
 	if err != nil {
-		return fmt.Errorf("error while calling callback for %q %q %q: %w", repoCtx.BaseURL, name, version, err)
+		return fmt.Errorf("error while calling callback for %q %q %q: %w", repoCtx.GetType(), name, version, err)
 	}
 	if stop {
 		return nil
@@ -57,16 +57,16 @@ func ResolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoC
 	return resolveRecursive(ctx, resolver, repoCtx, cd, cb)
 }
 
-func resolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoCtx cdv2.RepositoryContext, cd *cdv2.ComponentDescriptor, cb ResolvedCallbackFunc) error {
+func resolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoCtx cdv2.Repository, cd *cdv2.ComponentDescriptor, cb ResolvedCallbackFunc) error {
 	components := make([]*cdv2.ComponentDescriptor, len(cd.ComponentReferences))
 	for _, ref := range cd.ComponentReferences {
 		cd, err := resolver.Resolve(ctx, repoCtx, ref.ComponentName, ref.Version)
 		if err != nil {
-			return fmt.Errorf("unable to resolve component descriptor for %q %q %q: %w", repoCtx.BaseURL, ref.ComponentName, ref.Version, err)
+			return fmt.Errorf("unable to resolve component descriptor for %q %q %q: %w", repoCtx.GetType(), ref.ComponentName, ref.Version, err)
 		}
 		stop, err := cb(cd)
 		if err != nil {
-			return fmt.Errorf("error while calling callback for %q %q %q: %w", repoCtx.BaseURL, ref.ComponentName, ref.Version, err)
+			return fmt.Errorf("error while calling callback for %q %q %q: %w", repoCtx.GetType(), ref.ComponentName, ref.Version, err)
 		}
 		if stop {
 			return nil
