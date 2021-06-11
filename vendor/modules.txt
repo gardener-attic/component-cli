@@ -44,8 +44,6 @@ github.com/drone/envsubst/parse
 github.com/drone/envsubst/path
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
-# github.com/gardener/component-spec v0.0.40
-## explicit
 # github.com/gardener/component-spec/bindings-go v0.0.41
 ## explicit
 github.com/gardener/component-spec/bindings-go/apis

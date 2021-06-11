@@ -247,6 +247,33 @@ var _ = Describe("Add", func() {
 		}))
 	})
 
+	It("should add multiple resources via resource list", func() {
+		opts := &resources.Options{
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/05-resource-list.yaml"},
+		}
+
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+		Expect(err).ToNot(HaveOccurred())
+
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+
+		Expect(cd.Resources).To(HaveLen(2))
+		Expect(cd.Resources[0].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("ubuntu"),
+			"Version": Equal("v0.0.1"),
+			"Type":    Equal("ociImage"),
+		}))
+		Expect(cd.Resources[1].IdentityObjectMeta).To(MatchFields(IgnoreExtras, Fields{
+			"Name":    Equal("testres"),
+			"Version": Equal("v0.0.0"),
+			"Type":    Equal("mytype"),
+		}))
+	})
+
 	It("should overwrite the version of a already existing resource", func() {
 		opts := &resources.Options{
 			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./01-component"},
