@@ -87,8 +87,10 @@ func (o *PushOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("unable to build component archive: %w", err)
 	}
 	// update repository context
-	if err := cdv2.InjectRepositoryContext(archive.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
-		return fmt.Errorf("unable to add repository context to component descriptor: %w", err)
+	if len(o.BaseUrl) != 0 {
+		if err := cdv2.InjectRepositoryContext(archive.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
+			return fmt.Errorf("unable to add repository context to component descriptor: %w", err)
+		}
 	}
 
 	manifest, err := cdoci.NewManifestBuilder(cache, archive).Build(ctx)

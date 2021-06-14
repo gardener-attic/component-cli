@@ -94,8 +94,10 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 
 	err = ctfArchive.Walk(func(ca *ctf.ComponentArchive) error {
 		// update repository context
-		if err := cdv2.InjectRepositoryContext(ca.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
-			return fmt.Errorf("unable to add repository context: %w", err)
+		if len(o.BaseUrl) != 0 {
+			if err := cdv2.InjectRepositoryContext(ca.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
+				return fmt.Errorf("unable to add repository context: %w", err)
+			}
 		}
 
 		manifest, err := cdoci.NewManifestBuilder(cache, ca).Build(ctx)
