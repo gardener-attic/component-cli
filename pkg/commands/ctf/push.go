@@ -26,7 +26,7 @@ import (
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
-type pushOptions struct {
+type PushOptions struct {
 	// CTFPath is the path to the directory containing the ctf archive.
 	CTFPath string
 	// BaseUrl is the repository context base url for all included component descriptors.
@@ -40,7 +40,7 @@ type pushOptions struct {
 
 // NewPushCommand creates a new definition command to push definitions
 func NewPushCommand(ctx context.Context) *cobra.Command {
-	opts := &pushOptions{}
+	opts := &PushOptions{}
 	cmd := &cobra.Command{
 		Use:   "push CTF_PATH",
 		Args:  cobra.ExactArgs(1),
@@ -72,7 +72,7 @@ Note: Currently only component archives are supoprted. Generic OCI Artifacts wil
 	return cmd
 }
 
-func (o *pushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+func (o *PushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	info, err := fs.Stat(o.CTFPath)
 	if err != nil {
 		return fmt.Errorf("unable to get info for %s: %w", o.CTFPath, err)
@@ -132,7 +132,7 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 	return ctfArchive.Close()
 }
 
-func (o *pushOptions) Complete(args []string) error {
+func (o *PushOptions) Complete(args []string) error {
 	o.CTFPath = args[0]
 
 	var err error
@@ -149,14 +149,14 @@ func (o *pushOptions) Complete(args []string) error {
 }
 
 // Validate validates push options
-func (o *pushOptions) Validate() error {
+func (o *PushOptions) Validate() error {
 	if len(o.CTFPath) == 0 {
 		return errors.New("a path to the component descriptor must be defined")
 	}
 	return nil
 }
 
-func (o *pushOptions) AddFlags(fs *pflag.FlagSet) {
+func (o *PushOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.BaseUrl, "repo-ctx", "", "repository context url for component to upload. The repository url will be automatically added to the repository contexts.")
 	fs.StringArrayVarP(&o.AdditionalTags, "tag", "t", []string{}, "set additional tags on the oci artifact")
 

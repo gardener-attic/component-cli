@@ -19,6 +19,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/config/types"
 )
 
 type Environment struct {
@@ -61,28 +64,6 @@ type Options struct {
 	Stdout                io.Writer
 	Stderr                io.Writer
 }
-
-// {
-//    "Version": "2008-10-17",
-//    "Statement": [
-//        {
-//            "Sid": "AllowPushPull",
-//            "Effect": "Allow",
-//            "Principal": {
-//                "AWS": "arn:aws:iam::account-id:root"
-//            },
-//            "Action": [
-//                "ecr:GetDownloadUrlForLayer",
-//                "ecr:BatchGetImage",
-//                "ecr:BatchCheckLayerAvailability",
-//                "ecr:PutImage",
-//                "ecr:InitiateLayerUpload",
-//                "ecr:UploadLayerPart",
-//                "ecr:CompleteLayerUpload"
-//            ]
-//        }
-//    ]
-//}
 
 func (opts *Options) Default() {
 	if len(opts.RegistryBinaryPath) == 0 {
@@ -151,6 +132,18 @@ func (e *Environment) Close() error {
 		return fmt.Errorf("unable to remove config dir %q: %w", e.configDir, err)
 	}
 	return e.err
+}
+
+// GetConfigFileBytes returns the docker configfile containing the registry auth for the registry.
+func (e *Environment) GetConfigFileBytes() ([]byte, error) {
+	cf := configfile.ConfigFile{}
+	cf.AuthConfigs = map[string]types.AuthConfig{
+		e.Addr: {
+			Username: e.BasicAuth.Username,
+			Password: e.BasicAuth.Password,
+		},
+	}
+	return json.Marshal(cf)
 }
 
 // setups creates all necessary files for the registry.
