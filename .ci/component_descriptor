@@ -15,12 +15,16 @@ export GOROOT="/usr/lib/go"
 export GOPATH="/go"
 export PATH="/go/bin:$PATH"
 
-cd "$(dirname $0)/.."
+PROJECT_ROOT="$(dirname $0)/.."
+cd ${PROJECT_ROOT}
 
 # build the component-cli
 make cross-build EFFECTIVE_VERSION="$(cat VERSION)"
 
-COMPONENT_CLI="./dist/componentcli-linux-amd64"
+COMPONENT_CLI="${PROJECT_ROOT}/dist/componentcli-linux-amd64"
+
+# overwrite included component-cli to also test it
+cp ${COMPONENT_CLI} /bin/component-cli
 
 # copy base component descriptor to temporary directory
 COMPONENT_ARCHIVE_PATH="/tmp/ca"
