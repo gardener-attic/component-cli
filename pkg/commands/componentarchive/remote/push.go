@@ -31,9 +31,6 @@ type PushOptions struct {
 	// AdditionalTags defines additional tags that the oci artifact should be tagged with.
 	AdditionalTags []string
 
-	// cd is the effective component descriptor
-	cd *cdv2.ComponentDescriptor
-
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
 	// BuilderOptions for the component archive builder
@@ -98,7 +95,7 @@ func (o *PushOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 	}
 
-	ref, err := components.OCIRef(o.cd.GetEffectiveRepositoryContext(), o.cd.Name, o.cd.Version)
+	ref, err := components.OCIRef(archive.ComponentDescriptor.GetEffectiveRepositoryContext(), archive.ComponentDescriptor.Name, archive.ComponentDescriptor.Version)
 	if err != nil {
 		return fmt.Errorf("invalid component reference: %w", err)
 	}
@@ -108,7 +105,7 @@ func (o *PushOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	log.Info(fmt.Sprintf("Successfully uploaded component descriptor at %q", ref))
 
 	for _, tag := range o.AdditionalTags {
-		ref, err := components.OCIRef(o.cd.GetEffectiveRepositoryContext(), o.cd.Name, tag)
+		ref, err := components.OCIRef(archive.ComponentDescriptor.GetEffectiveRepositoryContext(), archive.ComponentDescriptor.Name, tag)
 		if err != nil {
 			return fmt.Errorf("invalid component reference: %w", err)
 		}
