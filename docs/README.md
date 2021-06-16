@@ -5,23 +5,12 @@ For a comprehensive documentation see the [generated docs](./reference/component
 
 __Index__:
 
-- [Resource](#create-a-component)
-  - [Add a resource](#add-a-resource)
+- [Resource](#add-a-resource)
   - [Add a local blob](#add-a-local-file)
   - [Use simple templating]()
 - [ComponentReference](#add-a-dependency-to-a-component)
 - [Remote](#remote)
   - [Push a Component Descriptor](#push)
-
-### Create a Component
-
-A component can be created by using the `create` subcommand.
-
-```shell script
-# create a directory to work with
-$ mkdir ./examples
-$ component-cli ca create ./examples --component-name "example.com/component/name" --component-version "v0.0.1"
-```
 
 ### Add a Resource
 
@@ -40,14 +29,14 @@ access:
   type: 'ociRegistry'
   imageReference: 'ubuntu:18.0'
 EOF
-$ component-cli ca resources add ./examples ./resource.yaml
+$ component-cli ca resources add . ./resource.yaml
 ```
 
 The resources can also be added using stdin.
 
 ```shell script
 # define by file
-$ cat <<EOF | component-cli ca resources add ./examples -
+$ cat <<EOF | component-cli ca resources add . -
 name: 'ubuntu'
 version: 'v0.0.1'
 type: 'ociImage'
@@ -88,7 +77,7 @@ This will automatically add the file as local artifact to the component descript
 :warning: When the given input path is a directory, a tar archive is automatically created.
 
 ```shell script
-$ cat <<EOF > ./blob-resource.yaml
+$ cat <<EOF > ./resource.yaml
 name: 'myconfig'
 type: 'json'
 relation: 'local'
@@ -104,7 +93,7 @@ $ cat <<EOF > ./blob.raw
 }
 EOF
 
-$ component-cli ca resources add ./examples ./blob-resource.yaml
+$ component-cli ca resources add . ./resource.yaml
 ```
 
 See an example with a directory and possible options.
@@ -154,7 +143,7 @@ labels:
   value:
     key: true
 EOF
-$ component-cli ca component-reference add ./examples ./comp-ref.yaml
+$ component-cli ca component-reference add . ./comp-ref.yaml
 ```
 
 ## use simple templating
