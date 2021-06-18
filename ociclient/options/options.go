@@ -62,12 +62,13 @@ func (o *Options) Build(log logr.Logger, fs vfs.FileSystem) (ociclient.ExtendedC
 	ociOpts = append(ociOpts, ociclient.WithKeyring(keyring))
 
 	secretServerKeyring, err := secretserver.New().
+		WithLog(log.WithName("secretserver")).
 		WithFS(fs).
 		FromPath(o.ConcourseConfigPath).
 		WithMinPrivileges(secretserver.ReadWrite).
 		Build()
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to get credentils from secret server: %s", err.Error())
+		return nil, nil, fmt.Errorf("unable to get credentials from secret server: %s", err.Error())
 	}
 	if secretServerKeyring != nil {
 		if err := credentials.Merge(keyring, secretServerKeyring); err != nil {

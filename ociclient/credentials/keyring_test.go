@@ -26,62 +26,62 @@ var _ = Describe("Keyrings", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig.json"})
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("eu.gcr.io/my-project/myimage")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("test"))
+			auth := keyring.Get("eu.gcr.io/my-project/myimage")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("test"))
 		})
 
-		It("should return false if no auth match the url", func() {
+		It("should return nil if no auth match the url", func() {
 			keyring, err := credentials.NewBuilder(logr.Discard()).DisableDefaultConfig().Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			_, ok := keyring.Get("eu.gcr.io/my-project/myimage/")
-			Expect(ok).To(BeFalse())
+			auth := keyring.Get("eu.gcr.io/my-project/myimage/")
+			Expect(auth).To(BeNil())
 		})
 
 		It("should parse authentication config from a dockerconfig and match the hostname with protocol", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig.json"})
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("docker.io")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("docker"))
+			auth := keyring.Get("docker.io")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("docker"))
 		})
 
 		It("should fallback to legacy docker domain is no secret can be found for the new one. ", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig-legacy.json"})
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("docker.io")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("legacy"))
+			auth := keyring.Get("docker.io")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("legacy"))
 		})
 
 		It("should match a whole resource url", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig.json"})
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("eu.gcr.io/my-other-config/my-test:v1.2.3")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("test"))
+			auth := keyring.Get("eu.gcr.io/my-other-config/my-test:v1.2.3")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("test"))
 		})
 
 		It("should match the hostname with a prefix", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig.json"})
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("eu.gcr.io/my-proj/my-test:v1.2.3")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("myproj"))
+			auth := keyring.Get("eu.gcr.io/my-proj/my-test:v1.2.3")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("myproj"))
 		})
 
 		It("should parse authentication config from a dockerconfig and match the reference from dockerhub", func() {
 			keyring, err := credentials.CreateOCIRegistryKeyring(nil, []string{"./testdata/dockerconfig.json"})
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("ubuntu:18.4")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("docker"))
+			auth := keyring.Get("ubuntu:18.4")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("docker"))
 		})
 
 		It("should skip emtpy credentials if multiple are defined", func() {
@@ -91,9 +91,9 @@ var _ = Describe("Keyrings", func() {
 				Build()
 			Expect(err).ToNot(HaveOccurred())
 
-			auth, ok := keyring.Get("eu.gcr.io/my-project/myimage")
-			Expect(ok).To(BeTrue())
-			Expect(auth.Username).To(Equal("test"))
+			auth := keyring.Get("eu.gcr.io/my-project/myimage")
+			Expect(auth).ToNot(BeNil())
+			Expect(auth.GetUsername()).To(Equal("test"))
 		})
 	})
 

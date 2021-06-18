@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/docker/cli/cli/config/types"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -39,7 +38,7 @@ var _ = BeforeSuite(func() {
 	Expect(testenv.Start(context.Background())).To(Succeed())
 
 	keyring = credentials.New()
-	Expect(keyring.AddAuthConfig(testenv.Addr, types.AuthConfig{
+	Expect(keyring.AddAuthConfig(testenv.Addr, credentials.AuthConfig{
 		Username: testenv.BasicAuth.Username,
 		Password: testenv.BasicAuth.Password,
 	})).To(Succeed())
