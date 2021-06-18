@@ -5,12 +5,23 @@ For a comprehensive documentation see the [generated docs](./reference/component
 
 __Index__:
 
-- [Resource](#add-a-resource)
+- [Resource](#create-a-component)
+  - [Add a resource](#add-a-resource)
   - [Add a local blob](#add-a-local-file)
   - [Use simple templating]()
 - [ComponentReference](#add-a-dependency-to-a-component)
 - [Remote](#remote)
   - [Push a Component Descriptor](#push)
+
+### Create a Component
+
+A component can be created by using the `create` subcommand.
+
+```shell script
+# create a directory to work with
+$ mkdir ./examples
+$ component-cli ca create ./examples --component-name "example.com/component/name" --component-version "v0.0.1"
+```
 
 ### Add a Resource
 
@@ -29,14 +40,14 @@ access:
   type: 'ociRegistry'
   imageReference: 'ubuntu:18.0'
 EOF
-$ component-cli ca resources add . ./resource.yaml
+$ component-cli ca resources add ./examples ./resource.yaml
 ```
 
 The resources can also be added using stdin.
 
 ```shell script
 # define by file
-$ cat <<EOF | component-cli ca resources add . -
+$ cat <<EOF | component-cli ca resources add ./examples -
 name: 'ubuntu'
 version: 'v0.0.1'
 type: 'ociImage'
@@ -77,7 +88,7 @@ This will automatically add the file as local artifact to the component descript
 :warning: When the given input path is a directory, a tar archive is automatically created.
 
 ```shell script
-$ cat <<EOF > ./resource.yaml
+$ cat <<EOF > ./blob-resource.yaml
 name: 'myconfig'
 type: 'json'
 relation: 'local'
@@ -93,7 +104,7 @@ $ cat <<EOF > ./blob.raw
 }
 EOF
 
-$ component-cli ca resources add . ./resource.yaml
+$ component-cli ca resources add ./examples ./blob-resource.yaml
 ```
 
 See an example with a directory and possible options.
@@ -129,6 +140,7 @@ The subcommand offers the possibility to add a component-reference either via co
 ```shell script
 # define by file
 $ cat <<EOF > ./comp-ref.yaml
+---
 name: 'cli'
 componentName: 'github.com/gardener/component-spec'
 version: 'v0.0.1'
@@ -136,11 +148,13 @@ extraIdentity:
   myid: abc
   mysecondid: efg
 labels:
-  mylabel: efg
-  mysecondlabel:
+- name: mylabel
+  values: efg
+- name: mysecondlabel
+  value:
     key: true
 EOF
-$ component-cli ca component-reference add . ./comp-ref.yaml
+$ component-cli ca component-reference add ./examples ./comp-ref.yaml
 ```
 
 ## use simple templating
@@ -166,18 +180,18 @@ access:
   imageReference: 'ubuntu:${VERSION}'
 ```
 
-With the command `component-cli ca resource add <myfile> -- VARIABLE=v0.0.2` it is now possible to define key-value pairs for the substitution.
+With the command `component-cli ca resource add [path to component archive] [myfile] -- VARIABLE=v0.0.2` it is now possible to define key-value pairs for the substitution.
 
 ## Remote
 
-The `remote` subcommand contains utility functions to interact with component referneces stored in a remote component respoitory (oci repository).
+The `remote` subcommand contains utility functions to interact with component references stored in a remote component repository (oci repository).
 
 :warning: Currently the component-cli uses the default docker config for authentication.
 Use `docker login` to authenticate against a oci repository.
 
 ### Push
 
-A component descriptor in component archive CTF format can be pushed to an component repository(oci repository) by using the `remote push` command.
+A component descriptor in component archive CTF format can be pushed to an component repository (oci repository) by using the `remote push` command.
 
 This command takes 1 argument which is the path to the component archive.<br>
 A component archive is a directory that contains the component descriptor at `/component-descriptor.yaml` and all blobs at `/blobs/<blobname>`.
