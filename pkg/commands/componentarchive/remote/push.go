@@ -61,7 +61,7 @@ push [baseurl] [componentname] [Version] [path to component descriptor]
 				os.Exit(1)
 			}
 
-			if err := opts.run(ctx, logger.Log, osfs.New()); err != nil {
+			if err := opts.Run(ctx, logger.Log, osfs.New()); err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
@@ -73,7 +73,7 @@ push [baseurl] [componentname] [Version] [path to component descriptor]
 	return cmd
 }
 
-func (o *PushOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+func (o *PushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	ociClient, cache, err := o.OciOptions.Build(log, fs)
 	if err != nil {
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
