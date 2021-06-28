@@ -15,4 +15,3 @@ dist
 
 # os specific
 .DS_Store
-test/*
