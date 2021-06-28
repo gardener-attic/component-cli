@@ -82,7 +82,7 @@ var _ = Describe("Add", func() {
 			"Expect that the second layer contains the local blob")
 	})
 
-	It("should throw  an error if a local resource does not  exist", func() {
+	It("should throw an error if a local resource does not exist", func() {
 		baseFs, err := projectionfs.New(osfs.New(), "../componentarchive")
 		Expect(err).ToNot(HaveOccurred())
 		testdataFs = layerfs.New(memoryfs.New(), baseFs)
