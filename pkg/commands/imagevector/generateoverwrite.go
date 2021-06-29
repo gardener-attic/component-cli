@@ -209,7 +209,7 @@ func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs 
 		return fmt.Errorf("unable to get component descriptors: %s", err.Error())
 	}
 
-	// if the root component descriptor is not the main component descriptor add it to the list of component descriptos
+	// if the root component descriptor is not the main component descriptor add it to the list of component descriptors
 	if root != main {
 		cdList.Components = append(cdList.Components, *root)
 	}
