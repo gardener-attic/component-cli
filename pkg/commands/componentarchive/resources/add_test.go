@@ -6,7 +6,10 @@ package resources_test
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -412,6 +415,66 @@ var _ = Describe("Add", func() {
 			Expect(mimetype).To(Equal("application/x-gzip"))
 		})
 
+		It("should automatically tar a directory input and add it as resource and include ", func() {
+			opts := &resources.Options{
+				BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+				ResourceObjectPaths: []string{"./resources/24-res-mul-files-include.yaml"},
+			}
+
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+
+			data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+			Expect(err).ToNot(HaveOccurred())
+			cd := &cdv2.ComponentDescriptor{}
+			Expect(codec.Decode(data, cd)).To(Succeed())
+
+			Expect(cd.Resources).To(HaveLen(1))
+
+			blobs, err := vfs.ReadDir(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(blobs).To(HaveLen(1))
+
+			blob, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName, blobs[0].Name()))
+			Expect(err).ToNot(HaveOccurred())
+			files, err := untar(blob)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(files).To(MatchKeys(0, Keys{
+				"file1.txt": Equal([]byte("val1")),
+				"file2.txt": Equal([]byte("val2")),
+			}))
+		})
+
+		It("should automatically tar a directory input and add it as resource and exclude ", func() {
+			opts := &resources.Options{
+				BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+				ResourceObjectPaths: []string{"./resources/24-res-mul-files-exclude.yaml"},
+			}
+
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+
+			data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+			Expect(err).ToNot(HaveOccurred())
+			cd := &cdv2.ComponentDescriptor{}
+			Expect(codec.Decode(data, cd)).To(Succeed())
+
+			Expect(cd.Resources).To(HaveLen(1))
+
+			blobs, err := vfs.ReadDir(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(blobs).To(HaveLen(1))
+
+			blob, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName, blobs[0].Name()))
+			Expect(err).ToNot(HaveOccurred())
+			files, err := untar(blob)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(files).To(MatchKeys(0, Keys{
+				"file2.txt": Equal([]byte("val2")),
+				"file3":     Equal([]byte("val3")),
+			}))
+		})
+
 	})
 
 	It("should add a resource defined by a file with a template", func() {
@@ -476,3 +539,22 @@ var _ = Describe("Add", func() {
 	})
 
 })
+
+func untar(data []byte) (map[string][]byte, error) {
+	files := make(map[string][]byte)
+	tr := tar.NewReader(bytes.NewBuffer(data))
+	for {
+		header, err := tr.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return files, nil
+			}
+			return nil, err
+		}
+		var d bytes.Buffer
+		if _, err := io.Copy(&d, tr); err != nil {
+			return nil, err
+		}
+		files[header.Name] = d.Bytes()
+	}
+}
