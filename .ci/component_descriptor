@@ -60,6 +60,20 @@ input:
   path: ${ARTIFACT_PATH}
 EOF
 
+
+# add component references
+image_vector_component_name="github.com/gardener/image-vector"
+image_vector_component_version="v0.0.0"
+if go list -m -mod=mod all | grep "$image_vector_component_name"; then
+  image_vector_component_version=$(go list -m -mod=mod all | grep "$image_vector_component_name" | awk '{ print $2 }')
+fi
+
+cat <<EOF | $COMPONENT_CLI ca component-references add "$COMPONENT_ARCHIVE_PATH" -
+name: image-vector
+componentName: ${image_vector_component_name}
+version: ${image_vector_component_version}
+EOF
+
 printf "> Modified Component Descriptor\n"
 cat "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
