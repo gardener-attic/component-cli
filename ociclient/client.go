@@ -116,6 +116,14 @@ func (c *client) InjectCache(cache cache.Cache) error {
 	return nil
 }
 
+func (c *client) Resolve(ctx context.Context, ref string) (name string, desc ocispecv1.Descriptor, err error) {
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
+	if err != nil {
+		return "", ocispecv1.Descriptor{}, err
+	}
+	return resolver.Resolve(ctx, ref)
+}
+
 func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
 	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
 	if err != nil {
