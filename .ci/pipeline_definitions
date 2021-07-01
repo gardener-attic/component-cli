@@ -53,3 +53,13 @@ component-cli:
           - 'release'
           inputs:
             OUT_PATH: 'out_path'
+
+    create_upgrade_prs:
+      steps: ~
+      traits:
+        component_descriptor: ~
+        update_component_deps:
+          ignore_prerelease_versions: true
+        cronjob:
+          interval: '10m'
+        version: ~
