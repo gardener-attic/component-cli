@@ -54,6 +54,13 @@ var _ = Describe("Remote", func() {
 
 		res := remote.NewPushCommand(ctx)
 		Expect(res)
+
+		repos, err := client.ListRepositories(ctx, testenv.Addr+"/test")
+		Expect(err).ToNot(HaveOccurred())
+
+		expectedRef := testenv.Addr + "/test/component-descriptors/example.com/component"
+		Expect(repos).To(ContainElement(Equal(expectedRef)))
+
 	})
 
 	It("should get component archive", func() {
@@ -77,6 +84,32 @@ var _ = Describe("Remote", func() {
 		showOpts.Version = "v0.0.0"
 
 		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
+		res := remote.NewGetCommand(ctx)
+		Expect(res)
+	})
+
+	It("should fail getting component archive which does not exist", func() {
+		baseFs, err := projectionfs.New(osfs.New(), "../")
+		Expect(err).ToNot(HaveOccurred())
+		testdataFs = layerfs.New(memoryfs.New(), baseFs)
+		ctx := context.Background()
+
+		cf, err := testenv.GetConfigFileBytes()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
+
+		showOpts := &remote.ShowOptions{
+			OciOptions: options.Options{
+				AllowPlainHttp:     false,
+				RegistryConfigPath: "/auth.json",
+			},
+		}
+		showOpts.BaseUrl = testenv.Addr + "/test"
+		showOpts.ComponentName = "example.com/component"
+		showOpts.Version = "v6.6.6"
+
+		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(HaveOccurred())
 
 		res := remote.NewGetCommand(ctx)
 		Expect(res)

@@ -8,12 +8,12 @@ __Index__:
 - [Resource](#create-a-component)
   - [Add a resource](#add-a-resource)
   - [Add a local blob](#add-a-local-file)
-  - [Use simple templating]()
+  - [Use simple templating](#use-simple-templating)
 - [ComponentReference](#add-a-dependency-to-a-component)
 - [Remote](#remote)
   - [Push a Component Descriptor](#push)
 
-### Create a Component
+## Create a Component
 
 A component can be created by using the `create` subcommand.
 
@@ -23,7 +23,7 @@ $ mkdir ./examples
 $ component-cli ca create ./examples --component-name "example.com/component/name" --component-version "v0.0.1"
 ```
 
-### Add a Resource
+## Add a Resource
 
 A resource can be added to an existing component descriptor by using the `resource` subcommand.
 
@@ -79,7 +79,7 @@ access:
 ...
 ```
 
-#### add a local file
+### add a local file
 
 A local blob (any file) can be added to the component descriptor by using the `input` attribute.
 This will automatically add the file as local artifact to the component descriptor and will configure the access of the resource accordingly.
@@ -130,7 +130,7 @@ input:
 ...
 ```
 
-### Add a dependency to a component
+## Add a dependency to a component
 
 A component reference can be added to an existing component descriptor by using the `component-reference` subcommand.
 
@@ -189,7 +189,7 @@ The `remote` subcommand contains utility functions to interact with component re
 :warning: Currently the component-cli uses the default docker config for authentication.
 Use `docker login` to authenticate against a oci repository.
 
-### Push
+## Push
 
 A component descriptor in component archive CTF format can be pushed to an component repository (oci repository) by using the `remote push` command.
 
