@@ -105,7 +105,7 @@ var _ = Describe("GenerateOverwrite", func() {
 		})))
 	})
 
-	FContext("Integration", func() {
+	Context("Integration", func() {
 
 		It("should generate image sources from a gardener component descriptor ", func() {
 			res, err := http.Get("https://raw.githubusercontent.com/gardener/gardener/v1.25.1/charts/images.yaml")
