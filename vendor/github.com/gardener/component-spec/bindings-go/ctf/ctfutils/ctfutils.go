@@ -58,12 +58,13 @@ func ResolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoC
 }
 
 func resolveRecursive(ctx context.Context, resolver ctf.ComponentResolver, repoCtx cdv2.Repository, cd *cdv2.ComponentDescriptor, cb ResolvedCallbackFunc) error {
-	components := make([]*cdv2.ComponentDescriptor, len(cd.ComponentReferences))
+	components := make([]*cdv2.ComponentDescriptor, 0)
 	for _, ref := range cd.ComponentReferences {
 		cd, err := resolver.Resolve(ctx, repoCtx, ref.ComponentName, ref.Version)
 		if err != nil {
 			return fmt.Errorf("unable to resolve component descriptor for %q %q %q: %w", repoCtx.GetType(), ref.ComponentName, ref.Version, err)
 		}
+		components = append(components, cd)
 		stop, err := cb(cd)
 		if err != nil {
 			return fmt.Errorf("error while calling callback for %q %q %q: %w", repoCtx.GetType(), ref.ComponentName, ref.Version, err)

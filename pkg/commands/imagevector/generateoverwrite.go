@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	"github.com/gardener/component-spec/bindings-go/ctf/ctfutils"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
+	iv "github.com/gardener/image-vector/pkg"
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -26,7 +27,6 @@ import (
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/components"
-	"github.com/gardener/component-cli/pkg/imagevector"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/utils"
 )
@@ -41,6 +41,8 @@ type GenerateOverwriteOptions struct {
 	SubComponentName string
 	// ImageVectorPath defines the path to the image vector defined as yaml or json
 	ImageVectorPath string
+	// ResolveTags enables
+	ResolveTags bool
 
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
@@ -214,7 +216,11 @@ func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs 
 		cdList.Components = append(cdList.Components, *root)
 	}
 
-	imageVector, err := imagevector.GenerateImageOverwrite(main, cdList)
+	imageVector, err := iv.GenerateImageOverwrite(ctx, compResolver, main, iv.GenerateImageOverwriteOptions{
+		Components:         cdList,
+		ReplaceWithDigests: o.ResolveTags,
+		OciClient:          ociClient,
+	})
 	if err != nil {
 		return fmt.Errorf("unable to parse image vector: %s", err.Error())
 	}
@@ -275,8 +281,9 @@ func (o *GenerateOverwriteOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ComponentName, "component-name", "", "name of the remote component")
 	fs.StringVar(&o.ComponentVersion, "component-version", "", "version of the remote component")
 
-	fs.StringVarP(&o.ImageVectorPath, "Output", "O", "", "The path to the image vector that will be written.")
-	fs.StringVar(&o.SubComponentName, "sub-component", "", "name of the sub component that should be used as the main component descriptor")
+	fs.StringVarP(&o.ImageVectorPath, "output", "o", "", "The path to the image vector that will be written.")
+	fs.StringVar(&o.SubComponentName, "sub-component", "", "name of the component that should be used as the main component descriptor")
+	fs.BoolVar(&o.ResolveTags, "resolve-tags", false, "enable that tags are automatically resolved to digests")
 	o.OciOptions.AddFlags(fs)
 }
 

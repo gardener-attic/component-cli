@@ -5,12 +5,16 @@
 package imagevector_test
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
+	iv "github.com/gardener/image-vector/pkg"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
@@ -26,7 +30,6 @@ import (
 	"github.com/gardener/component-cli/pkg/components"
 
 	ivcmd "github.com/gardener/component-cli/pkg/commands/imagevector"
-	"github.com/gardener/component-cli/pkg/imagevector"
 )
 
 var _ = Describe("GenerateOverwrite", func() {
@@ -68,36 +71,9 @@ var _ = Describe("GenerateOverwrite", func() {
 		})))
 	})
 
-	It("should generate image sources from component references", func() {
-		opts := &ivcmd.AddOptions{
-			ParseImageOptions: imagevector.ParseImageOptions{
-				ComponentReferencePrefixes: []string{"eu.gcr.io/gardener-project/gardener"},
-			},
-		}
-		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/21-multi-comp-ref.yaml", opts)
-
-		getOpts := &ivcmd.GenerateOverwriteOptions{}
-		getOpts.ComponentDescriptorsPath = []string{
-			"./02-autoscaler-0.10.1/component-descriptor.yaml",
-			"./03-autoscaler-0.13.0/component-descriptor.yaml",
-		}
-		imageVector := runGenerateOverwrite(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
-		Expect(imageVector.Images).To(HaveLen(2))
-		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-			"Name":          Equal("cluster-autoscaler"),
-			"Tag":           PointTo(Equal("v0.13.0")),
-			"TargetVersion": PointTo(Equal(">= 1.16")),
-		})))
-		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
-			"Name":          Equal("cluster-autoscaler"),
-			"Tag":           PointTo(Equal("v0.10.1")),
-			"TargetVersion": PointTo(Equal("< 1.16")),
-		})))
-	})
-
 	It("should generate image sources from generic images", func() {
 		addOpts := &ivcmd.AddOptions{
-			ParseImageOptions: imagevector.ParseImageOptions{
+			ParseImageOptions: iv.ParseImageOptions{
 				GenericDependencies: []string{
 					"hyperkube",
 				},
@@ -129,16 +105,63 @@ var _ = Describe("GenerateOverwrite", func() {
 		})))
 	})
 
+	FContext("Integration", func() {
+
+		It("should generate image sources from a gardener component descriptor ", func() {
+			res, err := http.Get("https://raw.githubusercontent.com/gardener/gardener/v1.25.1/charts/images.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			var gardenerImageVectorBytes bytes.Buffer
+			_, err = io.Copy(&gardenerImageVectorBytes, res.Body)
+			Expect(err).ToNot(HaveOccurred())
+			defer res.Body.Close()
+
+			gardenerImageVector := iv.ImageVector{}
+			Expect(yaml.Unmarshal(gardenerImageVectorBytes.Bytes(), &gardenerImageVector))
+
+			getOpts := &ivcmd.GenerateOverwriteOptions{}
+			getOpts.RemoteComponentDescriptorOption = ivcmd.RemoteComponentDescriptorOption{
+				BaseURL:          "eu.gcr.io/gardener-project/development",
+				ComponentName:    "github.com/gardener/gardener",
+				ComponentVersion: "v1.25.1",
+			}
+			getOpts.ImageVectorPath = "./out/iv.yaml"
+			Expect(getOpts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+
+			data, err := vfs.ReadFile(testdataFs, getOpts.ImageVectorPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			imageVector := &iv.ImageVector{}
+			Expect(yaml.Unmarshal(data, imageVector)).To(Succeed())
+
+			// expect all images defined in the gardener image vector to be also part of the generated image vector
+			// minus the generic images
+			for _, entry := range gardenerImageVector.Images {
+				if entry.Tag == nil {
+					continue
+				}
+				fields := Fields{
+					"Name": Equal(entry.Name),
+					"Tag":  PointTo(Equal(*entry.Tag)),
+				}
+				if entry.TargetVersion != nil {
+					fields["TargetVersion"] = PointTo(Equal(*entry.TargetVersion))
+				}
+				Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, fields)))
+			}
+		})
+
+	})
+
 })
 
-func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.GenerateOverwriteOptions) *imagevector.ImageVector {
+func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.GenerateOverwriteOptions) *iv.ImageVector {
 	Expect(len(getOpts) <= 1).To(BeTrue())
 	opts := &ivcmd.GenerateOverwriteOptions{}
 	if len(getOpts) == 1 {
 		opts = getOpts[0]
 	}
 	opts.ComponentDescriptorPath = caPath
-	opts.ImageVectorPath = "./out/imagevector.yaml"
+	opts.ImageVectorPath = "./out/iv.yaml"
 	Expect(opts.Complete(nil)).To(Succeed())
 
 	// fake local cache with given component descriptor
@@ -158,7 +181,7 @@ func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.Ge
 	data, err = vfs.ReadFile(fs, opts.ImageVectorPath)
 	Expect(err).ToNot(HaveOccurred())
 
-	imageVector := &imagevector.ImageVector{}
+	imageVector := &iv.ImageVector{}
 	Expect(yaml.Unmarshal(data, imageVector)).To(Succeed())
 	return imageVector
 }
