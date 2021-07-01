@@ -33,5 +33,3 @@ require (
 	k8s.io/apimachinery v0.19.4
 	sigs.k8s.io/yaml v1.2.0
 )
-
-replace github.com/gardener/component-spec/bindings-go => /Users/d064999/SAPDevelop/go/src/github.com/gardener/component-spec/bindings-go
