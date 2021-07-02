@@ -107,6 +107,7 @@ component-cli image-vector generate-overwrite [flags]
       --component-name string      name of the remote component
       --component-version string   version of the remote component
   -h, --help                       help for generate-overwrite
+      --insecure-skip-tls-verify   If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
   -o, --output string              The path to the image vector that will be written.
       --registry-config string     path to the dockerconfig.json with the oci registry authentication information
       --repo-ctx string            base url of the component repository

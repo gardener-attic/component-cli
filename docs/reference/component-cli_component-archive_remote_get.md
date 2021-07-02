@@ -19,6 +19,7 @@ component-cli component-archive remote get BASE_URL COMPONENT_NAME VERSION [flag
       --cc-config string                path to the local concourse config file
       --component-name-mapping string   [OPTIONAL] repository context name mapping (default "urlPath")
   -h, --help                            help for get
+      --insecure-skip-tls-verify        If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
       --registry-config string          path to the dockerconfig.json with the oci registry authentication information
 ```
 
