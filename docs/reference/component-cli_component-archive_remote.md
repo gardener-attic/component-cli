@@ -22,6 +22,7 @@ command to interact with component descriptors stored in an oci registry
 ### SEE ALSO
 
 * [component-cli component-archive](component-cli_component-archive.md)	 - 
+* [component-cli component-archive remote copy](component-cli_component-archive_remote_copy.md)	 - copies a component descriptor from a context repository to another
 * [component-cli component-archive remote get](component-cli_component-archive_remote_get.md)	 - fetch the component descriptor from a oci registry
 * [component-cli component-archive remote push](component-cli_component-archive_remote_push.md)	 - pushes a component archive to an oci repository
 

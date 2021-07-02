@@ -21,11 +21,12 @@ component-cli oci pull ARTIFACT_REFERENCE [config | blob digest] [flags]
 ### Options
 
 ```
-      --allow-plain-http         allows the fallback to http if the oci registry does not support https
-      --cc-config string         path to the local concourse config file
-  -h, --help                     help for pull
-  -O, --output-dir string        specifies the output where the artifact should be written.
-      --registry-config string   path to the dockerconfig.json with the oci registry authentication information
+      --allow-plain-http           allows the fallback to http if the oci registry does not support https
+      --cc-config string           path to the local concourse config file
+  -h, --help                       help for pull
+      --insecure-skip-tls-verify   If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
+  -O, --output-dir string          specifies the output where the artifact should be written.
+      --registry-config string     path to the dockerconfig.json with the oci registry authentication information
 ```
 
 ### Options inherited from parent commands

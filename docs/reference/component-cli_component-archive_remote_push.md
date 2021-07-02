@@ -30,6 +30,7 @@ component-cli component-archive remote push COMPONENT_DESCRIPTOR_PATH [flags]
       --component-name-mapping string   [OPTIONAL] repository context name mapping (default "urlPath")
       --component-version string        version of the component
   -h, --help                            help for push
+      --insecure-skip-tls-verify        If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
       --registry-config string          path to the dockerconfig.json with the oci registry authentication information
       --repo-ctx string                 [OPTIONAL] repository context url for component to upload. The repository url will be automatically added to the repository contexts.
   -t, --tag stringArray                 set additional tags on the oci artifact

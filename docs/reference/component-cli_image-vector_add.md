@@ -157,6 +157,8 @@ component-cli image-vector add --comp-desc component-descriptor-file --image-vec
 ### Options
 
 ```
+      --allow-plain-http                          allows the fallback to http if the oci registry does not support https
+      --cc-config string                          path to the local concourse config file
       --comp-desc string                          path to the component descriptor directory
       --component-prefixes stringArray            Specify all prefixes that define a image  from another component
       --exclude-component-reference stringArray   Specify all image name that should not be added as component reference
@@ -164,6 +166,8 @@ component-cli image-vector add --comp-desc component-descriptor-file --image-vec
       --generic-dependency stringArray            Specify all image source names that are a generic dependency.
   -h, --help                                      help for add
       --image-vector string                       The path to the resources defined as yaml or json
+      --insecure-skip-tls-verify                  If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
+      --registry-config string                    path to the dockerconfig.json with the oci registry authentication information
 ```
 
 ### Options inherited from parent commands

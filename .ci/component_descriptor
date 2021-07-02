@@ -32,41 +32,30 @@ COMPONENT_DESCRIPTOR_FILE_PATH="$COMPONENT_ARCHIVE_PATH/component-descriptor.yam
 mkdir -p "$COMPONENT_ARCHIVE_PATH"
 cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
-printf "> Add Linux Binary\n"
-ARTIFACT_PATH="$(pwd)/dist/componentcli-linux-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add "$COMPONENT_ARCHIVE_PATH" -
-name: cli-binary-linux
+build_matrix=("linux,amd64" "darwin,amd64" "windows,amd64")
+
+for i in "${build_matrix[@]}"; do
+  IFS=',' read os arch <<< "${i}"
+
+  echo "> Add $os/$arch"
+  ARTIFACT_PATH="$(pwd)/dist/componentcli-${os}-${arch}"
+  cat <<EOF | $COMPONENT_CLI ca resources add "$COMPONENT_ARCHIVE_PATH" -
+name: cli-binary-${os}-${arch}
 type: executable
 extraIdentity:
-  os: linux
-  arch: amd64
+  os: ${os}
+  arch: ${arch}
 relation: local
 input:
   type: file
   path: ${ARTIFACT_PATH}
 EOF
 
-printf "> Add Darwin Binary\n"
-ARTIFACT_PATH="$(pwd)/dist/componentcli-darwin-amd64"
-cat <<EOF | $COMPONENT_CLI ca resources add "$COMPONENT_ARCHIVE_PATH" -
-name: cli-binary-darwin
-type: executable
-extraIdentity:
-  os: darwin
-  arch: amd64
-relation: local
-input:
-  type: file
-  path: ${ARTIFACT_PATH}
-EOF
-
+done
 
 # add component references
 image_vector_component_name="github.com/gardener/image-vector"
-image_vector_component_version="v0.0.0"
-if go list -m -mod=mod all | grep "$image_vector_component_name"; then
-  image_vector_component_version=$(go list -m -mod=mod all | grep "$image_vector_component_name" | awk '{ print $2 }')
-fi
+image_vector_component_version=$(go list -m -mod=mod all | grep "$image_vector_component_name" | awk '{ print $2 }')
 
 cat <<EOF | $COMPONENT_CLI ca component-references add "$COMPONENT_ARCHIVE_PATH" -
 name: image-vector

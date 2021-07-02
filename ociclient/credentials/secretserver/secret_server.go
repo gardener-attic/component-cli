@@ -148,8 +148,9 @@ func (kb *KeyringBuilder) Apply(keyring *credentials.GeneralOciKeyring) error {
 
 	srv, err := NewSecretServer()
 	if err != nil {
-		if err == NoSecretFoundError {
+		if errors.Is(err, NoSecretFoundError) {
 			kb.log.V(3).Info(err.Error())
+			return nil
 		}
 		kb.log.Error(err, "unable to init secret server")
 		return nil
