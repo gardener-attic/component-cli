@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 
+	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
@@ -50,10 +51,10 @@ var _ = Describe("Remote", func() {
 		pushOpts.ComponentArchivePath = "./testdata/00-ca"
 		pushOpts.BaseUrl = testenv.Addr + "/test"
 
-		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
-
 		res := remote.NewPushCommand(ctx)
 		Expect(res)
+
+		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		repos, err := client.ListRepositories(ctx, testenv.Addr+"/test")
 		Expect(err).ToNot(HaveOccurred())
@@ -61,6 +62,11 @@ var _ = Describe("Remote", func() {
 		expectedRef := testenv.Addr + "/test/component-descriptors/example.com/component"
 		Expect(repos).To(ContainElement(Equal(expectedRef)))
 
+		manifest, err := client.GetManifest(ctx, expectedRef+":v0.0.0")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manifest.Layers).To(HaveLen(1))
+		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
+			"Expect that the first layer contains the component descriptor")
 	})
 
 	It("should get component archive", func() {
@@ -73,6 +79,20 @@ var _ = Describe("Remote", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
 
+		pushOpts := &remote.PushOptions{
+			OciOptions: options.Options{
+				AllowPlainHttp:     false,
+				RegistryConfigPath: "/auth.json",
+			},
+		}
+		pushOpts.ComponentArchivePath = "./testdata/00-ca"
+		pushOpts.BaseUrl = testenv.Addr + "/test"
+
+		res := remote.NewPushCommand(ctx)
+		Expect(res)
+
+		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
 		showOpts := &remote.ShowOptions{
 			OciOptions: options.Options{
 				AllowPlainHttp:     false,
@@ -83,10 +103,10 @@ var _ = Describe("Remote", func() {
 		showOpts.ComponentName = "example.com/component"
 		showOpts.Version = "v0.0.0"
 
-		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
-
-		res := remote.NewGetCommand(ctx)
+		res = remote.NewGetCommand(ctx)
 		Expect(res)
+
+		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 	})
 
 	It("should fail getting component archive which does not exist", func() {
@@ -109,10 +129,10 @@ var _ = Describe("Remote", func() {
 		showOpts.ComponentName = "example.com/component"
 		showOpts.Version = "v6.6.6"
 
-		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(HaveOccurred())
-
 		res := remote.NewGetCommand(ctx)
 		Expect(res)
+
+		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(HaveOccurred())
 	})
 
 })
