@@ -55,7 +55,7 @@ get fetches the component descriptor from a baseurl with the given name and Vers
 				os.Exit(1)
 			}
 
-			if err := opts.run(ctx, logger.Log, osfs.New()); err != nil {
+			if err := opts.Run(ctx, logger.Log, osfs.New()); err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
@@ -67,7 +67,7 @@ get fetches the component descriptor from a baseurl with the given name and Vers
 	return cmd
 }
 
-func (o *ShowOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+func (o *ShowOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	repoCtx := cdv2.OCIRegistryRepository{
 		ObjectType: cdv2.ObjectType{
 			Type: cdv2.OCIRegistryType,
