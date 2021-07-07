@@ -13,6 +13,7 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
+	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 
@@ -57,7 +58,7 @@ func ResolveInLocalCache(fs vfs.FileSystem, repoCtx cdv2.OCIRegistryRepository, 
 	data, err := vfs.ReadFile(fs, componentPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, cdv2.NotFound
+			return nil, ctf.NotFoundError
 		}
 		return nil, fmt.Errorf("unable to read file from %q: %w", componentPath, err)
 	}
