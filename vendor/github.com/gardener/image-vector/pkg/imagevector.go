@@ -264,8 +264,12 @@ func (ip *imageParser) Parse(ctx context.Context, image ImageEntry) error {
 		}
 
 		// check if the image does already exist in the component descriptor
-		if err := addLabelsToInlineResource(ip.cd.Resources, image); err != nil {
+		found, err := addLabelsToInlineResource(ip.cd.Resources, image)
+		if err != nil {
 			return err
+		}
+		if found {
+			return nil
 		}
 
 		// default all non inlined resources that have no tag as generic images.
@@ -437,7 +441,7 @@ func tryFindResourceForImage(ctx context.Context, cd *cdv2.ComponentDescriptor, 
 }
 
 // addLabelsToInlineResource adds the image entry labels to the resource that matches the repository
-func addLabelsToInlineResource(resources []cdv2.Resource, imageEntry ImageEntry) error {
+func addLabelsToInlineResource(resources []cdv2.Resource, imageEntry ImageEntry) (bool, error) {
 	for i, res := range resources {
 		if res.GetType() != cdv2.OCIImageType {
 			continue
@@ -448,22 +452,23 @@ func addLabelsToInlineResource(resources []cdv2.Resource, imageEntry ImageEntry)
 		// resource is a oci image with a registry type
 		ociImageAccess := &cdv2.OCIRegistryAccess{}
 		if err := res.Access.DecodeInto(ociImageAccess); err != nil {
-			return fmt.Errorf("unable to decode resource access into oci registry access for %q: %w", res.GetName(), err)
+			return false, fmt.Errorf("unable to decode resource access into oci registry access for %q: %w", res.GetName(), err)
 		}
 
 		repo, _, err := ParseImageRef(ociImageAccess.ImageReference)
 		if err != nil {
-			return fmt.Errorf("unable to parse image reference for %q: %w", res.GetName(), err)
+			return false, fmt.Errorf("unable to parse image reference for %q: %w", res.GetName(), err)
 		}
 		if repo != imageEntry.Repository {
 			continue
 		}
 
 		if err := addLabelsToResource(&resources[i], imageEntry); err != nil {
-			return err
+			return false, err
 		}
+		return true, nil
 	}
-	return nil
+	return false, nil
 }
 
 // addLabelsToResource adds internal image vector labels to the given resource.
