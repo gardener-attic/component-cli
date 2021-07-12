@@ -59,7 +59,7 @@ var cliConfig = zap.Config{
 	Level:             zap.NewAtomicLevelAt(zap.InfoLevel),
 	Development:       false,
 	Encoding:          "console",
-	DisableStacktrace: false,
+	DisableStacktrace: true,
 	DisableCaller:     true,
 	EncoderConfig:     cliEncoderConfig,
 	OutputPaths:       []string{"stderr"},
@@ -82,9 +82,6 @@ func New(config *Config) (logr.Logger, error) {
 		config = &configFromFlags
 	}
 	zapCfg := determineZapConfig(config)
-
-	level := int8(0 - config.Verbosity)
-	zapCfg.Level = zap.NewAtomicLevelAt(zapcore.Level(level))
 
 	zapLog, err := zapCfg.Build(zap.AddCallerSkip(1))
 	if err != nil {
@@ -119,6 +116,10 @@ func determineZapConfig(loggerConfig *Config) zap.Config {
 			zapConfig.Development = true
 			loggerConfig.DisableCaller = false
 		}
+		// only enable the stacktrace for a verbosity > 4
+		if loggerConfig.Verbosity > 4 {
+			loggerConfig.DisableStacktrace = false
+		}
 	} else {
 		zapConfig = productionConfig
 	}
@@ -126,6 +127,9 @@ func determineZapConfig(loggerConfig *Config) zap.Config {
 	loggerConfig.SetDisableCaller(&zapConfig)
 	loggerConfig.SetDisableStacktrace(&zapConfig)
 	loggerConfig.SetTimestamp(&zapConfig)
+
+	level := int8(0 - loggerConfig.Verbosity)
+	zapConfig.Level = zap.NewAtomicLevelAt(zapcore.Level(level))
 
 	return zapConfig
 }

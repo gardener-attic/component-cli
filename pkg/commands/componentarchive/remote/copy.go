@@ -72,7 +72,7 @@ This behavior can be overwritten by specifying "--recursive=false"
 			}
 
 			if err := opts.run(ctx, logger.Log, osfs.New()); err != nil {
-				fmt.Println(err.Error())
+				logger.Log.Error(err, "")
 				os.Exit(1)
 			}
 		},
