@@ -195,10 +195,11 @@ func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs 
 	if err != nil {
 		return err
 	}
-	compCache := components.NewLocalComponentCache(fs)
 	compResolver := cdoci.NewResolver(ociClient).
-		WithLog(log).
-		WithCache(compCache)
+		WithLog(log)
+	if len(os.Getenv(constants.ComponentRepositoryCacheDirEnvVar)) != 0 {
+		compResolver.WithCache(components.NewLocalComponentCache(fs))
+	}
 
 	root, main, err := o.getComponentDescriptor(ctx, fs, compResolver)
 	if err != nil {

@@ -228,10 +228,11 @@ func (o *AddOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem
 	if err != nil {
 		return err
 	}
-	compCache := components.NewLocalComponentCache(fs)
 	compResolver := cdoci.NewResolver(ociClient).
-		WithLog(log).
-		WithCache(compCache)
+		WithLog(log)
+	if len(os.Getenv(constants.ComponentRepositoryCacheDirEnvVar)) != 0 {
+		compResolver.WithCache(components.NewLocalComponentCache(fs))
+	}
 
 	// add the input to the ctf format
 	cd := &cdv2.ComponentDescriptor{}
