@@ -81,7 +81,7 @@ type LocalComponentDescriptorOption struct {
 func NewGenerateOverwriteCommand(ctx context.Context) *cobra.Command {
 	opts := &GenerateOverwriteOptions{}
 	cmd := &cobra.Command{
-		Use:     "generate-overwrite",
+		Use:     "generate-overwrite --component=\"example.com/my/component/name:v0.0.1 | /path/to/local/component-descriptor\" -o IV_OVERWRITE_OUTPUT_PATH [--add-comp=ADDITIONAL_COMPONENT]...",
 		Aliases: []string{"go"},
 		Short:   "Get parses a component descriptor and returns the defined image vector",
 		Long: `
@@ -191,6 +191,7 @@ component:
 }
 
 func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+	ctx = logr.NewContext(ctx, log)
 	ociClient, _, err := o.OciOptions.Build(log, fs)
 	if err != nil {
 		return err

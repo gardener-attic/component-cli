@@ -89,19 +89,19 @@ var _ = Describe("GenerateOverwrite", func() {
 			"Name":          Equal("hyperkube"),
 			"Repository":    Equal("eu.gcr.io/gardener-project/hyperkube"),
 			"Tag":           PointTo(Equal("v1.19.2")),
-			"TargetVersion": PointTo(Equal("= v1.19.2")),
+			"TargetVersion": PointTo(Equal("1.19.2")),
 		})))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
 			"Repository":    Equal("k8s.gcr.io/hyperkube"),
 			"Tag":           PointTo(Equal("v1.18.6")),
-			"TargetVersion": PointTo(Equal("= v1.18.6")),
+			"TargetVersion": PointTo(Equal("1.18.6")),
 		})))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
 			"Repository":    Equal("k8s.gcr.io/hyperkube"),
 			"Tag":           PointTo(Equal("v1.17.10")),
-			"TargetVersion": PointTo(Equal("= v1.17.10")),
+			"TargetVersion": PointTo(Equal("1.17.10")),
 		})))
 	})
 
