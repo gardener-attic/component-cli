@@ -82,26 +82,26 @@ var _ = Describe("GenerateOverwrite", func() {
 		runAdd(testdataFs, "./00-component/component-descriptor.yaml", "./resources/30-generic.yaml", addOpts)
 
 		getOpts := &ivcmd.GenerateOverwriteOptions{}
-		getOpts.ComponentDescriptorsPath = []string{"./04-generic-images/component-descriptor.yaml"}
+		getOpts.AdditionalComponentsRefOrPath = []string{"./04-generic-images/component-descriptor.yaml"}
 		imageVector := runGenerateOverwrite(testdataFs, "./00-component/component-descriptor.yaml", getOpts)
 		Expect(imageVector.Images).To(HaveLen(3))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
 			"Repository":    Equal("eu.gcr.io/gardener-project/hyperkube"),
 			"Tag":           PointTo(Equal("v1.19.2")),
-			"TargetVersion": PointTo(Equal("= v1.19.2")),
+			"TargetVersion": PointTo(Equal("1.19.2")),
 		})))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
 			"Repository":    Equal("k8s.gcr.io/hyperkube"),
 			"Tag":           PointTo(Equal("v1.18.6")),
-			"TargetVersion": PointTo(Equal("= v1.18.6")),
+			"TargetVersion": PointTo(Equal("1.18.6")),
 		})))
 		Expect(imageVector.Images).To(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Name":          Equal("hyperkube"),
 			"Repository":    Equal("k8s.gcr.io/hyperkube"),
 			"Tag":           PointTo(Equal("v1.17.10")),
-			"TargetVersion": PointTo(Equal("= v1.17.10")),
+			"TargetVersion": PointTo(Equal("1.17.10")),
 		})))
 	})
 
@@ -119,12 +119,13 @@ var _ = Describe("GenerateOverwrite", func() {
 			Expect(yaml.Unmarshal(gardenerImageVectorBytes.Bytes(), &gardenerImageVector))
 
 			getOpts := &ivcmd.GenerateOverwriteOptions{}
-			getOpts.RemoteComponentDescriptorOption = ivcmd.RemoteComponentDescriptorOption{
-				BaseURL:          "eu.gcr.io/gardener-project/development",
-				ComponentName:    "github.com/gardener/gardener",
-				ComponentVersion: "v1.25.1",
+			getOpts.BaseURL = "eu.gcr.io/gardener-project/development"
+			getOpts.ComponentRefOrPath = "github.com/gardener/gardener:v1.25.1"
+			getOpts.AdditionalComponentsRefOrPath = []string{
+				"06-kubernetes-versions/component-descriptor.yaml",
 			}
 			getOpts.ImageVectorPath = "./out/iv.yaml"
+			Expect(getOpts.Complete(nil)).To(Succeed())
 			Expect(getOpts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
 			data, err := vfs.ReadFile(testdataFs, getOpts.ImageVectorPath)
@@ -160,7 +161,7 @@ func runGenerateOverwrite(fs vfs.FileSystem, caPath string, getOpts ...*ivcmd.Ge
 	if len(getOpts) == 1 {
 		opts = getOpts[0]
 	}
-	opts.ComponentDescriptorPath = caPath
+	opts.ComponentRefOrPath = caPath
 	opts.ImageVectorPath = "./out/iv.yaml"
 	Expect(opts.Complete(nil)).To(Succeed())
 

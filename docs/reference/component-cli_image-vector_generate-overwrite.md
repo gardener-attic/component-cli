@@ -94,25 +94,22 @@ component:
 
 
 ```
-component-cli image-vector generate-overwrite [flags]
+component-cli image-vector generate-overwrite --component="example.com/my/component/name:v0.0.1 | /path/to/local/component-descriptor" -o IV_OVERWRITE_OUTPUT_PATH [--add-comp=ADDITIONAL_COMPONENT]... [flags]
 ```
 
 ### Options
 
 ```
-      --add-comp stringArray       path to the component descriptor directory
+      --add-comp stringArray       list of name and version of an additional component or a path to the local component descriptor. The component ref is expected to be of the format '<component-name>:<component-version>'
       --allow-plain-http           allows the fallback to http if the oci registry does not support https
       --cc-config string           path to the local concourse config file
-      --comp string                path to the component descriptor directory
-      --component-name string      name of the remote component
-      --component-version string   version of the remote component
+  -c, --component string           name and version of the main component or a path to the local component descriptor. The component ref is expected to be of the format '<component-name>:<component-version>'
   -h, --help                       help for generate-overwrite
       --insecure-skip-tls-verify   If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
   -o, --output string              The path to the image vector that will be written.
       --registry-config string     path to the dockerconfig.json with the oci registry authentication information
       --repo-ctx string            base url of the component repository
       --resolve-tags               enable that tags are automatically resolved to digests
-      --sub-component string       name of the component that should be used as the main component descriptor
 ```
 
 ### Options inherited from parent commands

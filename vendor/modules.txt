@@ -49,10 +49,9 @@ github.com/gardener/component-spec/bindings-go/apis/v2/jsonscheme
 github.com/gardener/component-spec/bindings-go/apis/v2/validation
 github.com/gardener/component-spec/bindings-go/codec
 github.com/gardener/component-spec/bindings-go/ctf
-github.com/gardener/component-spec/bindings-go/ctf/ctfutils
 github.com/gardener/component-spec/bindings-go/oci
 github.com/gardener/component-spec/bindings-go/utils/selector
-# github.com/gardener/image-vector v0.4.0
+# github.com/gardener/image-vector v0.5.0
 ## explicit
 github.com/gardener/image-vector/pkg
 # github.com/ghodss/yaml v1.0.0

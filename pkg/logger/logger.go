@@ -5,6 +5,10 @@
 package logger
 
 import (
+	"fmt"
+	"os"
+	"strconv"
+
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
@@ -128,6 +132,13 @@ func determineZapConfig(loggerConfig *Config) zap.Config {
 	loggerConfig.SetDisableStacktrace(&zapConfig)
 	loggerConfig.SetTimestamp(&zapConfig)
 
+	if len(os.Getenv(LoggingVerbosityEnvVar)) != 0 {
+		var err error
+		loggerConfig.Verbosity, err = strconv.Atoi(os.Getenv(LoggingVerbosityEnvVar))
+		if err != nil {
+			panic(fmt.Sprintf("unable to convert %s %s to int", LoggingVerbosityEnvVar, os.Getenv(LoggingVerbosityEnvVar)))
+		}
+	}
 	level := int8(0 - loggerConfig.Verbosity)
 	zapConfig.Level = zap.NewAtomicLevelAt(zapcore.Level(level))
 
