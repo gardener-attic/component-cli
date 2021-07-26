@@ -135,4 +135,75 @@ var _ = Describe("Remote", func() {
 		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(HaveOccurred())
 	})
 
+	It("should copy a component descriptor and its blobs from the source repository to the target repository.", func() {
+		baseFs, err := projectionfs.New(osfs.New(), "../")
+		Expect(err).ToNot(HaveOccurred())
+		testdataFs = layerfs.New(memoryfs.New(), baseFs)
+		ctx := context.Background()
+
+		cf, err := testenv.GetConfigFileBytes()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
+
+		baseURLSource := testenv.Addr + "/test-source"
+		baseURLTarget := testenv.Addr + "/test-target"
+
+		pushOpts := &remote.PushOptions{
+			OciOptions: options.Options{
+				AllowPlainHttp:     false,
+				RegistryConfigPath: "/auth.json",
+			},
+		}
+		pushOpts.ComponentArchivePath = "./testdata/00-ca"
+		pushOpts.BaseUrl = baseURLSource
+
+		res := remote.NewPushCommand(ctx)
+		Expect(res)
+
+		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
+		repos, err := client.ListRepositories(ctx, baseURLSource)
+		Expect(err).ToNot(HaveOccurred())
+
+		componentName := "example.com/component"
+		componentVersion := "v0.0.0"
+
+		expectedRef := baseURLSource + "/component-descriptors/" + componentName
+		Expect(repos).To(ContainElement(Equal(expectedRef)))
+
+		manifest, err := client.GetManifest(ctx, expectedRef+":"+componentVersion)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manifest.Layers).To(HaveLen(1))
+		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
+			"Expect that the first layer contains the component descriptor")
+
+		copyOpts := &remote.CopyOptions{
+			OciOptions: options.Options{
+				AllowPlainHttp:     false,
+				RegistryConfigPath: "/auth.json",
+			},
+		}
+		copyOpts.SourceRepository = baseURLSource
+		copyOpts.ComponentName = componentName
+		copyOpts.ComponentVersion = componentVersion
+		copyOpts.TargetRepository = baseURLTarget
+
+		res = remote.NewCopyCommand(ctx)
+		Expect(res)
+
+		Expect(copyOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
+		repos, err = client.ListRepositories(ctx, baseURLTarget)
+		Expect(err).ToNot(HaveOccurred())
+
+		expectedRef = baseURLTarget + "/component-descriptors/" + componentName
+		Expect(repos).To(ContainElement(Equal(expectedRef)))
+
+		manifest, err = client.GetManifest(ctx, expectedRef+":"+componentVersion)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manifest.Layers).To(HaveLen(1))
+		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
+			"Expect that the first layer contains the component descriptor")
+	})
+
 })
