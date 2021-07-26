@@ -71,7 +71,7 @@ This behavior can be overwritten by specifying "--recursive=false"
 				os.Exit(1)
 			}
 
-			if err := opts.run(ctx, logger.Log, osfs.New()); err != nil {
+			if err := opts.Run(ctx, logger.Log, osfs.New()); err != nil {
 				logger.Log.Error(err, "")
 				os.Exit(1)
 			}
@@ -83,7 +83,7 @@ This behavior can be overwritten by specifying "--recursive=false"
 	return cmd
 }
 
-func (o *CopyOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+func (o *CopyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	ctx = logr.NewContext(ctx, log)
 	ociClient, cache, err := o.OciOptions.Build(log, fs)
 	if err != nil {
