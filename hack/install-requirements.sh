@@ -16,7 +16,6 @@ GO111MODULE=off go get golang.org/x/tools/cmd/goimports
 echo "> Install Registry test binaries"
 
 mkdir -p ${PROJECT_ROOT}/tmp/test/bin
-"https://storage.googleapis.com/gardener-public/test/oci-registry/registry-darwin-amd64"
 curl -L "https://storage.googleapis.com/gardener-public/test/oci-registry/registry-$(go env GOOS)-$(go env GOARCH)" --output ${PROJECT_ROOT}/tmp/test/bin/registry
 chmod +x ${PROJECT_ROOT}/tmp/test/bin/registry
 
