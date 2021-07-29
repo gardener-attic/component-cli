@@ -5,6 +5,7 @@
 package remote_test
 
 import (
+	"bytes"
 	"context"
 	"os"
 
@@ -154,11 +155,11 @@ var _ = Describe("Remote", func() {
 				RegistryConfigPath: "/auth.json",
 			},
 		}
-		pushOpts.ComponentArchivePath = "./testdata/00-ca"
+		pushOpts.ComponentArchivePath = "./testdata/01-ca-blob"
 		pushOpts.BaseUrl = baseURLSource
 
-		res := remote.NewPushCommand(ctx)
-		Expect(res)
+		cmd := remote.NewPushCommand(ctx)
+		Expect(cmd)
 
 		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
@@ -168,14 +169,20 @@ var _ = Describe("Remote", func() {
 		componentName := "example.com/component"
 		componentVersion := "v0.0.0"
 
-		expectedRef := baseURLSource + "/component-descriptors/" + componentName
-		Expect(repos).To(ContainElement(Equal(expectedRef)))
+		sourceRef := baseURLSource + "/component-descriptors/" + componentName
+		Expect(repos).To(ContainElement(Equal(sourceRef)))
 
-		manifest, err := client.GetManifest(ctx, expectedRef+":"+componentVersion)
+		manifest, err := client.GetManifest(ctx, sourceRef+":"+componentVersion)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(manifest.Layers).To(HaveLen(1))
+		Expect(manifest.Layers).To(HaveLen(2))
 		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
 			"Expect that the first layer contains the component descriptor")
+		Expect(manifest.Layers[1].MediaType).To(Equal("application/x-elf"),
+			"Expect that the second layer contains the local blob")
+
+		var layerBlob bytes.Buffer
+		Expect(client.Fetch(ctx, sourceRef+":"+componentVersion, manifest.Layers[1], &layerBlob)).To(Succeed())
+		Expect(layerBlob.String()).To(Equal("blob test\n"))
 
 		copyOpts := &remote.CopyOptions{
 			OciOptions: options.Options{
@@ -187,23 +194,30 @@ var _ = Describe("Remote", func() {
 		copyOpts.ComponentName = componentName
 		copyOpts.ComponentVersion = componentVersion
 		copyOpts.TargetRepository = baseURLTarget
+		//copyOpts.Force = true
 
-		res = remote.NewCopyCommand(ctx)
-		Expect(res)
+		cmd = remote.NewCopyCommand(ctx)
+		Expect(cmd)
 
 		Expect(copyOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		repos, err = client.ListRepositories(ctx, baseURLTarget)
 		Expect(err).ToNot(HaveOccurred())
 
-		expectedRef = baseURLTarget + "/component-descriptors/" + componentName
-		Expect(repos).To(ContainElement(Equal(expectedRef)))
+		targetRef := baseURLTarget + "/component-descriptors/" + componentName
+		Expect(repos).To(ContainElement(Equal(targetRef)))
 
-		manifest, err = client.GetManifest(ctx, expectedRef+":"+componentVersion)
+		manifestTarget, err := client.GetManifest(ctx, targetRef+":"+componentVersion)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(manifest.Layers).To(HaveLen(1))
-		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
+		Expect(manifestTarget.Layers).To(HaveLen(2))
+		Expect(manifestTarget.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
 			"Expect that the first layer contains the component descriptor")
+		Expect(manifestTarget.Layers[1].MediaType).To(Equal("application/x-elf"),
+			"Expect that the second layer contains the local blob")
+
+		var layerBlobTarget bytes.Buffer
+		Expect(client.Fetch(ctx, sourceRef+":"+componentVersion, manifest.Layers[1], &layerBlobTarget)).To(Succeed())
+		Expect(layerBlobTarget.String()).To(Equal("blob test\n"))
 	})
 
 })
