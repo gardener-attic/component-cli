@@ -434,6 +434,83 @@ var _ = Describe("Remote", func() {
 			Expect(targetComp.Resources[0].Access.DecodeInto(acc)).To(Succeed())
 			Expect(acc.Reference).To(HaveSuffix(ociImageTargetRelRef))
 		})
+	It("should copy a component descriptor and its blobs from the source repository to the target repository.", func() {
+		baseFs, err := projectionfs.New(osfs.New(), "../")
+		Expect(err).ToNot(HaveOccurred())
+		testdataFs = layerfs.New(memoryfs.New(), baseFs)
+		ctx := context.Background()
+
+		cf, err := testenv.GetConfigFileBytes()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
+
+		baseURLSource := testenv.Addr + "/test-source"
+		baseURLTarget := testenv.Addr + "/test-target"
+
+		pushOpts := &remote.PushOptions{
+			OciOptions: options.Options{
+				AllowPlainHttp:     false,
+				RegistryConfigPath: "/auth.json",
+			},
+		}
+		pushOpts.ComponentArchivePath = "./testdata/01-ca-blob"
+		pushOpts.BaseUrl = baseURLSource
+
+		cmd := remote.NewPushCommand(ctx)
+
+		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
+		repos, err := client.ListRepositories(ctx, baseURLSource)
+		Expect(err).ToNot(HaveOccurred())
+
+		componentName := "example.com/component"
+		componentVersion := "v0.0.0"
+
+		sourceRef := baseURLSource + "/component-descriptors/" + componentName
+		Expect(repos).To(ContainElement(Equal(sourceRef)))
+
+		manifest, err := client.GetManifest(ctx, sourceRef+":"+componentVersion)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manifest.Layers).To(HaveLen(2))
+		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
+			"Expect that the first layer contains the component descriptor")
+		Expect(manifest.Layers[1].MediaType).To(Equal("application/x-elf"),
+			"Expect that the second layer contains the local blob")
+
+		var layerBlob bytes.Buffer
+		Expect(client.Fetch(ctx, sourceRef+":"+componentVersion, manifest.Layers[1], &layerBlob)).To(Succeed())
+		Expect(layerBlob.String()).To(Equal("blob test\n"))
+
+		copyOpts := &remote.CopyOptions{
+			OciOptions: options.Options{
+				AllowPlainHttp:     false,
+				RegistryConfigPath: "/auth.json",
+			},
+		}
+		copyOpts.SourceRepository = baseURLSource
+		copyOpts.ComponentName = componentName
+		copyOpts.ComponentVersion = componentVersion
+		copyOpts.TargetRepository = baseURLTarget
+		//copyOpts.Force = true
+
+		cmd = remote.NewCopyCommand(ctx)
+		Expect(cmd)
+
+		Expect(copyOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
+		repos, err = client.ListRepositories(ctx, baseURLTarget)
+		Expect(err).ToNot(HaveOccurred())
+
+		targetRef := baseURLTarget + "/component-descriptors/" + componentName
+		Expect(repos).To(ContainElement(Equal(targetRef)))
+
+		manifestTarget, err := client.GetManifest(ctx, targetRef+":"+componentVersion)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manifestTarget.Layers).To(HaveLen(2))
+		Expect(manifestTarget.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
+			"Expect that the first layer contains the component descriptor")
+		Expect(manifestTarget.Layers[1].MediaType).To(Equal("application/x-elf"),
+			"Expect that the second layer contains the local blob")
 
 	})
 
