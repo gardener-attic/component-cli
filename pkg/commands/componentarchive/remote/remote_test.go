@@ -159,7 +159,6 @@ var _ = Describe("Remote", func() {
 		pushOpts.BaseUrl = baseURLSource
 
 		cmd := remote.NewPushCommand(ctx)
-		Expect(cmd)
 
 		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
