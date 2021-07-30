@@ -92,10 +92,7 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 				return nil, fmt.Errorf("unable to create projectionfilesystem: %w", err)
 			}
 
-			decodeOpts := []codec.DecodeOption{
-				codec.DisableValidation(true),
-			}
-			archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs, decodeOpts...)
+			archive, err := ctf.NewComponentArchiveFromFilesystem(archiveFs, codec.DisableValidation(true))
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse component archive from %s: %w", o.ComponentArchivePath, err)
 			}
