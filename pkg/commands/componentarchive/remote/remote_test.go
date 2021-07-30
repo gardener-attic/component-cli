@@ -10,6 +10,7 @@ import (
 	"os"
 
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
+
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
@@ -52,9 +53,6 @@ var _ = Describe("Remote", func() {
 		pushOpts.ComponentArchivePath = "./testdata/00-ca"
 		pushOpts.BaseUrl = testenv.Addr + "/test"
 
-		res := remote.NewPushCommand(ctx)
-		Expect(res)
-
 		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		repos, err := client.ListRepositories(ctx, testenv.Addr+"/test")
@@ -89,9 +87,6 @@ var _ = Describe("Remote", func() {
 		pushOpts.ComponentArchivePath = "./testdata/00-ca"
 		pushOpts.BaseUrl = testenv.Addr + "/test"
 
-		res := remote.NewPushCommand(ctx)
-		Expect(res)
-
 		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		showOpts := &remote.ShowOptions{
@@ -103,9 +98,6 @@ var _ = Describe("Remote", func() {
 		showOpts.BaseUrl = testenv.Addr + "/test"
 		showOpts.ComponentName = "example.com/component"
 		showOpts.Version = "v0.0.0"
-
-		res = remote.NewGetCommand(ctx)
-		Expect(res)
 
 		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 	})
@@ -129,9 +121,6 @@ var _ = Describe("Remote", func() {
 		showOpts.BaseUrl = testenv.Addr + "/test"
 		showOpts.ComponentName = "example.com/component"
 		showOpts.Version = "v6.6.6"
-
-		res := remote.NewGetCommand(ctx)
-		Expect(res)
 
 		Expect(showOpts.Run(ctx, logr.Discard(), testdataFs)).To(HaveOccurred())
 	})
@@ -158,8 +147,6 @@ var _ = Describe("Remote", func() {
 		pushOpts.ComponentArchivePath = "./testdata/01-ca-blob"
 		pushOpts.BaseUrl = baseURLSource
 
-		cmd := remote.NewPushCommand(ctx)
-
 		Expect(pushOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		repos, err := client.ListRepositories(ctx, baseURLSource)
@@ -176,7 +163,7 @@ var _ = Describe("Remote", func() {
 		Expect(manifest.Layers).To(HaveLen(2))
 		Expect(manifest.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
 			"Expect that the first layer contains the component descriptor")
-		Expect(manifest.Layers[1].MediaType).To(Equal("application/x-elf"),
+		Expect(manifest.Layers[1].MediaType).To(Equal("text/plain"),
 			"Expect that the second layer contains the local blob")
 
 		var layerBlob bytes.Buffer
@@ -195,9 +182,6 @@ var _ = Describe("Remote", func() {
 		copyOpts.TargetRepository = baseURLTarget
 		//copyOpts.Force = true
 
-		cmd = remote.NewCopyCommand(ctx)
-		Expect(cmd)
-
 		Expect(copyOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
 		repos, err = client.ListRepositories(ctx, baseURLTarget)
@@ -211,11 +195,11 @@ var _ = Describe("Remote", func() {
 		Expect(manifestTarget.Layers).To(HaveLen(2))
 		Expect(manifestTarget.Layers[0].MediaType).To(Equal(cdoci.ComponentDescriptorTarMimeType),
 			"Expect that the first layer contains the component descriptor")
-		Expect(manifestTarget.Layers[1].MediaType).To(Equal("application/x-elf"),
+		Expect(manifestTarget.Layers[1].MediaType).To(Equal("text/plain"),
 			"Expect that the second layer contains the local blob")
 
 		var layerBlobTarget bytes.Buffer
-		Expect(client.Fetch(ctx, sourceRef+":"+componentVersion, manifest.Layers[1], &layerBlobTarget)).To(Succeed())
+		Expect(client.Fetch(ctx, targetRef+":"+componentVersion, manifest.Layers[1], &layerBlobTarget)).To(Succeed())
 		Expect(layerBlobTarget.String()).To(Equal("blob test\n"))
 	})
 
