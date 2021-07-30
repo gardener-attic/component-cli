@@ -101,14 +101,14 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 
 			if o.Name != "" {
 				if cd.Name != "" && cd.Name != o.Name {
-					return nil, fmt.Errorf("unable to overwrite the existing component name: forbidden")
+					return nil, errors.New("unable to overwrite the existing component name: forbidden")
 				}
 				cd.Name = o.Name
 			}
 
 			if o.Version != "" {
 				if cd.Version != "" && cd.Version != o.Version {
-					return nil, fmt.Errorf("unable to overwrite the existing component version: forbidden")
+					return nil, errors.New("unable to overwrite the existing component version: forbidden")
 				}
 				cd.Version = o.Version
 			}
