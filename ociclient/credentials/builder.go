@@ -118,6 +118,15 @@ func (b *KeyringBuilder) Build() (*GeneralOciKeyring, error) {
 			return nil, err
 		}
 
+		// add native store for external program authentication
+		for address, helper := range dockerConfig.CredentialHelpers {
+			err := store.AddAuthConfigGetter(address, CredentialHelperAuthConfigGetter(b.log, dockerConfig, address, helper))
+			b.log.V(10).Info(fmt.Sprintf("added authentication for %q with credential helper %s", address, helper))
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		for address, dockerAuth := range dockerConfig.AuthConfigs {
 			auth := FromAuthConfig(dockerAuth)
 			// if the auth is empty use the default store to get the authentication
@@ -135,14 +144,6 @@ func (b *KeyringBuilder) Build() (*GeneralOciKeyring, error) {
 			}
 		}
 
-		// add native store for external program authentication
-		for address, helper := range dockerConfig.CredentialHelpers {
-			err := store.AddAuthConfigGetter(address, CredentialHelperAuthConfigGetter(b.log, dockerConfig, address, helper))
-			b.log.V(10).Info(fmt.Sprintf("added authentication for %q with credential helper %s", address, helper))
-			if err != nil {
-				return nil, err
-			}
-		}
 	}
 
 	return store, nil
