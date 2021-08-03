@@ -5,6 +5,7 @@ For a comprehensive documentation see the [generated docs](./reference/component
 
 __Index__:
 
+- [Credential Handling](#credential-handling)
 - [Resource](#create-a-component)
   - [Add a resource](#add-a-resource)
   - [Add a local blob](#add-a-local-file)
@@ -12,6 +13,42 @@ __Index__:
 - [ComponentReference](#add-a-dependency-to-a-component)
 - [Remote](#remote)
   - [Push a Component Descriptor](#push)
+
+## Credential Handling
+
+The credentials for accessing private registries are handled via plain Docker CLI mechanisms. Either use the `docker login` command, or edit the Docker config file on your local machine manually.
+
+Specialties regarding credential handling in the component-cli:
+
+1) The component-cli uses credential entries from the `auths` section in preference over `credHelpers` for the same registry URL.
+
+```json
+{
+	"auths": {
+		"eu.gcr.io": {}
+	},
+	"credHelpers": {
+		"eu.gcr.io": "gcloud",
+	},
+	...
+}
+```
+
+With the above Docker config, the component-cli will use the set of credentials from the `auths` section when interacting with the `eu.gcr.io` registry.
+
+2) The component-cli supports providing credentials for subpaths of the same host (not supported by Docker CLI).
+
+```json
+{
+	"auths": {
+		"eu.gcr.io/my-project": {},
+    "eu.gcr.io": {}
+	},
+	...
+}
+```
+
+With the above Docker config, the component-cli will use the more specific set of credentials for all artifacts under the path `eu.gcr.io/my-project`.
 
 ## Create a Component
 
