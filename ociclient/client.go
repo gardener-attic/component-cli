@@ -6,6 +6,7 @@ package ociclient
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,9 +17,11 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/images"
 	containerdlog "github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
@@ -27,6 +30,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	distributionspecv1 "github.com/opencontainers/distribution-spec/specs-go/v1"
 	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -132,6 +136,15 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 	_, desc, err := resolver.Resolve(ctx, ref)
 	if err != nil {
 		return nil, err
+	}
+
+	if desc.MediaType == images.MediaTypeDockerSchema1Manifest {
+		c.log.V(3).Info("found v1 manifest -> convert to v2")
+		convertedManifestDesc, err := c.convertV1ManifestToV2(ctx, ref, desc)
+		if err != nil {
+			return nil, fmt.Errorf("unable to convert v1 manifest to v2: %w", err)
+		}
+		desc = convertedManifestDesc
 	}
 
 	data := bytes.NewBuffer([]byte{})
@@ -551,4 +564,135 @@ func AddKnownMediaTypesToCtx(ctx context.Context, mediaTypes []string) context.C
 		ctx = remotes.WithMediaTypeKeyPrefix(ctx, mediaType, "custom")
 	}
 	return ctx
+}
+
+// *************************************************************************************
+// Docker Manifest v1 Support (https://docs.docker.com/registry/spec/manifest-v2-1/)
+// *************************************************************************************
+type fsLayer struct {
+	BlobSum digest.Digest `json:"blobSum"`
+}
+
+type history struct {
+	V1Compatibility string `json:"v1Compatibility"`
+}
+
+type v1Manifest struct {
+	FSLayers []fsLayer `json:"fsLayers"`
+	History  []history `json:"history"`
+}
+
+type v1History struct {
+	Author          string    `json:"author,omitempty"`
+	Created         time.Time `json:"created"`
+	Comment         string    `json:"comment,omitempty"`
+	ThrowAway       *bool     `json:"throwaway,omitempty"`
+	Size            *int      `json:"Size,omitempty"` // used before ThrowAway field
+	ContainerConfig struct {
+		Cmd []string `json:"Cmd,omitempty"`
+	} `json:"container_config,omitempty"`
+}
+
+func (c *client) convertV1ManifestToV2(ctx context.Context, ref string, v1ManifestDesc ocispecv1.Descriptor) (ocispecv1.Descriptor, error) {
+	buf := bytes.NewBuffer([]byte{})
+	if err := c.Fetch(ctx, ref, v1ManifestDesc, buf); err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch v1 manifest blob: %w", err)
+	}
+
+	var v1Manifest v1Manifest
+	if err := json.Unmarshal(buf.Bytes(), &v1Manifest); err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal v1 manifest: %w", err)
+	}
+
+	layers := []ocispecv1.Descriptor{}
+	uncompressedLayerDigests := []digest.Digest{}
+
+	for _, fsLayer := range v1Manifest.FSLayers {
+		layerDesc := ocispecv1.Descriptor{
+			Digest: fsLayer.BlobSum,
+			Size:   -1,
+		}
+
+		buf := bytes.NewBuffer([]byte{})
+		if err := c.Fetch(ctx, ref, layerDesc, buf); err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch layer blob: %w", err)
+		}
+		data := buf.Bytes()
+
+		des := ocispecv1.Descriptor{
+			Digest:    fsLayer.BlobSum,
+			MediaType: ocispecv1.MediaTypeImageLayerGzip,
+			Size:      int64(len(data)),
+		}
+		layers = append(layers, des)
+
+		if err := c.cache.Add(layerDesc, io.NopCloser(bytes.NewReader(data))); err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to write layer blob to cache: %w", err)
+		}
+
+		gzipReader, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to create gzip reader: %w", err)
+		}
+
+		decompressedData, err := ioutil.ReadAll(gzipReader)
+		if err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to read from gzip reader: %w", err)
+		}
+
+		dgst := digest.FromBytes(decompressedData)
+		uncompressedLayerDigests = append(uncompressedLayerDigests, dgst)
+	}
+
+	var img ocispecv1.Image
+	if err := json.Unmarshal([]byte(v1Manifest.History[0].V1Compatibility), &img); err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal image from manifest v1 history: %w", err)
+	}
+
+	img.RootFS = ocispecv1.RootFS{
+		Type:    "layers",
+		DiffIDs: uncompressedLayerDigests,
+	}
+
+	marshaledImg, err := json.MarshalIndent(img, "", "   ")
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to marshal image: %w", err)
+	}
+
+	configDesc := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageConfig,
+		Digest:    digest.Canonical.FromBytes(marshaledImg),
+		Size:      int64(len(marshaledImg)),
+	}
+
+	v2Manifest := ocispecv1.Manifest{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2,
+		},
+		Config: configDesc,
+		Layers: layers,
+	}
+
+	marshaledV2Manifest, err := json.MarshalIndent(v2Manifest, "", "   ")
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to marshal manifest: %w", err)
+	}
+
+	v2ManifestDesc := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageManifest,
+		Digest:    digest.FromBytes(marshaledV2Manifest),
+		Size:      int64(len(marshaledV2Manifest)),
+	}
+
+	err = c.cache.Add(configDesc, io.NopCloser(bytes.NewReader(marshaledImg)))
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
+	}
+
+	err = c.cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(marshaledV2Manifest)))
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write manifest blob to cache: %w", err)
+	}
+
+	return v2ManifestDesc, nil
 }
