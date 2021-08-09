@@ -9,7 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"path"
+	"strings"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/ctf"
@@ -21,6 +24,8 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/gardener/component-cli/ociclient/oci"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -46,6 +51,12 @@ type CopyOptions struct {
 	// CopyByValue defines if all oci images and artifacts should be copied by value or reference.
 	// LocalBlobs are still copied by value.
 	CopyByValue bool
+	// TargetArtifactRepository is the target repository for oci artifacts.
+	// This value is only relevant if the artifacts are copied by value.
+	// +optional
+	TargetArtifactRepository string
+	// ConvertToRelativeOCIReferences configures the cli to write copied artifacts back with a relative reference
+	ConvertToRelativeOCIReferences bool
 
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
@@ -71,7 +82,7 @@ This behavior can be overwritten by specifying "--recursive=false"
 				os.Exit(1)
 			}
 
-			if err := opts.run(ctx, logger.Log, osfs.New()); err != nil {
+			if err := opts.Run(ctx, logger.Log, osfs.New()); err != nil {
 				logger.Log.Error(err, "")
 				os.Exit(1)
 			}
@@ -83,7 +94,7 @@ This behavior can be overwritten by specifying "--recursive=false"
 	return cmd
 }
 
-func (o *CopyOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+func (o *CopyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	ctx = logr.NewContext(ctx, log)
 	ociClient, cache, err := o.OciOptions.Build(log, fs)
 	if err != nil {
@@ -92,13 +103,17 @@ func (o *CopyOptions) run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	defer cache.Close()
 
 	c := Copier{
-		SrcRepoCtx:    cdv2.NewOCIRegistryRepository(o.SourceRepository, ""),
-		TargetRepoCtx: cdv2.NewOCIRegistryRepository(o.TargetRepository, ""),
-		CompResolver:  cdoci.NewResolver(ociClient),
-		OciClient:     ociClient,
-		Cache:         cache,
-		Recursive:     o.Recursive,
-		Force:         o.Force,
+		SrcRepoCtx:                     cdv2.NewOCIRegistryRepository(o.SourceRepository, ""),
+		TargetRepoCtx:                  cdv2.NewOCIRegistryRepository(o.TargetRepository, ""),
+		CompResolver:                   cdoci.NewResolver(ociClient),
+		OciClient:                      ociClient,
+		Cache:                          cache,
+		Recursive:                      o.Recursive,
+		Force:                          o.Force,
+		CopyByValue:                    o.CopyByValue,
+		SourceArtifactRepository:       o.SourceRepository,
+		TargetArtifactRepository:       o.TargetArtifactRepository,
+		ConvertToRelativeOCIReferences: o.ConvertToRelativeOCIReferences,
 	}
 
 	if err := c.Copy(ctx, o.ComponentName, o.ComponentVersion); err != nil {
@@ -122,6 +137,9 @@ func (o *CopyOptions) Complete(args []string) error {
 	if err := o.Validate(); err != nil {
 		return err
 	}
+	if len(o.TargetArtifactRepository) == 0 {
+		o.TargetArtifactRepository = o.TargetRepository
+	}
 	return nil
 }
 
@@ -133,9 +151,6 @@ func (o *CopyOptions) Validate() error {
 	if len(o.TargetRepository) == 0 {
 		return errors.New("a target repository has to be specified")
 	}
-	if o.CopyByValue {
-		return errors.New("copy by value is currently not supported")
-	}
 	return nil
 }
 
@@ -144,7 +159,10 @@ func (o *CopyOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.TargetRepository, "to", "", "target repository where the components are copied to.")
 	fs.BoolVar(&o.Recursive, "recursive", true, "Recursively copy the component descriptor and its references.")
 	fs.BoolVar(&o.Force, "force", false, "Forces the tool to overwrite already existing component descriptors.")
-	fs.BoolVar(&o.CopyByValue, "copy-by-value", false, "[EXPERIMENTAL] copies all references oci images and artifacts by value and not by reference.")
+	fs.BoolVar(&o.CopyByValue, "copy-by-value", false, "[EXPERIMENTAL] copies all referenced oci images and artifacts by value and not by reference.")
+	fs.StringVar(&o.TargetArtifactRepository, "target-artifact-repository", "",
+		"target repository where the artifacts are copied to. This is only relevant if artifacts are copied by value and it will be defaulted to the target component repository")
+	fs.BoolVar(&o.ConvertToRelativeOCIReferences, "relative-urls", false, "converts all copied oci artifacts to relative urls")
 	o.OciOptions.AddFlags(fs)
 }
 
@@ -159,6 +177,17 @@ type Copier struct {
 	Recursive bool
 	// Force forces an overwrite in the target registry if the component descriptor is already uploaded.
 	Force bool
+	// CopyByValue defines if all oci images and artifacts should be copied by value or reference.
+	// LocalBlobs are still copied by value.
+	CopyByValue bool
+	// SourceArtifactRepository is the source repository for oci artifacts.
+	// This value is only relevant if the artifacts are copied by value.
+	SourceArtifactRepository string
+	// TargetArtifactRepository is the target repository for oci artifacts.
+	// This value is only relevant if the artifacts are copied by value.
+	TargetArtifactRepository string
+	// ConvertToRelativeOCIReferences configures the cli to write copied artifacts back with a relative reference
+	ConvertToRelativeOCIReferences bool
 }
 
 func (c *Copier) Copy(ctx context.Context, name, version string) error {
@@ -190,40 +219,104 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 		return fmt.Errorf("unble to inject target repository: %w", err)
 	}
 
+	var layers []ocispecv1.Descriptor
+	blobToResource := map[string]*cdv2.Resource{}
+	// todo: parallelize upload with
+	for i, res := range cd.Resources {
+		switch res.Access.Type {
+		case cdv2.LocalOCIBlobType:
+			localBlob := &cdv2.LocalOCIBlobAccess{}
+			if err := res.Access.DecodeInto(localBlob); err != nil {
+				return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
+			}
+			blobInfo, err := blobs.Info(ctx, res)
+			if err != nil {
+				return fmt.Errorf("unable to get blob info for resource %s: %w", res.Name, err)
+			}
+			d, err := digest.Parse(blobInfo.Digest)
+			if err != nil {
+				return fmt.Errorf("unable to parse digest for resource %s: %w", res.Name, err)
+			}
+			layers = append(layers, ocispecv1.Descriptor{
+				MediaType: blobInfo.MediaType,
+				Digest:    d,
+				Size:      blobInfo.Size,
+				Annotations: map[string]string{
+					"resource": res.Name,
+				},
+			})
+			blobToResource[blobInfo.Digest] = res.DeepCopy()
+		case cdv2.OCIRegistryType:
+			if !c.CopyByValue {
+				log.V(7).Info("skip oci artifact copy by value", "resource", res.Name)
+				continue
+			}
+			ociRegistryAcc := &cdv2.OCIRegistryAccess{}
+			if err := res.Access.DecodeInto(ociRegistryAcc); err != nil {
+				return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
+			}
+
+			keepOrigHost := true
+			if c.ConvertToRelativeOCIReferences {
+				keepOrigHost = false
+			}
+			// mangle the target artifact name to keep the original image ref somehow readable.
+			target, err := targetOCIArtifactRef(c.TargetArtifactRepository, ociRegistryAcc.ImageReference, keepOrigHost)
+			if err != nil {
+				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
+			}
+			if err := ociclient.Copy(ctx, c.OciClient, ociRegistryAcc.ImageReference, target); err != nil {
+				return fmt.Errorf("unable to copy oci artifact %s from %s to %s: %w", res.Name, ociRegistryAcc.ImageReference, target, err)
+			}
+
+			if c.ConvertToRelativeOCIReferences {
+				uAcc, err := cdv2.NewUnstructured(cdv2.NewRelativeOciAccess(strings.TrimPrefix(strings.TrimPrefix(target, c.TargetArtifactRepository), "/")))
+				if err != nil {
+					return fmt.Errorf("unable to marshal updated oci artifact access %s: %w", res.Name, err)
+				}
+				cd.Resources[i].Access = &uAcc
+			} else {
+				ociRegistryAcc.ImageReference = target
+				uAcc, err := cdv2.NewUnstructured(ociRegistryAcc)
+				if err != nil {
+					return fmt.Errorf("unable to marshal updated oci artifact access %s: %w", res.Name, err)
+				}
+				cd.Resources[i].Access = &uAcc
+			}
+
+		case cdv2.RelativeOciReferenceType:
+			if !c.CopyByValue {
+				log.V(7).Info("skip relative oci artifact copy by value", "resource", res.Name)
+				continue
+			}
+			relOCIRegistryAcc := &cdv2.RelativeOciAccess{}
+			if err := res.Access.DecodeInto(relOCIRegistryAcc); err != nil {
+				return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
+			}
+
+			src := path.Join(c.SourceArtifactRepository, relOCIRegistryAcc.Reference)
+			target := path.Join(c.TargetArtifactRepository, relOCIRegistryAcc.Reference)
+			if err := ociclient.Copy(ctx, c.OciClient, src, target); err != nil {
+				return fmt.Errorf("unable to copy oci artifact %s from %s to %s: %w", res.Name, src, target, err)
+			}
+
+			if !c.ConvertToRelativeOCIReferences {
+				uAcc, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryAccess(target))
+				if err != nil {
+					return fmt.Errorf("unable to marshal updated oci artifact access %s: %w", res.Name, err)
+				}
+				cd.Resources[i].Access = &uAcc
+			}
+		default:
+			continue
+		}
+	}
+
 	manifest, err := cdoci.NewManifestBuilder(c.Cache, ctf.NewComponentArchive(cd, nil)).Build(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 	}
-
-	blobToResource := map[string]*cdv2.Resource{}
-	for _, res := range cd.Resources {
-		if res.Access.GetType() != cdv2.LocalOCIBlobType {
-			// skip
-			continue
-		}
-
-		localBlob := &cdv2.LocalOCIBlobAccess{}
-		if err := res.Access.DecodeInto(localBlob); err != nil {
-			return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
-		}
-		blobInfo, err := blobs.Info(ctx, res)
-		if err != nil {
-			return fmt.Errorf("unable to get blob info for resource %s: %w", res.Name, err)
-		}
-		d, err := digest.Parse(blobInfo.Digest)
-		if err != nil {
-			return fmt.Errorf("unable to parse digest for resource %s: %w", res.Name, err)
-		}
-		manifest.Layers = append(manifest.Layers, ocispecv1.Descriptor{
-			MediaType: blobInfo.MediaType,
-			Digest:    d,
-			Size:      blobInfo.Size,
-			Annotations: map[string]string{
-				"resource": res.Name,
-			},
-		})
-		blobToResource[blobInfo.Digest] = res.DeepCopy()
-	}
+	manifest.Layers = append(manifest.Layers, layers...)
 
 	ref, err := components.OCIRef(c.TargetRepoCtx, name, version)
 	if err != nil {
@@ -262,4 +355,29 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 	}
 
 	return nil
+}
+
+func targetOCIArtifactRef(targetRepo, ref string, keepOrigHost bool) (string, error) {
+	if !strings.Contains(targetRepo, "://") {
+		// add dummy protocol to correctly parse the url
+		targetRepo = "http://" + targetRepo
+	}
+	t, err := url.Parse(targetRepo)
+	if err != nil {
+		return "", err
+	}
+	parsedRef, err := oci.ParseRef(ref)
+	if err != nil {
+		return "", err
+	}
+
+	if !keepOrigHost {
+		parsedRef.Host = t.Host
+		parsedRef.Repository = path.Join(t.Path, parsedRef.Repository)
+		return parsedRef.String(), nil
+	}
+	replacedRef := strings.NewReplacer(".", "_", ":", "_").Replace(parsedRef.Name())
+	parsedRef.Repository = path.Join(t.Path, replacedRef)
+	parsedRef.Host = t.Host
+	return parsedRef.String(), nil
 }
