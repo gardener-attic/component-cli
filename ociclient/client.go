@@ -6,7 +6,6 @@ package ociclient
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,9 +18,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containerd/containerd/archive/compression"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/images"
 	containerdlog "github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
@@ -38,6 +37,7 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/ociclient/oci"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type client struct {
@@ -138,7 +138,7 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 		return nil, err
 	}
 
-	if desc.MediaType == images.MediaTypeDockerSchema1Manifest {
+	if desc.MediaType == DockerV2Schema1MediaType || desc.MediaType == DockerV2Schema1SignedMediaType {
 		c.log.V(3).Info("found v1 manifest -> convert to v2")
 		convertedManifestDesc, err := c.convertV1ManifestToV2(ctx, ref, desc)
 		if err != nil {
@@ -567,8 +567,19 @@ func AddKnownMediaTypesToCtx(ctx context.Context, mediaTypes []string) context.C
 }
 
 // *************************************************************************************
-// Docker Manifest v1 Support (https://docs.docker.com/registry/spec/manifest-v2-1/)
+// Docker Manifest v2 Schema 1 Support
+// see also:
+// - https://docs.docker.com/registry/spec/manifest-v2-1/
+// - https://github.com/moby/moby/blob/master/image/v1/imagev1.go
+// - https://github.com/containerd/containerd/blob/main/remotes/docker/schema1/converter.go
 // *************************************************************************************
+
+const (
+	DockerV2Schema1MediaType       = "application/vnd.docker.distribution.manifest.v1+json"
+	DockerV2Schema1SignedMediaType = "application/vnd.docker.distribution.manifest.v1+prettyjws"
+	MediaTypeImageLayerZstd        = "application/vnd.oci.image.layer.v1.tar+zstd"
+)
+
 type fsLayer struct {
 	BlobSum digest.Digest `json:"blobSum"`
 }
@@ -587,7 +598,7 @@ type v1History struct {
 	Created         time.Time `json:"created"`
 	Comment         string    `json:"comment,omitempty"`
 	ThrowAway       *bool     `json:"throwaway,omitempty"`
-	Size            *int      `json:"Size,omitempty"` // used before ThrowAway field
+	Size            *int      `json:"Size,omitempty"`
 	ContainerConfig struct {
 		Cmd []string `json:"Cmd,omitempty"`
 	} `json:"container_config,omitempty"`
@@ -605,66 +616,95 @@ func (c *client) convertV1ManifestToV2(ctx context.Context, ref string, v1Manife
 	}
 
 	layers := []ocispecv1.Descriptor{}
-	uncompressedLayerDigests := []digest.Digest{}
+	decompressedDigests := []digest.Digest{}
+	history := []ocispecv1.History{}
 
-	for _, fsLayer := range v1Manifest.FSLayers {
-		layerDesc := ocispecv1.Descriptor{
-			Digest: fsLayer.BlobSum,
-			Size:   -1,
+	// layers in v1 are reversed compared to v2 --> iterate backwards
+	for i := len(v1Manifest.FSLayers) - 1; i >= 0; i-- {
+		var h v1History
+		if err := json.Unmarshal([]byte(v1Manifest.History[i].V1Compatibility), &h); err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal v1 history: %w", err)
 		}
 
-		buf := bytes.NewBuffer([]byte{})
-		if err := c.Fetch(ctx, ref, layerDesc, buf); err != nil {
-			return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch layer blob: %w", err)
-		}
-		data := buf.Bytes()
+		emptyLayer := isEmptyLayer(&h)
 
-		des := ocispecv1.Descriptor{
-			Digest:    fsLayer.BlobSum,
-			MediaType: ocispecv1.MediaTypeImageLayerGzip,
-			Size:      int64(len(data)),
+		hs := ocispecv1.History{
+			Author:     h.Author,
+			Comment:    h.Comment,
+			Created:    &h.Created,
+			CreatedBy:  strings.Join(h.ContainerConfig.Cmd, " "),
+			EmptyLayer: emptyLayer,
 		}
-		layers = append(layers, des)
+		history = append(history, hs)
 
-		if err := c.cache.Add(layerDesc, io.NopCloser(bytes.NewReader(data))); err != nil {
-			return ocispecv1.Descriptor{}, fmt.Errorf("unable to write layer blob to cache: %w", err)
+		if !emptyLayer {
+			fslayer := v1Manifest.FSLayers[i]
+			layerDesc := ocispecv1.Descriptor{
+				Digest: fslayer.BlobSum,
+				Size:   -1,
+			}
+
+			buf := bytes.NewBuffer([]byte{})
+			if err := c.Fetch(ctx, ref, layerDesc, buf); err != nil {
+				return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch layer blob: %w", err)
+			}
+			data := buf.Bytes()
+
+			decompressedReader, err := compression.DecompressStream(bytes.NewReader(data))
+			if err != nil {
+				return ocispecv1.Descriptor{}, fmt.Errorf("unable to decompress layer blob: %w", err)
+			}
+
+			decompressedData, err := ioutil.ReadAll(decompressedReader)
+			if err != nil {
+				return ocispecv1.Descriptor{}, fmt.Errorf("unable to read decompressed layer blob: %w", err)
+			}
+
+			var mediatype string
+			switch decompressedReader.GetCompression() {
+			case compression.Uncompressed:
+				mediatype = ocispecv1.MediaTypeImageLayer
+			case compression.Gzip:
+				mediatype = ocispecv1.MediaTypeImageLayerGzip
+			case compression.Zstd:
+				mediatype = MediaTypeImageLayerZstd
+			}
+
+			des := ocispecv1.Descriptor{
+				Digest:    fslayer.BlobSum,
+				MediaType: mediatype,
+				Size:      int64(len(data)),
+			}
+
+			layers = append(layers, des)
+			decompressedDigests = append(decompressedDigests, digest.FromBytes(decompressedData))
 		}
-
-		gzipReader, err := gzip.NewReader(bytes.NewReader(data))
-		if err != nil {
-			return ocispecv1.Descriptor{}, fmt.Errorf("unable to create gzip reader: %w", err)
-		}
-
-		decompressedData, err := ioutil.ReadAll(gzipReader)
-		if err != nil {
-			return ocispecv1.Descriptor{}, fmt.Errorf("unable to read from gzip reader: %w", err)
-		}
-
-		dgst := digest.FromBytes(decompressedData)
-		uncompressedLayerDigests = append(uncompressedLayerDigests, dgst)
 	}
 
-	var img ocispecv1.Image
-	if err := json.Unmarshal([]byte(v1Manifest.History[0].V1Compatibility), &img); err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal image from manifest v1 history: %w", err)
-	}
-
-	img.RootFS = ocispecv1.RootFS{
-		Type:    "layers",
-		DiffIDs: uncompressedLayerDigests,
-	}
-
-	marshaledImg, err := json.MarshalIndent(img, "", "   ")
+	configDesc, configBytes, err := createConfig(&v1Manifest, decompressedDigests, history)
 	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to marshal image: %w", err)
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create config: %w", err)
 	}
 
-	configDesc := ocispecv1.Descriptor{
-		MediaType: ocispecv1.MediaTypeImageConfig,
-		Digest:    digest.Canonical.FromBytes(marshaledImg),
-		Size:      int64(len(marshaledImg)),
+	v2ManifestDesc, v2ManifestBytes, err := createV2Manifest(configDesc, layers)
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create v2 manifest: %w", err)
 	}
 
+	err = c.cache.Add(configDesc, io.NopCloser(bytes.NewReader(configBytes)))
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
+	}
+
+	err = c.cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(v2ManifestBytes)))
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write manifest blob to cache: %w", err)
+	}
+
+	return v2ManifestDesc, nil
+}
+
+func createV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descriptor) (ocispecv1.Descriptor, []byte, error) {
 	v2Manifest := ocispecv1.Manifest{
 		Versioned: specs.Versioned{
 			SchemaVersion: 2,
@@ -675,7 +715,7 @@ func (c *client) convertV1ManifestToV2(ctx context.Context, ref string, v1Manife
 
 	marshaledV2Manifest, err := json.MarshalIndent(v2Manifest, "", "   ")
 	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to marshal manifest: %w", err)
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to marshal manifest: %w", err)
 	}
 
 	v2ManifestDesc := ocispecv1.Descriptor{
@@ -684,15 +724,56 @@ func (c *client) convertV1ManifestToV2(ctx context.Context, ref string, v1Manife
 		Size:      int64(len(marshaledV2Manifest)),
 	}
 
-	err = c.cache.Add(configDesc, io.NopCloser(bytes.NewReader(marshaledImg)))
-	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
+	return v2ManifestDesc, marshaledV2Manifest, nil
+}
+
+func createConfig(v1Manifest *v1Manifest, diffIDs []digest.Digest, history []ocispecv1.History) (ocispecv1.Descriptor, []byte, error) {
+	var config map[string]*json.RawMessage
+	if err := json.Unmarshal([]byte(v1Manifest.History[0].V1Compatibility), &config); err != nil {
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to unmarshal config from v1 history: %w", err)
 	}
 
-	err = c.cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(marshaledV2Manifest)))
-	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write manifest blob to cache: %w", err)
+	delete(config, "id")
+	delete(config, "parent")
+	delete(config, "Size") // Size is calculated from data on disk and is inconsistent
+	delete(config, "parent_id")
+	delete(config, "layer_id")
+	delete(config, "throwaway")
+
+	rootfs := ocispecv1.RootFS{
+		Type:    "layers",
+		DiffIDs: diffIDs,
 	}
 
-	return v2ManifestDesc, nil
+	config["rootfs"] = utils.RawJSON(rootfs)
+	config["history"] = utils.RawJSON(history)
+
+	marshaledConfig, err := json.Marshal(config)
+	if err != nil {
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to marshal config: %w", err)
+	}
+
+	configDesc := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageConfig,
+		Digest:    digest.FromBytes(marshaledConfig),
+		Size:      int64(len(marshaledConfig)),
+	}
+
+	return configDesc, marshaledConfig, nil
+}
+
+// isEmptyLayer returns whether the v1 compatibility history describes an
+// empty layer. A return value of true indicates the layer is empty,
+// however false does not indicate non-empty.
+func isEmptyLayer(h *v1History) bool {
+	if h.ThrowAway != nil {
+		return *h.ThrowAway
+	}
+	if h.Size != nil {
+		return *h.Size == 0
+	}
+
+	// If no `Size` or `throwaway` field is given, then it cannot be determined whether the layer is empty
+	// from the history, return false
+	return false
 }

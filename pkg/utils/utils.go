@@ -5,6 +5,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -77,4 +78,12 @@ func CleanMarkdownUsageFunc(cmd *cobra.Command) {
 		cmd.Long = strings.ReplaceAll(cmd.Long, "</pre>", "")
 		defaultHelpFunc(cmd, s)
 	})
+}
+
+func RawJSON(value interface{}) *json.RawMessage {
+	jsonval, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
+	return (*json.RawMessage)(&jsonval)
 }
