@@ -24,8 +24,14 @@ type Client interface {
 	// Fetch fetches the blob for the given ocispec Descriptor.
 	Fetch(ctx context.Context, ref string, desc ocispecv1.Descriptor, writer io.Writer) error
 
-	// PushManifest uploads the given ocispec Descriptor to the given ref.
+	// PushManifest uploads the given Manifest to the given reference.
 	PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, opts ...PushOption) error
+
+	// GetOCIArtifact returns an OCIArtifact for a reference.
+	GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, error)
+
+	// PushOCIArtifact uploads the given OCIArtifact to the given ref.
+	PushOCIArtifact(ctx context.Context, ref string, artifact *OCIArtifact, opts ...PushOption) error
 }
 
 // ExtendedClient defines an oci client with extended functionality that may not work with all registries.

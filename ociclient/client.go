@@ -19,6 +19,7 @@ import (
 
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/images"
 	containerdlog "github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
@@ -46,6 +47,11 @@ type client struct {
 	getHostConfig  docker.RegistryHosts
 
 	knownMediaTypes sets.String
+}
+
+type OCIArtifact struct {
+	Manifests   []*ocispecv1.Manifest
+	Annotations map[string]string
 }
 
 // NewClient creates a new OCI Client.
@@ -124,7 +130,7 @@ func (c *client) Resolve(ctx context.Context, ref string) (name string, desc oci
 	return resolver.Resolve(ctx, ref)
 }
 
-func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
+func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, error) {
 	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
 	if err != nil {
 		return nil, err
@@ -139,11 +145,154 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 		return nil, err
 	}
 
-	var manifest ocispecv1.Manifest
-	if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
+	ociArtifact := OCIArtifact{
+		Manifests:   []*ocispecv1.Manifest{},
+		Annotations: map[string]string{},
+	}
+
+	if desc.MediaType == ocispecv1.MediaTypeImageIndex || desc.MediaType == images.MediaTypeDockerSchema2ManifestList {
+		var index ocispecv1.Index
+		if err := json.Unmarshal(data.Bytes(), &index); err != nil {
+			return nil, err
+		}
+
+		ociArtifact.Annotations = index.Annotations
+
+		for _, m := range index.Manifests {
+			data := bytes.NewBuffer([]byte{})
+			if err := c.Fetch(ctx, ref, m, data); err != nil {
+				return nil, err
+			}
+
+			var manifest ocispecv1.Manifest
+			if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
+				return nil, err
+			}
+
+			ociArtifact.Manifests = append(ociArtifact.Manifests, &manifest)
+		}
+	} else if desc.MediaType == ocispecv1.MediaTypeImageManifest || desc.MediaType == images.MediaTypeDockerSchema2Manifest {
+		var manifest ocispecv1.Manifest
+		if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
+			return nil, err
+		}
+
+		ociArtifact.Manifests = append(ociArtifact.Manifests, &manifest)
+	} else {
+		return nil, fmt.Errorf("unable to handle mediatype: %s", desc.MediaType)
+	}
+
+	return &ociArtifact, nil
+}
+
+func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *OCIArtifact, options ...PushOption) error {
+	opts := &PushOptions{}
+	opts.Store = c.cache
+	opts.ApplyOptions(options)
+
+	tempCache := c.cache
+	if tempCache == nil {
+		tempCache = cache.NewInMemoryCache()
+	}
+
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
+	if err != nil {
+		return err
+	}
+	pusher, err := resolver.Pusher(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	nrOfManifests := len(artifact.Manifests)
+
+	if nrOfManifests == 0 {
+		return errors.New("artifact doesn't contain any manifests")
+	} else if nrOfManifests == 1 {
+		_, err := c.pushManifest(ctx, artifact.Manifests[0], pusher, tempCache, opts)
+		return err
+	} else {
+		return c.pushImageIndex(ctx, artifact, pusher, tempCache, opts)
+	}
+}
+
+func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) (ocispecv1.Descriptor, error) {
+	// add dummy config if it is not set
+	if manifest.Config.Size == 0 {
+		dummyConfig := []byte("{}")
+		dummyDesc := ocispecv1.Descriptor{
+			MediaType: "application/json",
+			Digest:    digest.FromBytes(dummyConfig),
+			Size:      int64(len(dummyConfig)),
+		}
+		if err := cache.Add(dummyDesc, ioutil.NopCloser(bytes.NewBuffer(dummyConfig))); err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to add dummy config to cache: %w", err)
+		}
+		if err := c.pushContent(ctx, cache, pusher, manifest.Config); err != nil {
+			return ocispecv1.Descriptor{}, err
+		}
+	} else {
+		if err := c.pushContent(ctx, opts.Store, pusher, manifest.Config); err != nil {
+			return ocispecv1.Descriptor{}, err
+		}
+	}
+
+	// last upload all layers
+	for _, layer := range manifest.Layers {
+		if err := c.pushContent(ctx, opts.Store, pusher, layer); err != nil {
+			return ocispecv1.Descriptor{}, err
+		}
+	}
+
+	desc, err := createDescriptorFromManifest(cache, manifest)
+	if err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+	if err := c.pushContent(ctx, cache, pusher, desc); err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+
+	return desc, nil
+}
+
+func (c *client) pushImageIndex(ctx context.Context, ociArtifact *OCIArtifact, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) error {
+	manifestDescs := []ocispecv1.Descriptor{}
+	for _, manifest := range ociArtifact.Manifests {
+		mdesc, err := c.pushManifest(ctx, manifest, pusher, cache, opts)
+		if err != nil {
+			return fmt.Errorf("unable to upload manifest: %w", err)
+		}
+		manifestDescs = append(manifestDescs, mdesc)
+	}
+
+	index := ocispecv1.Index{
+		Manifests:   manifestDescs,
+		Annotations: ociArtifact.Annotations,
+	}
+
+	idesc, err := createDescriptorFromIndex(cache, &index)
+	if err != nil {
+		return fmt.Errorf("unable to create image index descriptor: %w", err)
+	}
+
+	if err := c.pushContent(ctx, cache, pusher, idesc); err != nil {
+		return fmt.Errorf("unable to push image index: %w", err)
+	}
+
+	return nil
+}
+
+func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
+	ociArtifact, err := c.GetOCIArtifact(ctx, ref)
+	if err != nil {
 		return nil, err
 	}
-	return &manifest, nil
+
+	if len(ociArtifact.Manifests) > 1 {
+		return nil, errors.New("received image index/manifest list, no single manifest")
+	}
+
+	return ociArtifact.Manifests[0], nil
 }
 
 func (c *client) Fetch(ctx context.Context, ref string, desc ocispecv1.Descriptor, writer io.Writer) error {
@@ -199,60 +348,10 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 }
 
 func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, options ...PushOption) error {
-	opts := &PushOptions{}
-	opts.Store = c.cache
-	opts.ApplyOptions(options)
-
-	tempCache := c.cache
-	if tempCache == nil {
-		tempCache = cache.NewInMemoryCache()
+	artifact := OCIArtifact{
+		Manifests: []*ocispecv1.Manifest{manifest},
 	}
-
-	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
-	if err != nil {
-		return err
-	}
-	pusher, err := resolver.Pusher(ctx, ref)
-	if err != nil {
-		return err
-	}
-
-	// add dummy config if it is not set
-	if manifest.Config.Size == 0 {
-		dummyConfig := []byte("{}")
-		dummyDesc := ocispecv1.Descriptor{
-			MediaType: "application/json",
-			Digest:    digest.FromBytes(dummyConfig),
-			Size:      int64(len(dummyConfig)),
-		}
-		if err := tempCache.Add(dummyDesc, ioutil.NopCloser(bytes.NewBuffer(dummyConfig))); err != nil {
-			return fmt.Errorf("unable to add dummy config to cache: %w", err)
-		}
-		if err := c.pushContent(ctx, tempCache, pusher, manifest.Config); err != nil {
-			return err
-		}
-	} else {
-		if err := c.pushContent(ctx, opts.Store, pusher, manifest.Config); err != nil {
-			return err
-		}
-	}
-
-	// last upload all layers
-	for _, layer := range manifest.Layers {
-		if err := c.pushContent(ctx, opts.Store, pusher, layer); err != nil {
-			return err
-		}
-	}
-
-	desc, err := createDescriptorFromManifest(tempCache, manifest)
-	if err != nil {
-		return err
-	}
-	if err := c.pushContent(ctx, tempCache, pusher, desc); err != nil {
-		return err
-	}
-
-	return nil
+	return c.PushOCIArtifact(ctx, ref, &artifact, options...)
 }
 
 func (c *client) getHttpClient() *http.Client {
@@ -522,6 +621,24 @@ func createDescriptorFromManifest(cache cache.Cache, manifest *ocispecv1.Manifes
 		return ocispecv1.Descriptor{}, err
 	}
 	return manifestDescriptor, nil
+}
+
+func createDescriptorFromIndex(cache cache.Cache, index *ocispecv1.Index) (ocispecv1.Descriptor, error) {
+	indexBytes, err := json.Marshal(index)
+	if err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+	indexDescriptor := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageIndex,
+		Digest:    digest.FromBytes(indexBytes),
+		Size:      int64(len(indexBytes)),
+	}
+
+	manifestBuf := bytes.NewBuffer(indexBytes)
+	if err := cache.Add(indexDescriptor, ioutil.NopCloser(manifestBuf)); err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+	return indexDescriptor, nil
 }
 
 func (c *client) pushContent(ctx context.Context, store Store, pusher remotes.Pusher, desc ocispecv1.Descriptor) error {
