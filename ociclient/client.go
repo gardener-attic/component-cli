@@ -87,11 +87,13 @@ func NewClient(log logr.Logger, opts ...Option) (*client, error) {
 	}
 
 	cLogger := logrus.New()
-	if log.V(10).Enabled() {
-		cLogger.SetLevel(logrus.DebugLevel)
-	}
+	cLogger.SetLevel(logrus.FatalLevel)
 	if log.V(10).Enabled() {
 		cLogger.SetLevel(logrus.TraceLevel)
+	} else if log.V(7).Enabled() {
+		cLogger.SetLevel(logrus.InfoLevel)
+	} else if log.V(2).Enabled() {
+		cLogger.SetLevel(logrus.ErrorLevel)
 	}
 	containerdlog.L = logrus.NewEntry(cLogger)
 

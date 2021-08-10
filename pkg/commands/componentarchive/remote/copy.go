@@ -199,7 +199,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 	}
 
 	if c.Recursive {
-		log.V(3).Info("copy referenced components")
+		log.V(5).Info("copy referenced components")
 		for _, ref := range cd.ComponentReferences {
 			if err := c.Copy(ctx, ref.ComponentName, ref.Version); err != nil {
 				return err
@@ -265,6 +265,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 			if err != nil {
 				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
 			}
+			log.V(4).Info(fmt.Sprintf("copy oci artifact %s to %s", ociRegistryAcc.ImageReference, target))
 			if err := ociclient.Copy(ctx, c.OciClient, ociRegistryAcc.ImageReference, target); err != nil {
 				return fmt.Errorf("unable to copy oci artifact %s from %s to %s: %w", res.Name, ociRegistryAcc.ImageReference, target, err)
 			}
@@ -296,6 +297,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 
 			src := path.Join(c.SourceArtifactRepository, relOCIRegistryAcc.Reference)
 			target := path.Join(c.TargetArtifactRepository, relOCIRegistryAcc.Reference)
+			log.V(4).Info(fmt.Sprintf("copy oci artifact %s to %s", src, target))
 			if err := ociclient.Copy(ctx, c.OciClient, src, target); err != nil {
 				return fmt.Errorf("unable to copy oci artifact %s from %s to %s: %w", res.Name, src, target, err)
 			}
@@ -328,7 +330,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 		res, ok := blobToResource[desc.Digest.String()]
 		if !ok {
 			// default to cache
-			log.V(4).Info("copying resource from cache")
+			log.V(5).Info("copying resource from cache")
 			rc, err := c.Cache.Get(desc)
 			if err != nil {
 				return err
@@ -344,7 +346,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 			return nil
 		}
 
-		log.V(4).Info("copying resource", "resource", res.Name)
+		log.V(5).Info("copying resource", "resource", res.Name)
 		_, err := blobs.Resolve(ctx, *res, writer)
 		return err
 	})
