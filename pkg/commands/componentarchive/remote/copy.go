@@ -51,10 +51,18 @@ type CopyOptions struct {
 	// CopyByValue defines if all oci images and artifacts should be copied by value or reference.
 	// LocalBlobs are still copied by value.
 	CopyByValue bool
+	// KeepSourceRepository specifies if the source repository should be kept during the copy.
+	// This value is only relevant if the artifacts are copied by value.
+	KeepSourceRepository bool
 	// TargetArtifactRepository is the target repository for oci artifacts.
 	// This value is only relevant if the artifacts are copied by value.
 	// +optional
 	TargetArtifactRepository string
+	// SourceArtifactRepository is the source repository for relative oci artifacts.
+	// This value is only relevant if the artifacts are copied by value and if relative oci artifacts are copied.
+	// The repository is defaulted to the "SourceRepository".
+	// +optional
+	SourceArtifactRepository string
 	// ConvertToRelativeOCIReferences configures the cli to write copied artifacts back with a relative reference
 	ConvertToRelativeOCIReferences bool
 
@@ -111,7 +119,8 @@ func (o *CopyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		Recursive:                      o.Recursive,
 		Force:                          o.Force,
 		CopyByValue:                    o.CopyByValue,
-		SourceArtifactRepository:       o.SourceRepository,
+		KeepSourceRepository:           o.KeepSourceRepository,
+		SourceArtifactRepository:       o.SourceArtifactRepository,
 		TargetArtifactRepository:       o.TargetArtifactRepository,
 		ConvertToRelativeOCIReferences: o.ConvertToRelativeOCIReferences,
 	}
@@ -140,6 +149,9 @@ func (o *CopyOptions) Complete(args []string) error {
 	if len(o.TargetArtifactRepository) == 0 {
 		o.TargetArtifactRepository = o.TargetRepository
 	}
+	if len(o.SourceArtifactRepository) == 0 {
+		o.SourceArtifactRepository = o.SourceRepository
+	}
 	return nil
 }
 
@@ -160,8 +172,11 @@ func (o *CopyOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.Recursive, "recursive", true, "Recursively copy the component descriptor and its references.")
 	fs.BoolVar(&o.Force, "force", false, "Forces the tool to overwrite already existing component descriptors.")
 	fs.BoolVar(&o.CopyByValue, "copy-by-value", false, "[EXPERIMENTAL] copies all referenced oci images and artifacts by value and not by reference.")
+	fs.BoolVar(&o.KeepSourceRepository, "keep-source-repository", false, "Keep the original source repository when copying resources.")
 	fs.StringVar(&o.TargetArtifactRepository, "target-artifact-repository", "",
 		"target repository where the artifacts are copied to. This is only relevant if artifacts are copied by value and it will be defaulted to the target component repository")
+	fs.StringVar(&o.SourceArtifactRepository, "source-artifact-repository", "",
+		"source repository where realtiove oci artifacts are copied from. This is only relevant if artifacts are copied by value and it will be defaulted to the source component repository")
 	fs.BoolVar(&o.ConvertToRelativeOCIReferences, "relative-urls", false, "converts all copied oci artifacts to relative urls")
 	o.OciOptions.AddFlags(fs)
 }
@@ -180,6 +195,9 @@ type Copier struct {
 	// CopyByValue defines if all oci images and artifacts should be copied by value or reference.
 	// LocalBlobs are still copied by value.
 	CopyByValue bool
+	// KeepSourceRepository specifies if the source repository should be kept during the copy.
+	// This value is only relevant if the artifacts are copied by value.
+	KeepSourceRepository bool
 	// SourceArtifactRepository is the source repository for oci artifacts.
 	// This value is only relevant if the artifacts are copied by value.
 	SourceArtifactRepository string
@@ -192,7 +210,7 @@ type Copier struct {
 
 func (c *Copier) Copy(ctx context.Context, name, version string) error {
 	log := logr.FromContextOrDiscard(ctx).WithValues("component", name, "version", version)
-	log.V(3).Info("start copy")
+	log.Info("copy component descriptor")
 	cd, blobs, err := c.CompResolver.ResolveWithBlobResolver(ctx, c.SrcRepoCtx, name, version)
 	if err != nil {
 		return err
@@ -208,7 +226,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 	}
 
 	// check if the component descriptor already exists
-	if !c.Force {
+	if !c.Force && !c.CopyByValue {
 		if _, err := c.CompResolver.Resolve(ctx, c.TargetRepoCtx, name, version); err == nil {
 			log.V(3).Info("Component already exists. Nothing to copy.")
 			return nil
@@ -222,6 +240,8 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 	var layers []ocispecv1.Descriptor
 	blobToResource := map[string]*cdv2.Resource{}
 	// todo: parallelize upload with
+	// todo: retry copy on failure
+	// todo: track if something has been uploaded otherwise only upload the component descriptor if "c.Force == true"
 	for i, res := range cd.Resources {
 		switch res.Access.Type {
 		case cdv2.LocalOCIBlobType:
@@ -256,12 +276,8 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 				return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
 			}
 
-			keepOrigHost := true
-			if c.ConvertToRelativeOCIReferences {
-				keepOrigHost = false
-			}
 			// mangle the target artifact name to keep the original image ref somehow readable.
-			target, err := targetOCIArtifactRef(c.TargetArtifactRepository, ociRegistryAcc.ImageReference, keepOrigHost)
+			target, err := targetOCIArtifactRef(c.TargetArtifactRepository, ociRegistryAcc.ImageReference, c.KeepSourceRepository)
 			if err != nil {
 				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
 			}
@@ -296,7 +312,10 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 			}
 
 			src := path.Join(c.SourceArtifactRepository, relOCIRegistryAcc.Reference)
-			target := path.Join(c.TargetArtifactRepository, relOCIRegistryAcc.Reference)
+			target, err := targetOCIArtifactRef(c.TargetArtifactRepository, src, c.KeepSourceRepository)
+			if err != nil {
+				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
+			}
 			log.V(4).Info(fmt.Sprintf("copy oci artifact %s to %s", src, target))
 			if err := ociclient.Copy(ctx, c.OciClient, src, target); err != nil {
 				return fmt.Errorf("unable to copy oci artifact %s from %s to %s: %w", res.Name, src, target, err)

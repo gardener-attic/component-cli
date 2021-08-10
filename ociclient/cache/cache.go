@@ -115,7 +115,7 @@ func (lc *layeredCache) Close() error {
 }
 
 func (lc *layeredCache) Get(desc ocispecv1.Descriptor) (io.ReadCloser, error) {
-	_, file, err := lc.get(path(desc))
+	_, file, err := lc.get(path(desc), desc)
 	if err != nil {
 		return nil, err
 	}
@@ -160,20 +160,13 @@ func (lc *layeredCache) Add(desc ocispecv1.Descriptor, reader io.ReadCloser) err
 //	return info, nil
 //}
 
-func (lc *layeredCache) get(dgst string) (os.FileInfo, vfs.File, error) {
+func (lc *layeredCache) get(dgst string, desc ocispecv1.Descriptor) (os.FileInfo, vfs.File, error) {
 	lc.mux.RLock()
 	defer lc.mux.RUnlock()
 
 	// first search in the overlayFs layer
-	if lc.overlayFs != nil {
-		if info, err := lc.overlayFs.Stat(dgst); err == nil {
-			file, err := lc.overlayFs.OpenFile(dgst, os.O_RDONLY, os.ModePerm)
-			if err != nil {
-				return nil, nil, err
-			}
-			return info, file, err
-		}
-		lc.log.V(7).Info("not found in overlay cache", "dgst", dgst, "digest", dgst)
+	if info, file, err := lc.getFromOverlay(dgst, desc); err == nil {
+		return info, file, nil
 	}
 
 	info, err := lc.baseFs.Stat(dgst)
@@ -182,6 +175,15 @@ func (lc *layeredCache) get(dgst string) (os.FileInfo, vfs.File, error) {
 			return nil, nil, ErrNotFound
 		}
 		return nil, nil, err
+	}
+	// do simple blob verification
+	// todo: use digest to check if blob is valid
+	if info.Size() != desc.Size {
+		// remove invalid blob from cache
+		if err := lc.baseFs.Remove(dgst); err != nil {
+			lc.log.V(7).Info("unable to remove invalid blob", "digest", dgst, "err", err.Error())
+		}
+		return info, nil, ErrNotFound
 	}
 	file, err := lc.baseFs.OpenFile(dgst, os.O_RDONLY, os.ModePerm)
 	if err != nil {
@@ -216,6 +218,32 @@ func (lc *layeredCache) get(dgst string) (os.FileInfo, vfs.File, error) {
 		}
 	}
 	return info, file, nil
+}
+
+func (lc *layeredCache) getFromOverlay(dgst string, desc ocispecv1.Descriptor) (os.FileInfo, vfs.File, error) {
+	if lc.overlayFs == nil {
+		return nil, nil, ErrNotFound
+	}
+	info, err := lc.overlayFs.Stat(dgst)
+	if err != nil {
+		lc.log.V(7).Info("not found in overlay cache", "digest", dgst, "err", err.Error())
+		return nil, nil, ErrNotFound
+	}
+
+	// do simple blob verification
+	// todo: use digest to check if blob is valid
+	if info.Size() != desc.Size {
+		// remove invalid blob from cache
+		if err := lc.overlayFs.Remove(dgst); err != nil {
+			lc.log.V(7).Info("unable to remove invalid blob", "digest", dgst, "err", err.Error())
+		}
+		return info, nil, ErrNotFound
+	}
+	file, err := lc.overlayFs.OpenFile(dgst, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return nil, nil, err
+	}
+	return info, file, err
 }
 
 func path(desc ocispecv1.Descriptor) string {

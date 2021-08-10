@@ -285,6 +285,7 @@ var _ = Describe("Remote", func() {
 				TargetRepository:         targetRepoCtxURL,
 				CopyByValue:              true,
 				TargetArtifactRepository: targetRepoCtxURL,
+				SourceArtifactRepository: srcRepoCtxURL,
 			}
 			Expect(copyOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
 
