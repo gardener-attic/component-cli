@@ -328,7 +328,7 @@ func (c *client) getResolverForRef(ctx context.Context, ref string, scopes ...st
 func (c *client) ListTags(ctx context.Context, ref string) ([]string, error) {
 	refspec, err := oci.ParseRef(ref)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse reference: %w", err)
+		return nil, fmt.Errorf("unable to parse ref: %w", err)
 	}
 	hosts, err := c.getHostConfig(refspec.Host)
 	if err != nil {
@@ -423,7 +423,7 @@ func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, er
 	// parse registry to also support more specific credentials e.g. for gcr with gcr.io/my-project
 	refspec, err := oci.ParseRef(ref)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse reference: %w", err)
+		return nil, fmt.Errorf("unable to parse ref: %w", err)
 	}
 	repositories := make([]string, 0)
 	err = doRequestWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
