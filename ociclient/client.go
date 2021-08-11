@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	distributionspecv1 "github.com/opencontainers/distribution-spec/specs-go/v1"
 	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,11 +48,6 @@ type client struct {
 	getHostConfig  docker.RegistryHosts
 
 	knownMediaTypes sets.String
-}
-
-type OCIArtifact struct {
-	Manifests   []*ocispecv1.Manifest
-	Annotations map[string]string
 }
 
 // NewClient creates a new OCI Client.
@@ -130,7 +126,7 @@ func (c *client) Resolve(ctx context.Context, ref string) (name string, desc oci
 	return resolver.Resolve(ctx, ref)
 }
 
-func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, error) {
+func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact, error) {
 	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
 	if err != nil {
 		return nil, err
@@ -145,10 +141,7 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, 
 		return nil, err
 	}
 
-	ociArtifact := OCIArtifact{
-		Manifests:   []*ocispecv1.Manifest{},
-		Annotations: map[string]string{},
-	}
+	var ociArtifact *oci.Artifact
 
 	if desc.MediaType == ocispecv1.MediaTypeImageIndex || desc.MediaType == images.MediaTypeDockerSchema2ManifestList {
 		var index ocispecv1.Index
@@ -156,11 +149,16 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, 
 			return nil, err
 		}
 
-		ociArtifact.Annotations = index.Annotations
+		i := oci.Index{
+			Manifests:   []*oci.Manifest{},
+			Annotations: index.Annotations,
+		}
 
-		for _, m := range index.Manifests {
+		ociArtifact = oci.NewIndexArtifact(&i)
+
+		for _, mdesc := range index.Manifests {
 			data := bytes.NewBuffer([]byte{})
-			if err := c.Fetch(ctx, ref, m, data); err != nil {
+			if err := c.Fetch(ctx, ref, mdesc, data); err != nil {
 				return nil, err
 			}
 
@@ -169,7 +167,12 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, 
 				return nil, err
 			}
 
-			ociArtifact.Manifests = append(ociArtifact.Manifests, &manifest)
+			m := oci.Manifest{
+				Desc: mdesc,
+				Data: &manifest,
+			}
+
+			ociArtifact.GetIndex().Manifests = append(ociArtifact.GetIndex().Manifests, &m)
 		}
 	} else if desc.MediaType == ocispecv1.MediaTypeImageManifest || desc.MediaType == images.MediaTypeDockerSchema2Manifest {
 		var manifest ocispecv1.Manifest
@@ -177,15 +180,20 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*OCIArtifact, 
 			return nil, err
 		}
 
-		ociArtifact.Manifests = append(ociArtifact.Manifests, &manifest)
+		m := oci.Manifest{
+			Desc: desc,
+			Data: &manifest,
+		}
+
+		ociArtifact = oci.NewManifestArtifact(&m)
 	} else {
 		return nil, fmt.Errorf("unable to handle mediatype: %s", desc.MediaType)
 	}
 
-	return &ociArtifact, nil
+	return ociArtifact, nil
 }
 
-func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *OCIArtifact, options ...PushOption) error {
+func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.Artifact, options ...PushOption) error {
 	opts := &PushOptions{}
 	opts.Store = c.cache
 	opts.ApplyOptions(options)
@@ -204,15 +212,13 @@ func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *OCIA
 		return err
 	}
 
-	nrOfManifests := len(artifact.Manifests)
-
-	if nrOfManifests == 0 {
-		return errors.New("artifact doesn't contain any manifests")
-	} else if nrOfManifests == 1 {
-		_, err := c.pushManifest(ctx, artifact.Manifests[0], pusher, tempCache, opts)
+	if artifact.IsManifest() {
+		_, err := c.pushManifest(ctx, artifact.GetManifest().Data, pusher, tempCache, opts)
 		return err
-	} else {
+	} else if artifact.IsIndex() {
 		return c.pushImageIndex(ctx, artifact, pusher, tempCache, opts)
+	} else {
+		return errors.New("artifact doesn't contain any manifests")
 	}
 }
 
@@ -255,19 +261,24 @@ func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest,
 	return desc, nil
 }
 
-func (c *client) pushImageIndex(ctx context.Context, ociArtifact *OCIArtifact, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) error {
+func (c *client) pushImageIndex(ctx context.Context, ociArtifact *oci.Artifact, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) error {
 	manifestDescs := []ocispecv1.Descriptor{}
-	for _, manifest := range ociArtifact.Manifests {
-		mdesc, err := c.pushManifest(ctx, manifest, pusher, cache, opts)
+	for _, manifest := range ociArtifact.GetIndex().Manifests {
+		mdesc, err := c.pushManifest(ctx, manifest.Data, pusher, cache, opts)
 		if err != nil {
 			return fmt.Errorf("unable to upload manifest: %w", err)
 		}
+		mdesc.Platform = manifest.Desc.Platform
+		mdesc.Annotations = manifest.Desc.Annotations
 		manifestDescs = append(manifestDescs, mdesc)
 	}
 
 	index := ocispecv1.Index{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2,
+		},
 		Manifests:   manifestDescs,
-		Annotations: ociArtifact.Annotations,
+		Annotations: ociArtifact.GetIndex().Annotations,
 	}
 
 	idesc, err := createDescriptorFromIndex(cache, &index)
@@ -288,11 +299,11 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 		return nil, err
 	}
 
-	if len(ociArtifact.Manifests) > 1 {
-		return nil, errors.New("received image index/manifest list, no single manifest")
+	if !ociArtifact.IsManifest() {
+		return nil, fmt.Errorf("oci artifact is not a manifest: %+v", ociArtifact)
 	}
 
-	return ociArtifact.Manifests[0], nil
+	return ociArtifact.GetManifest().Data, nil
 }
 
 func (c *client) Fetch(ctx context.Context, ref string, desc ocispecv1.Descriptor, writer io.Writer) error {
@@ -348,10 +359,11 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 }
 
 func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, options ...PushOption) error {
-	artifact := OCIArtifact{
-		Manifests: []*ocispecv1.Manifest{manifest},
+	m := oci.Manifest{
+		Data: manifest,
 	}
-	return c.PushOCIArtifact(ctx, ref, &artifact, options...)
+	artifact := oci.NewManifestArtifact(&m)
+	return c.PushOCIArtifact(ctx, ref, artifact, options...)
 }
 
 func (c *client) getHttpClient() *http.Client {
