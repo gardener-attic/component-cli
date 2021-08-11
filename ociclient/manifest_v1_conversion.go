@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/archive/compression"
+	"github.com/containerd/containerd/images"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -31,8 +32,9 @@ import (
 // *************************************************************************************
 
 const (
-	DockerV2Schema1MediaType       = "application/vnd.docker.distribution.manifest.v1+json"
-	MediaTypeImageLayerZstd        = "application/vnd.oci.image.layer.v1.tar+zstd"
+	MediaTypeDockerV2Schema1Manifest       = "application/vnd.docker.distribution.manifest.v1+json"
+	MediaTypeDockerV2Schema1SignedManifest = images.MediaTypeDockerSchema1Manifest
+	MediaTypeImageLayerZstd                = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
 type fsLayer struct {

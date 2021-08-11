@@ -19,7 +19,6 @@ import (
 
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/images"
 	containerdlog "github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
@@ -135,7 +134,7 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 		return nil, err
 	}
 
-	if desc.MediaType == DockerV2Schema1MediaType || desc.MediaType == images.MediaTypeDockerSchema1Manifest {
+	if desc.MediaType == MediaTypeDockerV2Schema1Manifest || desc.MediaType == MediaTypeDockerV2Schema1SignedManifest {
 		c.log.V(7).Info("found v1 manifest -> convert to v2")
 		convertedManifestDesc, err := convertV1ManifestToV2(ctx, c, ref, desc)
 		if err != nil {
