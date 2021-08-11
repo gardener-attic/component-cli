@@ -192,7 +192,7 @@ func createConfig(v1Manifest *v1Manifest, diffIDs []digest.Digest, history []oci
 
 	delete(config, "id")
 	delete(config, "parent")
-	delete(config, "Size") // Size is calculated from data on disk and is inconsistent
+	delete(config, "Size")
 	delete(config, "parent_id")
 	delete(config, "layer_id")
 	delete(config, "throwaway")
