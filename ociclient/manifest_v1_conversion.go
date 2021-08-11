@@ -170,7 +170,7 @@ func createV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descri
 		Layers: layers,
 	}
 
-	marshaledV2Manifest, err := json.MarshalIndent(v2Manifest, "", "   ")
+	marshaledV2Manifest, err := json.Marshal(v2Manifest)
 	if err != nil {
 		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to marshal manifest: %w", err)
 	}
