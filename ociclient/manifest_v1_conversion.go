@@ -219,10 +219,14 @@ func createConfig(v1Manifest *v1Manifest, diffIDs []digest.Digest, history []oci
 	return configDesc, marshaledConfig, nil
 }
 
-// isEmptyLayer returns whether the v1 compatibility history describes an
-// empty layer. A return value of true indicates the layer is empty,
-// however false does not indicate non-empty.
-func isEmptyLayer(h *v1History) bool {
+// isEmptyLayer returns whether the v1 compatibility history describes an empty layer.
+// A return value of true indicates the layer is empty, however false does not indicate non-empty.
+func isEmptyLayer(h *V1History) bool {
+	// There doesn't seem to be a spec that describes whether the throwAway and size fields must exist or not. 
+	// At least in the Docker implementation, throwAway is optional (https://github.com/moby/moby/blob/master/distribution/pull_v2.go#L524).
+	// For size we can only assume the same.
+	// The whole logic could be interpreted as: "If clients which pushed the content made the effort to indicate 
+	// that a layer is empty, we can safely throw it away. For all other cases we copy every layer."
 	if h.ThrowAway != nil {
 		return *h.ThrowAway
 	}
@@ -230,7 +234,5 @@ func isEmptyLayer(h *v1History) bool {
 		return *h.Size == 0
 	}
 
-	// If no `Size` or `throwaway` field is given, then it cannot be determined whether the layer is empty
-	// from the history, return false
 	return false
 }

@@ -80,6 +80,7 @@ func CleanMarkdownUsageFunc(cmd *cobra.Command) {
 	})
 }
 
+// RawJSON converts an arbitrary value to json.RawMessage
 func RawJSON(value interface{}) *json.RawMessage {
 	jsonval, err := json.Marshal(value)
 	if err != nil {
