@@ -180,7 +180,10 @@ func (e *Environment) setup() error {
 			return fmt.Errorf("unable to write ca to %q: %w", keyPath, err)
 		}
 
-		caCertPool := x509.NewCertPool()
+		caCertPool, err := x509.SystemCertPool()
+		if err != nil {
+			caCertPool = x509.NewCertPool()
+		}
 		caCertPool.AppendCertsFromPEM(cert.CA)
 		e.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
