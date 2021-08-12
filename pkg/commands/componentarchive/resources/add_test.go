@@ -523,19 +523,62 @@ var _ = Describe("Add", func() {
 		Expect(blobs).To(HaveLen(1))
 
 		blobPath := filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName, blobs[0].Name())
-		blobFile, err := testdataFs.Open(blobPath)
+		tarData, err := vfs.ReadFile(testdataFs, blobPath)
+		Expect(err).ToNot(HaveOccurred())
+		res, err := untar(tarData)
 		Expect(err).ToNot(HaveOccurred())
 
-		tarReader := tar.NewReader(blobFile)
-		header, err := tarReader.Next()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(header).ToNot(BeNil())
-		Expect(header.Name).To(Equal("22-dir-json"))
+		Expect(res).To(HaveKeyWithValue("22-dir-json", []byte("dir")))
+		Expect(res).To(HaveKey("22-dir-json/21-jsonschema.json"))
+	})
 
-		header, err = tarReader.Next()
+	It("should follow symlinks in a directory", func() {
+		opts := &resources.Options{
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/25-symlink.yaml"},
+		}
+
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+
+		blobs, err := vfs.ReadDir(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(header).ToNot(BeNil())
-		Expect(header.Name).To(Equal("22-dir-json/21-jsonschema.json"))
+		Expect(blobs).To(HaveLen(1))
+
+		blobPath := filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName, blobs[0].Name())
+		tarData, err := vfs.ReadFile(testdataFs, blobPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		res, err := untar(tarData)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(res).To(HaveKeyWithValue("file1.txt", []byte("val1")))
+		Expect(res).To(HaveKeyWithValue("sym", []byte("val3")))
+		Expect(res).To(HaveKeyWithValue("symlinkedDir", []byte("dir")))
+		Expect(res).To(HaveKeyWithValue("symlinkedDir/file1", []byte("val1")))
+	})
+
+	It("should not follow symlinks in a directory", func() {
+		opts := &resources.Options{
+			BuilderOptions:      componentarchive.BuilderOptions{ComponentArchivePath: "./00-component"},
+			ResourceObjectPaths: []string{"./resources/25-symlink-not.yaml"},
+		}
+
+		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+
+		blobs, err := vfs.ReadDir(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(blobs).To(HaveLen(1))
+
+		blobPath := filepath.Join(opts.ComponentArchivePath, ctf.BlobsDirectoryName, blobs[0].Name())
+		tarData, err := vfs.ReadFile(testdataFs, blobPath)
+		Expect(err).ToNot(HaveOccurred())
+
+		res, err := untar(tarData)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(res).To(HaveKeyWithValue("file1.txt", []byte("val1")))
+		Expect(res).ToNot(HaveKeyWithValue("sym", []byte("val3")))
+		Expect(res).ToNot(HaveKeyWithValue("symlinkedDir", []byte("dir")))
 	})
 
 })
@@ -550,6 +593,10 @@ func untar(data []byte) (map[string][]byte, error) {
 				return files, nil
 			}
 			return nil, err
+		}
+		if header.Typeflag == tar.TypeDir {
+			files[header.Name] = []byte("dir")
+			continue
 		}
 		var d bytes.Buffer
 		if _, err := io.Copy(&d, tr); err != nil {
