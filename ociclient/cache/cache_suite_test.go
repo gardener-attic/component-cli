@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,44 @@ var _ = Describe("Cache", func() {
 			Expect(err).ToNot(HaveOccurred())
 			buf = readIntoBuffer(r)
 			Expect(buf.Len() > 0).To(BeTrue(), "The cache should return some data")
+		})
+
+		It("should detect tampered data and remove the tempered blob", func() {
+			path, err := ioutil.TempDir(os.TempDir(), "ocicache")
+			Expect(err).ToNot(HaveOccurred())
+
+			c, err := NewCache(logr.Discard(), WithBasePath(path))
+			Expect(err).ToNot(HaveOccurred())
+			defer c.Close()
+
+			desc, data := exampleDataSet(10)
+			Expect(c.Add(desc, data)).To(Succeed())
+
+			// temper data
+			Expect(os.WriteFile(filepath.Join(path, Path(desc)), exampleData(10).Bytes(), os.ModePerm)).To(Succeed())
+
+			_, err = c.Get(desc)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(Equal(ErrNotFound))
+		})
+
+		It("should detect tampered data (size shortcut) and remove the tempered blob", func() {
+			path, err := ioutil.TempDir(os.TempDir(), "ocicache")
+			Expect(err).ToNot(HaveOccurred())
+
+			c, err := NewCache(logr.Discard(), WithBasePath(path))
+			Expect(err).ToNot(HaveOccurred())
+			defer c.Close()
+
+			desc, data := exampleDataSet(5)
+			Expect(c.Add(desc, data)).To(Succeed())
+
+			// temper data
+			Expect(os.WriteFile(filepath.Join(path, Path(desc)), exampleData(10).Bytes(), os.ModePerm)).To(Succeed())
+
+			_, err = c.Get(desc)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(Equal(ErrNotFound))
 		})
 
 		Context("metrics", func() {
