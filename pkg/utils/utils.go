@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -111,4 +112,15 @@ func Gzip(data []byte, compressionLevel int) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+var chars = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+
+// RandomString creates a new random string with the given length.
+func RandomString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
 }
