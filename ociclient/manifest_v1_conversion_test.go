@@ -14,13 +14,14 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/utils"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 var _ = Describe("Manifest v1 Conversion", func() {
@@ -191,8 +192,8 @@ var _ = Describe("Manifest v1 Conversion", func() {
 
 			expectedHistory := []ocispecv1.History{
 				{
-					Created:   &time.Time{},
-					CreatedBy: "",
+					Created:    &time.Time{},
+					CreatedBy:  "",
 					EmptyLayer: true,
 				},
 				{
@@ -200,8 +201,8 @@ var _ = Describe("Manifest v1 Conversion", func() {
 					CreatedBy: "echo v1_layer_2",
 				},
 				{
-					Created:   &time.Time{},
-					CreatedBy: "echo v1_layer_1",
+					Created:    &time.Time{},
+					CreatedBy:  "echo v1_layer_1",
 					EmptyLayer: true,
 				},
 				{
