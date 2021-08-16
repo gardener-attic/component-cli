@@ -37,20 +37,20 @@ const (
 	MediaTypeImageLayerZstd                = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
-type fsLayer struct {
+type FSLayer struct {
 	BlobSum digest.Digest `json:"blobSum"`
 }
 
-type history struct {
+type History struct {
 	V1Compatibility string `json:"v1Compatibility"`
 }
 
-type v1Manifest struct {
-	FSLayers []fsLayer `json:"fsLayers"`
-	History  []history `json:"history"`
+type V1Manifest struct {
+	FSLayers []FSLayer `json:"fsLayers"`
+	History  []History `json:"history"`
 }
 
-type v1History struct {
+type V1History struct {
 	Author          string    `json:"author,omitempty"`
 	Created         time.Time `json:"created"`
 	Comment         string    `json:"comment,omitempty"`
@@ -61,26 +61,55 @@ type v1History struct {
 	} `json:"container_config,omitempty"`
 }
 
-func convertV1ManifestToV2(ctx context.Context, c *client, ref string, v1ManifestDesc ocispecv1.Descriptor) (ocispecv1.Descriptor, error) {
+func ConvertV1ManifestToV2(ctx context.Context, c *client, ref string, v1ManifestDesc ocispecv1.Descriptor) (ocispecv1.Descriptor, error) {
 	buf := bytes.NewBuffer([]byte{})
 	if err := c.Fetch(ctx, ref, v1ManifestDesc, buf); err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch v1 manifest blob: %w", err)
 	}
 
-	var v1Manifest v1Manifest
+	var v1Manifest V1Manifest
 	if err := json.Unmarshal(buf.Bytes(), &v1Manifest); err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal v1 manifest: %w", err)
 	}
 
-	layers := []ocispecv1.Descriptor{}
-	decompressedDigests := []digest.Digest{}
-	history := []ocispecv1.History{}
+	layers, diffIDs, history, err := ParseV1Manifest(ctx, c, ref, &v1Manifest)
+	if err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+
+	configDesc, configBytes, err := CreateConfig(&v1Manifest, diffIDs, history)
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create config: %w", err)
+	}
+
+	v2ManifestDesc, v2ManifestBytes, err := CreateV2Manifest(configDesc, layers)
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create v2 manifest: %w", err)
+	}
+
+	err = c.cache.Add(configDesc, io.NopCloser(bytes.NewReader(configBytes)))
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
+	}
+
+	err = c.cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(v2ManifestBytes)))
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write manifest blob to cache: %w", err)
+	}
+
+	return v2ManifestDesc, nil
+}
+
+func ParseV1Manifest(ctx context.Context, c *client, ref string, v1Manifest *V1Manifest) (layers []ocispecv1.Descriptor, diffIDs []digest.Digest, history []ocispecv1.History, err error) {
+	layers = []ocispecv1.Descriptor{}
+	diffIDs = []digest.Digest{}
+	history = []ocispecv1.History{}
 
 	// layers in v1 are reversed compared to v2 --> iterate backwards
 	for i := len(v1Manifest.FSLayers) - 1; i >= 0; i-- {
-		var h v1History
+		var h V1History
 		if err := json.Unmarshal([]byte(v1Manifest.History[i].V1Compatibility), &h); err != nil {
-			return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal v1 history: %w", err)
+			return nil, nil, nil, fmt.Errorf("unable to unmarshal v1 history: %w", err)
 		}
 
 		emptyLayer := isEmptyLayer(&h)
@@ -103,18 +132,18 @@ func convertV1ManifestToV2(ctx context.Context, c *client, ref string, v1Manifes
 
 			buf := bytes.NewBuffer([]byte{})
 			if err := c.Fetch(ctx, ref, layerDesc, buf); err != nil {
-				return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch layer blob: %w", err)
+				return nil, nil, nil, fmt.Errorf("unable to fetch layer blob: %w", err)
 			}
 			data := buf.Bytes()
 
 			decompressedReader, err := compression.DecompressStream(bytes.NewReader(data))
 			if err != nil {
-				return ocispecv1.Descriptor{}, fmt.Errorf("unable to decompress layer blob: %w", err)
+				return nil, nil, nil, fmt.Errorf("unable to decompress layer blob: %w", err)
 			}
 
 			decompressedData, err := ioutil.ReadAll(decompressedReader)
 			if err != nil {
-				return ocispecv1.Descriptor{}, fmt.Errorf("unable to read decompressed layer blob: %w", err)
+				return nil, nil, nil, fmt.Errorf("unable to read decompressed layer blob: %w", err)
 			}
 
 			var mediatype string
@@ -134,34 +163,14 @@ func convertV1ManifestToV2(ctx context.Context, c *client, ref string, v1Manifes
 			}
 
 			layers = append(layers, des)
-			decompressedDigests = append(decompressedDigests, digest.FromBytes(decompressedData))
+			diffIDs = append(diffIDs, digest.FromBytes(decompressedData))
 		}
 	}
 
-	configDesc, configBytes, err := createConfig(&v1Manifest, decompressedDigests, history)
-	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create config: %w", err)
-	}
-
-	v2ManifestDesc, v2ManifestBytes, err := createV2Manifest(configDesc, layers)
-	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create v2 manifest: %w", err)
-	}
-
-	err = c.cache.Add(configDesc, io.NopCloser(bytes.NewReader(configBytes)))
-	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
-	}
-
-	err = c.cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(v2ManifestBytes)))
-	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write manifest blob to cache: %w", err)
-	}
-
-	return v2ManifestDesc, nil
+	return
 }
 
-func createV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descriptor) (ocispecv1.Descriptor, []byte, error) {
+func CreateV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descriptor) (ocispecv1.Descriptor, []byte, error) {
 	v2Manifest := ocispecv1.Manifest{
 		Versioned: specs.Versioned{
 			SchemaVersion: 2,
@@ -184,7 +193,7 @@ func createV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descri
 	return v2ManifestDesc, marshaledV2Manifest, nil
 }
 
-func createConfig(v1Manifest *v1Manifest, diffIDs []digest.Digest, history []ocispecv1.History) (ocispecv1.Descriptor, []byte, error) {
+func CreateConfig(v1Manifest *V1Manifest, diffIDs []digest.Digest, history []ocispecv1.History) (ocispecv1.Descriptor, []byte, error) {
 	var config map[string]*json.RawMessage
 	if err := json.Unmarshal([]byte(v1Manifest.History[0].V1Compatibility), &config); err != nil {
 		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to unmarshal config from v1 history: %w", err)
@@ -202,8 +211,17 @@ func createConfig(v1Manifest *v1Manifest, diffIDs []digest.Digest, history []oci
 		DiffIDs: diffIDs,
 	}
 
-	config["rootfs"] = utils.RawJSON(rootfs)
-	config["history"] = utils.RawJSON(history)
+	rootfsRaw, err := utils.RawJSON(rootfs)
+	if err != nil {
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to convert rootfs to JSON: %w", err)
+	}
+	config["rootfs"] = rootfsRaw
+
+	historyRaw, err := utils.RawJSON(history)
+	if err != nil {
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to convert history to JSON: %w", err)
+	}
+	config["history"] = historyRaw
 
 	marshaledConfig, err := json.Marshal(config)
 	if err != nil {
@@ -222,10 +240,10 @@ func createConfig(v1Manifest *v1Manifest, diffIDs []digest.Digest, history []oci
 // isEmptyLayer returns whether the v1 compatibility history describes an empty layer.
 // A return value of true indicates the layer is empty, however false does not indicate non-empty.
 func isEmptyLayer(h *V1History) bool {
-	// There doesn't seem to be a spec that describes whether the throwAway and size fields must exist or not. 
+	// There doesn't seem to be a spec that describes whether the throwAway and size fields must exist or not.
 	// At least in the Docker implementation, throwAway is optional (https://github.com/moby/moby/blob/master/distribution/pull_v2.go#L524).
 	// For size we can only assume the same.
-	// The whole logic could be interpreted as: "If clients which pushed the content made the effort to indicate 
+	// The whole logic could be interpreted as: "If clients which pushed the content made the effort to indicate
 	// that a layer is empty, we can safely throw it away. For all other cases we copy every layer."
 	if h.ThrowAway != nil {
 		return *h.ThrowAway

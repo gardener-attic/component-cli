@@ -5,6 +5,8 @@
 package utils
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -81,10 +83,32 @@ func CleanMarkdownUsageFunc(cmd *cobra.Command) {
 }
 
 // RawJSON converts an arbitrary value to json.RawMessage
-func RawJSON(value interface{}) *json.RawMessage {
+func RawJSON(value interface{}) (*json.RawMessage, error) {
 	jsonval, err := json.Marshal(value)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return (*json.RawMessage)(&jsonval)
+	return (*json.RawMessage)(&jsonval), nil
+}
+
+// Gzip applies gzip compression to an arbitrary byte slice
+func Gzip(data []byte, compressionLevel int) ([]byte, error) {
+	buf := bytes.NewBuffer([]byte{})
+	gzipWriter, err := gzip.NewWriterLevel(buf, compressionLevel)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create gzip writer: %w", err)
+	}
+	defer gzipWriter.Close()
+
+	_, err = gzipWriter.Write(data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to write to stream: %w", err)
+	}
+
+	err = gzipWriter.Close()
+	if err != nil {
+		return nil, fmt.Errorf("unable to close writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
