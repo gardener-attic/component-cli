@@ -20,6 +20,7 @@ import (
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -61,9 +62,9 @@ type V1History struct {
 	} `json:"container_config,omitempty"`
 }
 
-func ConvertV1ManifestToV2(ctx context.Context, c *client, ref string, v1ManifestDesc ocispecv1.Descriptor) (ocispecv1.Descriptor, error) {
+func ConvertV1ManifestToV2(ctx context.Context, client Client, cache cache.Cache, ref string, v1ManifestDesc ocispecv1.Descriptor) (ocispecv1.Descriptor, error) {
 	buf := bytes.NewBuffer([]byte{})
-	if err := c.Fetch(ctx, ref, v1ManifestDesc, buf); err != nil {
+	if err := client.Fetch(ctx, ref, v1ManifestDesc, buf); err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to fetch v1 manifest blob: %w", err)
 	}
 
@@ -72,7 +73,7 @@ func ConvertV1ManifestToV2(ctx context.Context, c *client, ref string, v1Manifes
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to unmarshal v1 manifest: %w", err)
 	}
 
-	layers, diffIDs, history, err := ParseV1Manifest(ctx, c, ref, &v1Manifest)
+	layers, diffIDs, history, err := ParseV1Manifest(ctx, client, ref, &v1Manifest)
 	if err != nil {
 		return ocispecv1.Descriptor{}, err
 	}
@@ -87,12 +88,12 @@ func ConvertV1ManifestToV2(ctx context.Context, c *client, ref string, v1Manifes
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create v2 manifest: %w", err)
 	}
 
-	err = c.cache.Add(configDesc, io.NopCloser(bytes.NewReader(configBytes)))
+	err = cache.Add(configDesc, io.NopCloser(bytes.NewReader(configBytes)))
 	if err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
 	}
 
-	err = c.cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(v2ManifestBytes)))
+	err = cache.Add(v2ManifestDesc, io.NopCloser(bytes.NewReader(v2ManifestBytes)))
 	if err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write manifest blob to cache: %w", err)
 	}
@@ -100,7 +101,7 @@ func ConvertV1ManifestToV2(ctx context.Context, c *client, ref string, v1Manifes
 	return v2ManifestDesc, nil
 }
 
-func ParseV1Manifest(ctx context.Context, c *client, ref string, v1Manifest *V1Manifest) (layers []ocispecv1.Descriptor, diffIDs []digest.Digest, history []ocispecv1.History, err error) {
+func ParseV1Manifest(ctx context.Context, client Client, ref string, v1Manifest *V1Manifest) (layers []ocispecv1.Descriptor, diffIDs []digest.Digest, history []ocispecv1.History, err error) {
 	layers = []ocispecv1.Descriptor{}
 	diffIDs = []digest.Digest{}
 	history = []ocispecv1.History{}
@@ -131,7 +132,7 @@ func ParseV1Manifest(ctx context.Context, c *client, ref string, v1Manifest *V1M
 			}
 
 			buf := bytes.NewBuffer([]byte{})
-			if err := c.Fetch(ctx, ref, layerDesc, buf); err != nil {
+			if err := client.Fetch(ctx, ref, layerDesc, buf); err != nil {
 				return nil, nil, nil, fmt.Errorf("unable to fetch layer blob: %w", err)
 			}
 			data := buf.Bytes()

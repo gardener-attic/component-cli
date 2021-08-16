@@ -21,6 +21,7 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -214,7 +215,11 @@ var _ = Describe("Manifest v1 Conversion", func() {
 			repo := "my-repo"
 			ref := makeRef(repo)
 
-			client, err := ociclient.NewClient(logr.Discard(), ociclient.AllowPlainHttp(true))
+			client, err := ociclient.NewClient(
+				logr.Discard(),
+				ociclient.AllowPlainHttp(true),
+				ociclient.WithCache(cache.NewInMemoryCache()),
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			fslayers := []ociclient.FSLayer{

@@ -101,13 +101,11 @@ func Gzip(data []byte, compressionLevel int) ([]byte, error) {
 	}
 	defer gzipWriter.Close()
 
-	_, err = gzipWriter.Write(data)
-	if err != nil {
+	if _, err = gzipWriter.Write(data); err != nil {
 		return nil, fmt.Errorf("unable to write to stream: %w", err)
 	}
 
-	err = gzipWriter.Close()
-	if err != nil {
+	if err = gzipWriter.Close(); err != nil {
 		return nil, fmt.Errorf("unable to close writer: %w", err)
 	}
 
