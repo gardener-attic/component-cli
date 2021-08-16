@@ -362,8 +362,7 @@ func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispec
 	m := oci.Manifest{
 		Data: manifest,
 	}
-	artifact := oci.NewManifestArtifact(&m)
-	return c.PushOCIArtifact(ctx, ref, artifact, options...)
+	return c.PushOCIArtifact(ctx, ref, oci.NewManifestArtifact(&m), options...)
 }
 
 func (c *client) getHttpClient() *http.Client {
