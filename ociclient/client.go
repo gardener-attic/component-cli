@@ -87,11 +87,13 @@ func NewClient(log logr.Logger, opts ...Option) (*client, error) {
 	}
 
 	cLogger := logrus.New()
-	if log.V(10).Enabled() {
-		cLogger.SetLevel(logrus.DebugLevel)
-	}
+	cLogger.SetLevel(logrus.FatalLevel)
 	if log.V(10).Enabled() {
 		cLogger.SetLevel(logrus.TraceLevel)
+	} else if log.V(7).Enabled() {
+		cLogger.SetLevel(logrus.InfoLevel)
+	} else if log.V(2).Enabled() {
+		cLogger.SetLevel(logrus.ErrorLevel)
 	}
 	containerdlog.L = logrus.NewEntry(cLogger)
 
@@ -117,6 +119,12 @@ func (c *client) InjectCache(cache cache.Cache) error {
 }
 
 func (c *client) Resolve(ctx context.Context, ref string) (name string, desc ocispecv1.Descriptor, err error) {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return "", ocispecv1.Descriptor{}, fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
 	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
 	if err != nil {
 		return "", ocispecv1.Descriptor{}, err
@@ -125,6 +133,12 @@ func (c *client) Resolve(ctx context.Context, ref string) (name string, desc oci
 }
 
 func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
 	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
 	if err != nil {
 		return nil, err
@@ -156,6 +170,12 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 }
 
 func (c *client) Fetch(ctx context.Context, ref string, desc ocispecv1.Descriptor, writer io.Writer) error {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
 	reader, err := c.getFetchReader(ctx, ref, desc)
 	if err != nil {
 		return err
@@ -208,6 +228,12 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 }
 
 func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, options ...PushOption) error {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
 	opts := &PushOptions{}
 	opts.Store = c.cache
 	opts.ApplyOptions(options)
@@ -313,7 +339,7 @@ func (c *client) getResolverForRef(ctx context.Context, ref string, scopes ...st
 func (c *client) ListTags(ctx context.Context, ref string) ([]string, error) {
 	refspec, err := oci.ParseRef(ref)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse reference: %w", err)
+		return nil, fmt.Errorf("unable to parse ref: %w", err)
 	}
 	hosts, err := c.getHostConfig(refspec.Host)
 	if err != nil {
@@ -408,7 +434,7 @@ func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, er
 	// parse registry to also support more specific credentials e.g. for gcr with gcr.io/my-project
 	refspec, err := oci.ParseRef(ref)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse reference: %w", err)
+		return nil, fmt.Errorf("unable to parse ref: %w", err)
 	}
 	repositories := make([]string, 0)
 	err = doRequestWithPaging(ctx, u, func(ctx context.Context, u *url.URL) (*http.Response, error) {
