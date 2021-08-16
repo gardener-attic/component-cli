@@ -148,6 +148,15 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 		return nil, err
 	}
 
+	if desc.MediaType == MediaTypeDockerV2Schema1Manifest || desc.MediaType == MediaTypeDockerV2Schema1SignedManifest {
+		c.log.V(7).Info("found v1 manifest -> convert to v2")
+		convertedManifestDesc, err := ConvertV1ManifestToV2(ctx, c, c.cache, ref, desc)
+		if err != nil {
+			return nil, fmt.Errorf("unable to convert v1 manifest to v2: %w", err)
+		}
+		desc = convertedManifestDesc
+	}
+
 	data := bytes.NewBuffer([]byte{})
 	if err := c.Fetch(ctx, ref, desc, data); err != nil {
 		return nil, err
