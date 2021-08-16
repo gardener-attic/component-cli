@@ -38,19 +38,23 @@ const (
 	MediaTypeImageLayerZstd                = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
+// FSLayer represents 1 item in a schema 1 "fsLayers" list
 type FSLayer struct {
 	BlobSum digest.Digest `json:"blobSum"`
 }
 
+// History represents 1 item in a schema 1 "history" list
 type History struct {
 	V1Compatibility string `json:"v1Compatibility"`
 }
 
+// V1Manifest describes a Docker v2 Schema 1 manifest
 type V1Manifest struct {
 	FSLayers []FSLayer `json:"fsLayers"`
 	History  []History `json:"history"`
 }
 
+// V1History is the unmarshalled v1Compatibility property of a history item
 type V1History struct {
 	Author          string    `json:"author,omitempty"`
 	Created         time.Time `json:"created"`
@@ -62,6 +66,8 @@ type V1History struct {
 	} `json:"container_config,omitempty"`
 }
 
+// ConvertV1ManifestToV2 converts a Docker v2 Schema 1 manifest to Docker v2 Schema 2.
+// The converted manifest is stored in the cache. The descriptor of the cached manifest is returned.
 func ConvertV1ManifestToV2(ctx context.Context, client Client, cache cache.Cache, ref string, v1ManifestDesc ocispecv1.Descriptor) (ocispecv1.Descriptor, error) {
 	buf := bytes.NewBuffer([]byte{})
 	if err := client.Fetch(ctx, ref, v1ManifestDesc, buf); err != nil {
@@ -78,17 +84,17 @@ func ConvertV1ManifestToV2(ctx context.Context, client Client, cache cache.Cache
 		return ocispecv1.Descriptor{}, err
 	}
 
-	configDesc, configBytes, err := CreateConfig(&v1Manifest, diffIDs, history)
+	v2ConfigDesc, v2ConfigBytes, err := CreateV2Config(&v1Manifest, diffIDs, history)
 	if err != nil {
-		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create config: %w", err)
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create v2 config: %w", err)
 	}
 
-	v2ManifestDesc, v2ManifestBytes, err := CreateV2Manifest(configDesc, layers)
+	v2ManifestDesc, v2ManifestBytes, err := CreateV2Manifest(v2ConfigDesc, layers)
 	if err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create v2 manifest: %w", err)
 	}
 
-	err = cache.Add(configDesc, io.NopCloser(bytes.NewReader(configBytes)))
+	err = cache.Add(v2ConfigDesc, io.NopCloser(bytes.NewReader(v2ConfigBytes)))
 	if err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to write config blob to cache: %w", err)
 	}
@@ -101,6 +107,7 @@ func ConvertV1ManifestToV2(ctx context.Context, client Client, cache cache.Cache
 	return v2ManifestDesc, nil
 }
 
+// ParseV1Manifest returns the data necessary to build a v2 manifest from a v1 manifest
 func ParseV1Manifest(ctx context.Context, client Client, ref string, v1Manifest *V1Manifest) (layers []ocispecv1.Descriptor, diffIDs []digest.Digest, history []ocispecv1.History, err error) {
 	layers = []ocispecv1.Descriptor{}
 	diffIDs = []digest.Digest{}
@@ -171,6 +178,7 @@ func ParseV1Manifest(ctx context.Context, client Client, ref string, v1Manifest 
 	return
 }
 
+// CreateV2Manifest creates a v2 manifest
 func CreateV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descriptor) (ocispecv1.Descriptor, []byte, error) {
 	v2Manifest := ocispecv1.Manifest{
 		Versioned: specs.Versioned{
@@ -194,7 +202,8 @@ func CreateV2Manifest(configDesc ocispecv1.Descriptor, layers []ocispecv1.Descri
 	return v2ManifestDesc, marshaledV2Manifest, nil
 }
 
-func CreateConfig(v1Manifest *V1Manifest, diffIDs []digest.Digest, history []ocispecv1.History) (ocispecv1.Descriptor, []byte, error) {
+// CreateV2Config creates a v2 config
+func CreateV2Config(v1Manifest *V1Manifest, diffIDs []digest.Digest, history []ocispecv1.History) (ocispecv1.Descriptor, []byte, error) {
 	var config map[string]*json.RawMessage
 	if err := json.Unmarshal([]byte(v1Manifest.History[0].V1Compatibility), &config); err != nil {
 		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to unmarshal config from v1 history: %w", err)

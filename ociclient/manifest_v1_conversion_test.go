@@ -114,7 +114,7 @@ var _ = Describe("Manifest v1 Conversion", func() {
 				History:  v1History,
 			}
 
-			actualCfgDesc, actualCfgBytes, err := ociclient.CreateConfig(&v1Manifest, diffIDs, v2History)
+			actualCfgDesc, actualCfgBytes, err := ociclient.CreateV2Config(&v1Manifest, diffIDs, v2History)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(actualCfgDesc.MediaType).To(Equal(ocispecv1.MediaTypeImageConfig))
