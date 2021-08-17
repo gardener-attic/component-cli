@@ -58,7 +58,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			CompareImageIndices(actualArtifact.GetIndex(), index)
+			compareImageIndices(actualArtifact.GetIndex(), index)
 		}, 20)
 
 		It("should push and pull an empty oci image index", func() {
@@ -84,7 +84,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			CompareImageIndices(actualArtifact.GetIndex(), &index)
+			compareImageIndices(actualArtifact.GetIndex(), &index)
 		}, 20)
 
 		It("should push and pull an oci image index with only 1 manifest and no platform information", func() {
@@ -116,7 +116,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			CompareImageIndices(actualArtifact.GetIndex(), &index)
+			compareImageIndices(actualArtifact.GetIndex(), &index)
 		}, 20)
 
 		It("should copy an oci artifact", func() {
@@ -158,7 +158,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			CompareImageIndices(actualArtifact.GetIndex(), index)
+			compareImageIndices(actualArtifact.GetIndex(), index)
 
 			for _, manifest := range actualArtifact.GetIndex().Manifests {
 				compareManifestToTestManifest(ctx, newRef, manifest.Data)
@@ -368,7 +368,7 @@ func uploadTestIndex(ctx context.Context, indexRef string) *oci.Index {
 	return &index
 }
 
-func CompareImageIndices(actualIndex *oci.Index, expectedIndex *oci.Index) {
+func compareImageIndices(actualIndex *oci.Index, expectedIndex *oci.Index) {
 	Expect(actualIndex.Annotations).To(Equal(expectedIndex.Annotations))
 	Expect(len(actualIndex.Manifests)).To(Equal(len(expectedIndex.Manifests)))
 
