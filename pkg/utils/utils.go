@@ -5,7 +5,11 @@
 package utils
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -77,4 +81,44 @@ func CleanMarkdownUsageFunc(cmd *cobra.Command) {
 		cmd.Long = strings.ReplaceAll(cmd.Long, "</pre>", "")
 		defaultHelpFunc(cmd, s)
 	})
+}
+
+// RawJSON converts an arbitrary value to json.RawMessage
+func RawJSON(value interface{}) (*json.RawMessage, error) {
+	jsonval, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return (*json.RawMessage)(&jsonval), nil
+}
+
+// Gzip applies gzip compression to an arbitrary byte slice
+func Gzip(data []byte, compressionLevel int) ([]byte, error) {
+	buf := bytes.NewBuffer([]byte{})
+	gzipWriter, err := gzip.NewWriterLevel(buf, compressionLevel)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create gzip writer: %w", err)
+	}
+	defer gzipWriter.Close()
+
+	if _, err = gzipWriter.Write(data); err != nil {
+		return nil, fmt.Errorf("unable to write to stream: %w", err)
+	}
+
+	if err = gzipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("unable to close writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+var chars = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+
+// RandomString creates a new random string with the given length.
+func RandomString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
 }
