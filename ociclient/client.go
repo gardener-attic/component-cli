@@ -257,9 +257,9 @@ func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.
 		// the oci artifact should always be of type manifest or index
 		marshaledArtifact, err := artifact.MarshalJSON()
 		if err != nil {
-			return fmt.Errorf("unable to marshal oci artifact: %w", err)
+			c.log.Error(err, "unable to marshal oci artifact")
 		}
-		return fmt.Errorf("invalid oci artifact: %s", string(marshaledArtifact))
+		panic(fmt.Errorf("invalid oci artifact: %s", string(marshaledArtifact)))
 	}
 }
 
