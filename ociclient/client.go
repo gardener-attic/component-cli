@@ -164,8 +164,6 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		return nil, err
 	}
 
-	var ociArtifact *oci.Artifact
-
 	if desc.MediaType == ocispecv1.MediaTypeImageIndex || desc.MediaType == images.MediaTypeDockerSchema2ManifestList {
 		var index ocispecv1.Index
 		if err := json.Unmarshal(data.Bytes(), &index); err != nil {
@@ -177,7 +175,7 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 			Annotations: index.Annotations,
 		}
 
-		ociArtifact, err = oci.NewIndexArtifact(&i)
+		indexArtifact, err := oci.NewIndexArtifact(&i)
 		if err != nil {
 			return nil, err
 		}
@@ -198,8 +196,10 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 				Data:       &manifest,
 			}
 
-			ociArtifact.GetIndex().Manifests = append(ociArtifact.GetIndex().Manifests, &m)
+			indexArtifact.GetIndex().Manifests = append(indexArtifact.GetIndex().Manifests, &m)
 		}
+
+		return indexArtifact, nil
 	} else if desc.MediaType == ocispecv1.MediaTypeImageManifest || desc.MediaType == images.MediaTypeDockerSchema2Manifest {
 		var manifest ocispecv1.Manifest
 		if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
@@ -211,15 +211,15 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 			Data:       &manifest,
 		}
 
-		ociArtifact, err = oci.NewManifestArtifact(&m)
+		manifestArtifact, err := oci.NewManifestArtifact(&m)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		return nil, fmt.Errorf("unable to handle mediatype: %s", desc.MediaType)
+
+		return manifestArtifact, nil
 	}
 
-	return ociArtifact, nil
+	return nil, fmt.Errorf("unable to handle mediatype: %s", desc.MediaType)
 }
 
 func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.Artifact, options ...PushOption) error {
