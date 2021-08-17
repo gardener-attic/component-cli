@@ -36,6 +36,7 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/ociclient/oci"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type client struct {
@@ -259,7 +260,7 @@ func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.
 		if err != nil {
 			c.log.Error(err, "unable to marshal oci artifact")
 		}
-		panic(fmt.Errorf("invalid oci artifact: %s", string(marshaledArtifact)))
+		panic(fmt.Errorf("invalid oci artifact: %s", utils.SafeConvert(marshaledArtifact)))
 	}
 }
 
