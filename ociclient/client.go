@@ -19,6 +19,7 @@ import (
 
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/images"
 	containerdlog "github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
@@ -27,6 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	distributionspecv1 "github.com/opencontainers/distribution-spec/specs-go/v1"
 	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,6 +36,7 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/ociclient/oci"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type client struct {
@@ -132,7 +135,7 @@ func (c *client) Resolve(ctx context.Context, ref string) (name string, desc oci
 	return resolver.Resolve(ctx, ref)
 }
 
-func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
+func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact, error) {
 	refspec, err := oci.ParseRef(ref)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ref: %w", err)
@@ -162,11 +165,187 @@ func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manife
 		return nil, err
 	}
 
-	var manifest ocispecv1.Manifest
-	if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
+	if desc.MediaType == ocispecv1.MediaTypeImageIndex || desc.MediaType == images.MediaTypeDockerSchema2ManifestList {
+		var index ocispecv1.Index
+		if err := json.Unmarshal(data.Bytes(), &index); err != nil {
+			return nil, err
+		}
+
+		i := oci.Index{
+			Manifests:   []*oci.Manifest{},
+			Annotations: index.Annotations,
+		}
+
+		indexArtifact, err := oci.NewIndexArtifact(&i)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, mdesc := range index.Manifests {
+			data := bytes.NewBuffer([]byte{})
+			if err := c.Fetch(ctx, ref, mdesc, data); err != nil {
+				return nil, err
+			}
+
+			var manifest ocispecv1.Manifest
+			if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
+				return nil, err
+			}
+
+			m := oci.Manifest{
+				Descriptor: mdesc,
+				Data:       &manifest,
+			}
+
+			indexArtifact.GetIndex().Manifests = append(indexArtifact.GetIndex().Manifests, &m)
+		}
+
+		return indexArtifact, nil
+	} else if desc.MediaType == ocispecv1.MediaTypeImageManifest || desc.MediaType == images.MediaTypeDockerSchema2Manifest {
+		var manifest ocispecv1.Manifest
+		if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
+			return nil, err
+		}
+
+		m := oci.Manifest{
+			Descriptor: desc,
+			Data:       &manifest,
+		}
+
+		manifestArtifact, err := oci.NewManifestArtifact(&m)
+		if err != nil {
+			return nil, err
+		}
+
+		return manifestArtifact, nil
+	}
+
+	return nil, fmt.Errorf("unable to handle mediatype: %s", desc.MediaType)
+}
+
+func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.Artifact, options ...PushOption) error {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
+	opts := &PushOptions{}
+	opts.Store = c.cache
+	opts.ApplyOptions(options)
+
+	tempCache := c.cache
+	if tempCache == nil {
+		tempCache = cache.NewInMemoryCache()
+	}
+
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
+	if err != nil {
+		return err
+	}
+	pusher, err := resolver.Pusher(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	if artifact.IsManifest() {
+		_, err := c.pushManifest(ctx, artifact.GetManifest().Data, pusher, tempCache, opts)
+		return err
+	} else if artifact.IsIndex() {
+		return c.pushImageIndex(ctx, artifact, pusher, tempCache, opts)
+	} else {
+		// execution of this code should never happen
+		// the oci artifact should always be of type manifest or index
+		marshaledArtifact, err := artifact.MarshalJSON()
+		if err != nil {
+			c.log.Error(err, "unable to marshal oci artifact")
+		}
+		panic(fmt.Errorf("invalid oci artifact: %s", utils.SafeConvert(marshaledArtifact)))
+	}
+}
+
+func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) (ocispecv1.Descriptor, error) {
+	// add dummy config if it is not set
+	if manifest.Config.Size == 0 {
+		dummyConfig := []byte("{}")
+		dummyDesc := ocispecv1.Descriptor{
+			MediaType: "application/json",
+			Digest:    digest.FromBytes(dummyConfig),
+			Size:      int64(len(dummyConfig)),
+		}
+		if err := cache.Add(dummyDesc, ioutil.NopCloser(bytes.NewBuffer(dummyConfig))); err != nil {
+			return ocispecv1.Descriptor{}, fmt.Errorf("unable to add dummy config to cache: %w", err)
+		}
+		if err := c.pushContent(ctx, cache, pusher, manifest.Config); err != nil {
+			return ocispecv1.Descriptor{}, err
+		}
+	} else {
+		if err := c.pushContent(ctx, opts.Store, pusher, manifest.Config); err != nil {
+			return ocispecv1.Descriptor{}, err
+		}
+	}
+
+	// last upload all layers
+	for _, layer := range manifest.Layers {
+		if err := c.pushContent(ctx, opts.Store, pusher, layer); err != nil {
+			return ocispecv1.Descriptor{}, err
+		}
+	}
+
+	desc, err := createDescriptorFromManifest(cache, manifest)
+	if err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+	if err := c.pushContent(ctx, cache, pusher, desc); err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+
+	return desc, nil
+}
+
+func (c *client) pushImageIndex(ctx context.Context, ociArtifact *oci.Artifact, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) error {
+	manifestDescs := []ocispecv1.Descriptor{}
+	for _, manifest := range ociArtifact.GetIndex().Manifests {
+		mdesc, err := c.pushManifest(ctx, manifest.Data, pusher, cache, opts)
+		if err != nil {
+			return fmt.Errorf("unable to upload manifest: %w", err)
+		}
+		mdesc.Platform = manifest.Descriptor.Platform
+		mdesc.Annotations = manifest.Descriptor.Annotations
+		manifestDescs = append(manifestDescs, mdesc)
+	}
+
+	index := ocispecv1.Index{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2,
+		},
+		Manifests:   manifestDescs,
+		Annotations: ociArtifact.GetIndex().Annotations,
+	}
+
+	idesc, err := createDescriptorFromIndex(cache, &index)
+	if err != nil {
+		return fmt.Errorf("unable to create image index descriptor: %w", err)
+	}
+
+	if err := c.pushContent(ctx, cache, pusher, idesc); err != nil {
+		return fmt.Errorf("unable to push image index: %w", err)
+	}
+
+	return nil
+}
+
+func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
+	ociArtifact, err := c.GetOCIArtifact(ctx, ref)
+	if err != nil {
 		return nil, err
 	}
-	return &manifest, nil
+
+	if !ociArtifact.IsManifest() {
+		return nil, fmt.Errorf("oci artifact is not a manifest: %+v", ociArtifact)
+	}
+
+	return ociArtifact.GetManifest().Data, nil
 }
 
 func (c *client) Fetch(ctx context.Context, ref string, desc ocispecv1.Descriptor, writer io.Writer) error {
@@ -228,66 +407,16 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 }
 
 func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, options ...PushOption) error {
-	refspec, err := oci.ParseRef(ref)
+	m := oci.Manifest{
+		Data: manifest,
+	}
+
+	a, err := oci.NewManifestArtifact(&m)
 	if err != nil {
-		return fmt.Errorf("unable to parse ref: %w", err)
-	}
-	ref = refspec.String()
-
-	opts := &PushOptions{}
-	opts.Store = c.cache
-	opts.ApplyOptions(options)
-
-	tempCache := c.cache
-	if tempCache == nil {
-		tempCache = cache.NewInMemoryCache()
+		return fmt.Errorf("unable to create oci artifact: %w", err)
 	}
 
-	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
-	if err != nil {
-		return err
-	}
-	pusher, err := resolver.Pusher(ctx, ref)
-	if err != nil {
-		return err
-	}
-
-	// add dummy config if it is not set
-	if manifest.Config.Size == 0 {
-		dummyConfig := []byte("{}")
-		dummyDesc := ocispecv1.Descriptor{
-			MediaType: "application/json",
-			Digest:    digest.FromBytes(dummyConfig),
-			Size:      int64(len(dummyConfig)),
-		}
-		if err := tempCache.Add(dummyDesc, ioutil.NopCloser(bytes.NewBuffer(dummyConfig))); err != nil {
-			return fmt.Errorf("unable to add dummy config to cache: %w", err)
-		}
-		if err := c.pushContent(ctx, tempCache, pusher, manifest.Config); err != nil {
-			return err
-		}
-	} else {
-		if err := c.pushContent(ctx, opts.Store, pusher, manifest.Config); err != nil {
-			return err
-		}
-	}
-
-	// last upload all layers
-	for _, layer := range manifest.Layers {
-		if err := c.pushContent(ctx, opts.Store, pusher, layer); err != nil {
-			return err
-		}
-	}
-
-	desc, err := createDescriptorFromManifest(tempCache, manifest)
-	if err != nil {
-		return err
-	}
-	if err := c.pushContent(ctx, tempCache, pusher, desc); err != nil {
-		return err
-	}
-
-	return nil
+	return c.PushOCIArtifact(ctx, ref, a, options...)
 }
 
 func (c *client) getHttpClient() *http.Client {
@@ -557,6 +686,24 @@ func createDescriptorFromManifest(cache cache.Cache, manifest *ocispecv1.Manifes
 		return ocispecv1.Descriptor{}, err
 	}
 	return manifestDescriptor, nil
+}
+
+func createDescriptorFromIndex(cache cache.Cache, index *ocispecv1.Index) (ocispecv1.Descriptor, error) {
+	indexBytes, err := json.Marshal(index)
+	if err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+	indexDescriptor := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageIndex,
+		Digest:    digest.FromBytes(indexBytes),
+		Size:      int64(len(indexBytes)),
+	}
+
+	manifestBuf := bytes.NewBuffer(indexBytes)
+	if err := cache.Add(indexDescriptor, ioutil.NopCloser(manifestBuf)); err != nil {
+		return ocispecv1.Descriptor{}, err
+	}
+	return indexDescriptor, nil
 }
 
 func (c *client) pushContent(ctx context.Context, store Store, pusher remotes.Pusher, desc ocispecv1.Descriptor) error {

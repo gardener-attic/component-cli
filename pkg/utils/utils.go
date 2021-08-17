@@ -122,3 +122,13 @@ func RandomString(n int) string {
 	}
 	return string(b)
 }
+
+// SafeConvert converts a byte slice to string.
+// If the byte slice is nil, an empty string is returned.
+func SafeConvert(bytes []byte) string {
+	if bytes == nil {
+		return ""
+	}
+
+	return string(bytes)
+}
