@@ -18,7 +18,7 @@ import (
 func Copy(ctx context.Context, client Client, from, to string) error {
 	artifact, err := client.GetOCIArtifact(ctx, from)
 	if err != nil {
-		return fmt.Errorf("unable to get manifest for source artifact %q: %w", from, err)
+		return fmt.Errorf("unable to get source oci artifact %q: %w", from, err)
 	}
 
 	store := GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {

@@ -154,7 +154,10 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 			Annotations: index.Annotations,
 		}
 
-		ociArtifact = oci.NewIndexArtifact(&i)
+		ociArtifact, err = oci.NewIndexArtifact(&i)
+		if err != nil {
+			return nil, err
+		}
 
 		for _, mdesc := range index.Manifests {
 			data := bytes.NewBuffer([]byte{})
@@ -168,8 +171,8 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 			}
 
 			m := oci.Manifest{
-				Desc: mdesc,
-				Data: &manifest,
+				Descriptor: mdesc,
+				Data:       &manifest,
 			}
 
 			ociArtifact.GetIndex().Manifests = append(ociArtifact.GetIndex().Manifests, &m)
@@ -181,11 +184,14 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		}
 
 		m := oci.Manifest{
-			Desc: desc,
-			Data: &manifest,
+			Descriptor: desc,
+			Data:       &manifest,
 		}
 
-		ociArtifact = oci.NewManifestArtifact(&m)
+		ociArtifact, err = oci.NewManifestArtifact(&m)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, fmt.Errorf("unable to handle mediatype: %s", desc.MediaType)
 	}
@@ -218,7 +224,13 @@ func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.
 	} else if artifact.IsIndex() {
 		return c.pushImageIndex(ctx, artifact, pusher, tempCache, opts)
 	} else {
-		return errors.New("artifact doesn't contain any manifests")
+		// execution of this code should never happen
+		// the oci artifact should always be of type manifest or index
+		marshaledArtifact, err := artifact.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("unable to marshal oci artifact: %w", err)
+		}
+		return fmt.Errorf("invalid oci artifact: %s", string(marshaledArtifact))
 	}
 }
 
@@ -268,8 +280,8 @@ func (c *client) pushImageIndex(ctx context.Context, ociArtifact *oci.Artifact, 
 		if err != nil {
 			return fmt.Errorf("unable to upload manifest: %w", err)
 		}
-		mdesc.Platform = manifest.Desc.Platform
-		mdesc.Annotations = manifest.Desc.Annotations
+		mdesc.Platform = manifest.Descriptor.Platform
+		mdesc.Annotations = manifest.Descriptor.Annotations
 		manifestDescs = append(manifestDescs, mdesc)
 	}
 
@@ -362,7 +374,13 @@ func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispec
 	m := oci.Manifest{
 		Data: manifest,
 	}
-	return c.PushOCIArtifact(ctx, ref, oci.NewManifestArtifact(&m), options...)
+
+	a, err := oci.NewManifestArtifact(&m)
+	if err != nil {
+		return fmt.Errorf("unable to create oci artifact: %w", err)
+	}
+
+	return c.PushOCIArtifact(ctx, ref, a, options...)
 }
 
 func (c *client) getHttpClient() *http.Client {
