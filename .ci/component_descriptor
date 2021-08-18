@@ -8,10 +8,17 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-apk add --no-cache --no-progress git make musl-dev go=1.16.7-r0
+GO_VERSION="1.16.7"
+
+apk add --no-cache --no-progress git make musl-dev curl
+curl -OL https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz
+tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+
+# link musl to glibc
+mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 
 # Configure Go
-export GOROOT="/usr/lib/go"
 export GOPATH="/go"
 export PATH="/go/bin:$PATH"
 

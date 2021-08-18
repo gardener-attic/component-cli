@@ -20,9 +20,9 @@ component-cli:
             image: eu.gcr.io/gardener-project/component/cli
     steps:
       verify:
-        image: 'golang:1.16.4'
+        image: 'golang:1.16.7'
       build:
-        image: 'golang:1.16.4'
+        image: 'golang:1.16.7'
         execute: 'build'
         output_dir: 'out'
         timeout: '5m'
