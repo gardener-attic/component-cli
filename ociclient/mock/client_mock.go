@@ -13,6 +13,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	ociclient "github.com/gardener/component-cli/ociclient"
+	oci "github.com/gardener/component-cli/ociclient/oci"
 )
 
 // MockClient is a mock of Client interface.
@@ -67,6 +68,21 @@ func (mr *MockClientMockRecorder) GetManifest(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetManifest", reflect.TypeOf((*MockClient)(nil).GetManifest), arg0, arg1)
 }
 
+// GetOCIArtifact mocks base method.
+func (m *MockClient) GetOCIArtifact(arg0 context.Context, arg1 string) (*oci.Artifact, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOCIArtifact", arg0, arg1)
+	ret0, _ := ret[0].(*oci.Artifact)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOCIArtifact indicates an expected call of GetOCIArtifact.
+func (mr *MockClientMockRecorder) GetOCIArtifact(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOCIArtifact", reflect.TypeOf((*MockClient)(nil).GetOCIArtifact), arg0, arg1)
+}
+
 // PushManifest mocks base method.
 func (m *MockClient) PushManifest(arg0 context.Context, arg1 string, arg2 *v1.Manifest, arg3 ...ociclient.PushOption) error {
 	m.ctrl.T.Helper()
@@ -84,6 +100,25 @@ func (mr *MockClientMockRecorder) PushManifest(arg0, arg1, arg2 interface{}, arg
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushManifest", reflect.TypeOf((*MockClient)(nil).PushManifest), varargs...)
+}
+
+// PushOCIArtifact mocks base method.
+func (m *MockClient) PushOCIArtifact(arg0 context.Context, arg1 string, arg2 *oci.Artifact, arg3 ...ociclient.PushOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PushOCIArtifact", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PushOCIArtifact indicates an expected call of PushOCIArtifact.
+func (mr *MockClientMockRecorder) PushOCIArtifact(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushOCIArtifact", reflect.TypeOf((*MockClient)(nil).PushOCIArtifact), varargs...)
 }
 
 // Resolve mocks base method.

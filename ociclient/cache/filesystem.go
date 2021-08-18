@@ -250,6 +250,22 @@ func (fs *FileSystem) Remove(name string) error {
 	return nil
 }
 
+// DeleteAll removes all files in the filesystem
+func (fs *FileSystem) DeleteAll() error {
+	fs.mux.Lock()
+	defer fs.mux.Unlock()
+	files, err := vfs.ReadDir(fs.FileSystem, "/")
+	if err != nil {
+		return fmt.Errorf("unable to read current cached files: %w", err)
+	}
+	for _, file := range files {
+		if err := fs.Remove(file.Name()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // CurrentSize returns the current size of the filesystem
 func (fs *FileSystem) CurrentSize() int64 {
 	return fs.currentSize

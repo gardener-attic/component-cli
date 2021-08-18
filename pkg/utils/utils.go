@@ -132,3 +132,39 @@ func SafeConvert(bytes []byte) string {
 
 	return string(bytes)
 }
+
+const (
+	BYTE = 1.0 << (10 * iota)
+	KIBIBYTE
+	MEBIBYTE
+	GIBIBYTE
+)
+
+// BytesString converts bytes into a human readable string.
+// This function is inspired by https://www.reddit.com/r/golang/comments/8micn7/review_bytes_to_human_readable_format/
+func BytesString(bytes uint64, accuracy int) string {
+	unit := ""
+	value := float32(bytes)
+
+	switch {
+	case bytes >= GIBIBYTE:
+		unit = "GiB"
+		value = value / GIBIBYTE
+	case bytes >= MEBIBYTE:
+		unit = "MiB"
+		value = value / MEBIBYTE
+	case bytes >= KIBIBYTE:
+		unit = "KiB"
+		value = value / KIBIBYTE
+	case bytes >= BYTE:
+		unit = "bytes"
+	case bytes == 0:
+		return "0"
+	}
+
+	stringValue := strings.TrimSuffix(
+		fmt.Sprintf("%.2f", value), "."+strings.Repeat("0", accuracy),
+	)
+
+	return fmt.Sprintf("%s %s", stringValue, unit)
+}
