@@ -249,7 +249,10 @@ func TarFileSystem(ctx context.Context, fs vfs.FileSystem, root string, writer i
 	if opts.PreserveDir {
 		opts.root = pathutil.Base(root)
 	}
-	return addFileToTar(ctx, fs, tw, opts.root, root, opts)
+	if err := addFileToTar(ctx, fs, tw, opts.root, root, opts); err != nil {
+		return err
+	}
+	return tw.Close()
 }
 
 func addFileToTar(ctx context.Context, fs vfs.FileSystem, tw *tar.Writer, path string, realPath string, opts TarFileSystemOptions) error {
