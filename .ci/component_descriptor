@@ -8,7 +8,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-apk add --no-cache --no-progress git make musl-dev go
+apk add --no-cache --no-progress git make musl-dev go=1.16.7-r0
 
 # Configure Go
 export GOROOT="/usr/lib/go"
