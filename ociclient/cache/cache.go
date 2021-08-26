@@ -175,7 +175,7 @@ func (lc *layeredCache) get(dgst string, desc ocispecv1.Descriptor) (os.FileInfo
 		if err := lc.baseFs.Remove(dgst); err != nil {
 			lc.log.V(7).Info("unable to remove invalid blob", "digest", dgst, "err", err.Error())
 		}
-		return info, nil, ErrNotFound
+		return info, nil, ErrInvalidBlob
 	}
 	file, err := lc.baseFs.OpenFile(dgst, os.O_RDONLY, os.ModePerm)
 	if err != nil {
@@ -231,7 +231,7 @@ func (lc *layeredCache) getFromOverlay(dgst string, desc ocispecv1.Descriptor) (
 		if err := lc.overlayFs.Remove(dgst); err != nil {
 			lc.log.V(7).Info("unable to remove invalid blob", "digest", dgst, "err", err.Error())
 		}
-		return info, nil, ErrNotFound
+		return info, nil, ErrInvalidBlob
 	}
 	file, err := lc.overlayFs.OpenFile(dgst, os.O_RDONLY, os.ModePerm)
 	if err != nil {

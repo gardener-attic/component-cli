@@ -14,8 +14,11 @@ import (
 )
 
 var (
-	// ErrNotFound is a error that indicates that the file is not cached
+	// ErrNotFound is an error that indicates that the file is not cached
 	ErrNotFound = errors.New("not cached")
+
+	// ErrInvalidBlob is an error that indicates that a blob is invalid
+	ErrInvalidBlob = errors.New("invalid blob")
 )
 
 // CacheDirEnvName is the name of the environment variable that configures cache directory.
