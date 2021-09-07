@@ -398,7 +398,11 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 	if c.cache != nil {
 		if err := c.cache.Add(desc, reader); err != nil {
 			// do not throw an error as cache is just an optimization
-			c.log.V(5).Info("unable to cache descriptor", "ref", ref, "error", err.Error())
+			c.log.V(2).Info("unable to cache descriptor", "ref", ref, "error", err.Error())
+			if err = reader.Close(); err != nil {
+				c.log.V(2).Info("unable to close reader", "ref", ref, "error", err.Error())
+			}
+			return fetcher.Fetch(ctx, desc)
 		}
 		return c.cache.Get(desc)
 	}
