@@ -106,7 +106,7 @@ func NewSequentialPipeline() (ResourceProcessingPipeline, error) {
 	}
 
 	for _, procBin := range procBins {
-		exec, err := processor.NewStdIOExecutable(procBin)
+		exec, err := processor.NewUDSExecutable(procBin)
 		if err != nil {
 			return nil, err
 		}

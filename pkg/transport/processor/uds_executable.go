@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -24,7 +23,7 @@ func NewUDSExecutable(bin string) (ResourceStreamProcessor, error) {
 	if err != nil {
 		return nil, err
 	}
-	addr := fmt.Sprintf("%s/%s-%s.sock", wd, base64.StdEncoding.EncodeToString([]byte(bin)), utils.RandomString(5))
+	addr := fmt.Sprintf("%s/%s.sock", wd, utils.RandomString(8))
 
 	cmd := exec.Command(bin)
 	cmd.Args = append(cmd.Args, "--addr", addr)
