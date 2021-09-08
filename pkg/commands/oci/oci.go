@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewOCICommand creates a new ctf command.
+// NewOCICommand creates a new oci command.
 func NewOCICommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "oci",
