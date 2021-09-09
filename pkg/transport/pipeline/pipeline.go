@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/transport/download"
 	"github.com/gardener/component-cli/pkg/transport/processor"
+	"github.com/gardener/component-cli/pkg/transport/upload"
 	"github.com/gardener/component-cli/pkg/transport/util"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
@@ -62,10 +64,11 @@ func (p *sequentialPipeline) Process(ctx context.Context, cd *cdv2.ComponentDesc
 		return nil, cdv2.Resource{}, err
 	}
 
-	cd, res, _, err = util.ReadArchive(tar.NewReader(infile))
+	cd, res, blobreader, err := util.ReadArchive(tar.NewReader(infile))
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}
+	defer blobreader.Close()
 
 	return cd, res, nil
 }
@@ -94,7 +97,7 @@ func (p *sequentialPipeline) process(ctx context.Context, infile *os.File, proc 
 	return outfile, nil
 }
 
-func NewSequentialPipeline() (ResourceProcessingPipeline, error) {
+func NewSequentialPipeline(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) (ResourceProcessingPipeline, error) {
 	procBins := []string{
 		"/Users/i500806/dev/pipeman/bin/processor_1",
 		"/Users/i500806/dev/pipeman/bin/processor_2",
@@ -102,7 +105,7 @@ func NewSequentialPipeline() (ResourceProcessingPipeline, error) {
 	}
 
 	procs := []processor.ResourceStreamProcessor{
-		download.NewLocalOCIBlobDownloader(),
+		download.NewLocalOCIBlobDownloader(client),
 	}
 
 	for _, procBin := range procBins {
@@ -113,7 +116,7 @@ func NewSequentialPipeline() (ResourceProcessingPipeline, error) {
 		procs = append(procs, exec)
 	}
 
-	// procs = append(procs, upload.NewLocalOCIBlobUploader())
+	procs = append(procs, upload.NewLocalOCIBlobUploader(client, targetCtx))
 
 	pip := sequentialPipeline{
 		processors: procs,

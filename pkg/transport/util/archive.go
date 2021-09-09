@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
@@ -60,7 +61,7 @@ func WriteFile(fname string, content io.Reader, outArchive *tar.Writer) error {
 	return nil
 }
 
-func WriteArchive(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource, resourceBlobReader io.Reader, outwriter *tar.Writer) error {
+func WriteArchive(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource, blobReader io.Reader, outwriter *tar.Writer) error {
 	defer outwriter.Close()
 
 	println("start writing data")
@@ -87,9 +88,9 @@ func WriteArchive(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Re
 		return fmt.Errorf("unable to write resource: %w", err)
 	}
 
-	if resourceBlobReader != nil {
+	if blobReader != nil {
 		println("writing blob")
-		err = WriteFile(BlobFile, resourceBlobReader, outwriter)
+		err = WriteFile(BlobFile, blobReader, outwriter)
 		if err != nil {
 			return fmt.Errorf("unable to write blob: %w", err)
 		}
@@ -103,6 +104,7 @@ func WriteArchive(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Re
 func ReadArchive(r *tar.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.ReadCloser, error) {
 	var cd *cdv2.ComponentDescriptor
 	var res cdv2.Resource
+	var blobFile *os.File
 
 	for {
 		header, err := r.Next()
@@ -124,10 +126,26 @@ func ReadArchive(r *tar.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.Re
 			if err != nil {
 				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", ComponentDescriptorFile, err)
 			}
+		case BlobFile:
+			blobFile, err = ioutil.TempFile("", "")
+			if err != nil {
+				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to create tempfile: %w", err)
+			}
+			_, err = io.Copy(blobFile, r)
+			if err != nil {
+				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", BlobFile, err)
+			}
 		}
 	}
 
-	return cd, res, nil, nil
+	if blobFile != nil {
+		_, err := blobFile.Seek(0, 0)
+		if err != nil {
+			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of blobfile: %w", err)
+		}
+	}
+
+	return cd, res, blobFile, nil
 }
 
 func ParseResource(r *tar.Reader) (cdv2.Resource, error) {

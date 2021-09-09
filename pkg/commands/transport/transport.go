@@ -23,6 +23,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	parallelRuns = 1
+	targetCtx    = "o.ingress.js-ek.hubforplay.shoot.canary.k8s-hana.ondemand.com/js-transport-test"
+)
+
 type Options struct {
 	// BaseUrl is the oci registry where the component is stored.
 	BaseUrl string
@@ -115,13 +120,20 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 	}
 
-	const parallelRuns = 1
 	cds := []*cdv2.ComponentDescriptor{}
 	for i := 0; i < parallelRuns; i++ {
 		cds = append(cds, cd)
 	}
 
 	wg := sync.WaitGroup{}
+
+	targetCtx := cdv2.OCIRegistryRepository{
+		ObjectType: cdv2.ObjectType{
+			Type: cdv2.OCIRegistryType,
+		},
+		BaseURL:              targetCtx,
+		ComponentNameMapping: cdv2.ComponentNameMapping(o.ComponentNameMapping),
+	}
 
 	for _, cd := range cds {
 		for _, resource := range cd.Resources {
@@ -131,7 +143,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 			go func() {
 				defer wg.Done()
 
-				pip, err := pipeline.NewSequentialPipeline()
+				pip, err := pipeline.NewSequentialPipeline(ociClient, targetCtx)
 				if err != nil {
 					log.Error(err, "unable to build pipeline")
 				}

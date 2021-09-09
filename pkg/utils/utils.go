@@ -15,12 +15,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gardener/component-cli/ociclient/cache"
+	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
-
-	"github.com/gardener/component-cli/ociclient/cache"
-	"github.com/gardener/component-cli/pkg/commands/constants"
 )
 
 // PrintPrettyYaml prints the given objects as yaml if enabled.

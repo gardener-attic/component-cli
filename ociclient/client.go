@@ -264,6 +264,33 @@ func (c *client) PushOCIArtifact(ctx context.Context, ref string, artifact *oci.
 	}
 }
 
+func (c *client) PushBlob(ctx context.Context, ref string, desc ocispecv1.Descriptor, options ...PushOption) error {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
+	opts := &PushOptions{}
+	opts.Store = c.cache
+	opts.ApplyOptions(options)
+
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
+	if err != nil {
+		return err
+	}
+	pusher, err := resolver.Pusher(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	if err := c.pushContent(ctx, opts.Store, pusher, desc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) (ocispecv1.Descriptor, error) {
 	// add dummy config if it is not set
 	if manifest.Config.Size == 0 {
