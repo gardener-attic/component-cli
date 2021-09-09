@@ -230,7 +230,7 @@ var _ = Describe("Remote", func() {
 		Expect(targetComp.Resources[len(targetComp.Resources)-1].Access.Type).To(Equal("localOciBlob"), "Expect that the localFilesystem blob has been correctly converted to a localOciBlob")
 
 		var layerBlobTarget bytes.Buffer
-		Expect(client.Fetch(ctx, targetOCIRef, manifest.Layers[1], &layerBlobTarget)).To(Succeed())
+		Expect(client.Fetch(ctx, targetOCIRef, manifestTarget.Layers[1], &layerBlobTarget)).To(Succeed())
 		Expect(layerBlobTarget.String()).To(Equal(blobContent), "Expect that the target blob contains the same as source blob")
 	})
 
