@@ -10,10 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/transport/download"
-	"github.com/gardener/component-cli/pkg/transport/processor"
-	"github.com/gardener/component-cli/pkg/transport/upload"
 	"github.com/gardener/component-cli/pkg/transport/util"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
@@ -21,12 +17,8 @@ import (
 var TotalTime time.Duration = 0
 var mux = sync.Mutex{}
 
-type ResourceProcessingPipeline interface {
-	Process(context.Context, *cdv2.ComponentDescriptor, cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error)
-}
-
 type sequentialPipeline struct {
-	processors []processor.ResourceStreamProcessor
+	processors []ResourceStreamProcessor
 }
 
 func (p *sequentialPipeline) Process(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error) {
@@ -73,7 +65,7 @@ func (p *sequentialPipeline) Process(ctx context.Context, cd *cdv2.ComponentDesc
 	return cd, res, nil
 }
 
-func (p *sequentialPipeline) process(ctx context.Context, infile *os.File, proc processor.ResourceStreamProcessor) (*os.File, error) {
+func (p *sequentialPipeline) process(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
 	defer infile.Close()
 
 	_, err := infile.Seek(0, 0)
@@ -97,30 +89,9 @@ func (p *sequentialPipeline) process(ctx context.Context, infile *os.File, proc 
 	return outfile, nil
 }
 
-func NewSequentialPipeline(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) (ResourceProcessingPipeline, error) {
-	procBins := []string{
-		"/Users/i500806/dev/pipeman/bin/processor_1",
-		"/Users/i500806/dev/pipeman/bin/processor_2",
-		"/Users/i500806/dev/pipeman/bin/processor_3",
-	}
-
-	procs := []processor.ResourceStreamProcessor{
-		download.NewLocalOCIBlobDownloader(client),
-	}
-
-	for _, procBin := range procBins {
-		exec, err := processor.NewUDSExecutable(procBin)
-		if err != nil {
-			return nil, err
-		}
-		procs = append(procs, exec)
-	}
-
-	procs = append(procs, upload.NewLocalOCIBlobUploader(client, targetCtx))
-
-	pip := sequentialPipeline{
+func NewSequentialPipeline(procs ...ResourceStreamProcessor) (ResourceProcessingPipeline, error) {
+	p := sequentialPipeline{
 		processors: procs,
 	}
-
-	return &pip, nil
+	return &p, nil
 }

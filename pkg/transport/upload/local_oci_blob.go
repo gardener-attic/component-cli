@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/transport/processor"
+	"github.com/gardener/component-cli/pkg/transport/pipeline"
 	"github.com/gardener/component-cli/pkg/transport/util"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/opencontainers/go-digest"
@@ -20,7 +20,7 @@ type localOCIBlobUploader struct {
 	targetCtx cdv2.OCIRegistryRepository
 }
 
-func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) processor.ResourceStreamProcessor {
+func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) pipeline.ResourceStreamProcessor {
 	obj := localOCIBlobUploader{
 		targetCtx: targetCtx,
 		client: client,

@@ -9,10 +9,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gardener/component-cli/ociclient"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/transport/download"
 	"github.com/gardener/component-cli/pkg/transport/pipeline"
+	"github.com/gardener/component-cli/pkg/transport/upload"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -25,7 +28,7 @@ import (
 
 const (
 	parallelRuns = 1
-	targetCtx    = "o.ingress.js-ek.hubforplay.shoot.canary.k8s-hana.ondemand.com/js-transport-test"
+	targetCtxUrl = "o.ingress.js-ek.hubforplay.shoot.canary.k8s-hana.ondemand.com/js-transport-test"
 )
 
 type Options struct {
@@ -97,44 +100,25 @@ func (o *Options) Complete(args []string) error {
 }
 
 func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	repoCtx := cdv2.OCIRegistryRepository{
-		ObjectType: cdv2.ObjectType{
-			Type: cdv2.OCIRegistryType,
-		},
-		BaseURL:              o.BaseUrl,
-		ComponentNameMapping: cdv2.ComponentNameMapping(o.ComponentNameMapping),
-	}
-	ociRef, err := cdoci.OCIRef(repoCtx, o.ComponentName, o.Version)
-	if err != nil {
-		return fmt.Errorf("invalid component reference: %w", err)
-	}
-
 	ociClient, _, err := o.OCIOptions.Build(log, fs)
 	if err != nil {
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
 	}
 
-	cdresolver := cdoci.NewResolver(ociClient)
-	cd, err := cdresolver.Resolve(ctx, &repoCtx, o.ComponentName, o.Version)
+	cds, err := ResolveRecursive(ctx, ociClient, o.BaseUrl, o.ComponentName, o.Version, o.ComponentNameMapping)
 	if err != nil {
-		return fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
+		return fmt.Errorf("unable to resolve component: %w", err)
 	}
-
-	cds := []*cdv2.ComponentDescriptor{}
-	for i := 0; i < parallelRuns; i++ {
-		cds = append(cds, cd)
-	}
-
-	wg := sync.WaitGroup{}
 
 	targetCtx := cdv2.OCIRegistryRepository{
 		ObjectType: cdv2.ObjectType{
 			Type: cdv2.OCIRegistryType,
 		},
-		BaseURL:              targetCtx,
+		BaseURL:              targetCtxUrl,
 		ComponentNameMapping: cdv2.ComponentNameMapping(o.ComponentNameMapping),
 	}
 
+	wg := sync.WaitGroup{}
 	for _, cd := range cds {
 		for _, resource := range cd.Resources {
 			resource := resource
@@ -143,9 +127,14 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 			go func() {
 				defer wg.Done()
 
-				pip, err := pipeline.NewSequentialPipeline(ociClient, targetCtx)
+				procs, err := createProcessors(ociClient,targetCtx)
 				if err != nil {
-					log.Error(err, "unable to build pipeline")
+					log.Error(err, "unable to create processors")
+				}
+
+				pip, err := pipeline.NewSequentialPipeline(procs...)
+				if err != nil {
+					log.Error(err, "unable to create pipeline")
 				}
 
 				processedCD, processedRes, err := pip.Process(ctx, cd, resource)
@@ -175,4 +164,61 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	fmt.Println("main finished")
 
 	return nil
+}
+
+func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, componentName, componentVersion, componentNameMapping string) ([]*cdv2.ComponentDescriptor, error) {
+	repoCtx := cdv2.OCIRegistryRepository{
+		ObjectType: cdv2.ObjectType{
+			Type: cdv2.OCIRegistryType,
+		},
+		BaseURL:              baseUrl,
+		ComponentNameMapping: cdv2.ComponentNameMapping(componentNameMapping),
+	}
+	ociRef, err := cdoci.OCIRef(repoCtx, componentName, componentVersion)
+	if err != nil {
+		return nil, fmt.Errorf("invalid component reference: %w", err)
+	}
+
+	cdresolver := cdoci.NewResolver(client)
+	cd, err := cdresolver.Resolve(ctx, &repoCtx, componentName, componentVersion)
+	if err != nil {
+		return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
+	}
+
+	cds := []*cdv2.ComponentDescriptor{
+		cd,
+	}
+	for _, ref := range cd.ComponentReferences {
+		cds2, err := ResolveRecursive(ctx, client, baseUrl, ref.ComponentName, ref.Version, componentNameMapping)
+		if err != nil {
+			return nil, fmt.Errorf("unable to resolve ref %+v: %w", ref, err)
+		}
+		cds = append(cds, cds2...)
+	}
+
+	return cds, nil
+}
+
+func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) ([]pipeline.ResourceStreamProcessor, error) {
+	procBins := []string{
+		"/Users/i500806/dev/pipeman/bin/processor_1",
+		"/Users/i500806/dev/pipeman/bin/processor_2",
+		"/Users/i500806/dev/pipeman/bin/processor_3",
+	}
+
+	procs := []pipeline.ResourceStreamProcessor{
+		download.NewLocalOCIBlobDownloader(client),
+	}
+
+	for _, procBin := range procBins {
+		exec, err := pipeline.NewUDSExecutable(procBin)
+		if err != nil {
+			return nil, err
+		}
+		procs = append(procs, exec)
+	}
+
+	procs = append(procs, upload.NewLocalOCIBlobUploader(client, targetCtx))
+
+	return procs, nil
 }

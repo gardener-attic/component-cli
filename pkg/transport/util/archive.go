@@ -112,7 +112,7 @@ func ReadArchive(r *tar.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.Re
 			if err == io.EOF {
 				break
 			}
-			return nil, cdv2.Resource{}, nil, fmt.Errorf("%w", err)
+			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read header: %w", err)
 		}
 
 		switch header.Name {
