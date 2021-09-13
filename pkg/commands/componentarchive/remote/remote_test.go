@@ -189,7 +189,7 @@ var _ = Describe("Remote", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(sourceComp.Name).To(Equal(cd.Name))
-		Expect(sourceComp.Resources[len(sourceComp.Resources)-1].Access.Type).To(Equal("localOciBlob"), "Expect that the localFilesystem blob has been correctly converted to a localOciBlob")
+		Expect(sourceComp.Resources[0].Access.Type).To(Equal("localOciBlob"), "Expect that the localFilesystem blob has been correctly converted to a localOciBlob")
 
 		var layerBlob bytes.Buffer
 		Expect(client.Fetch(ctx, srcOCIRef, manifest.Layers[1], &layerBlob)).To(Succeed(), "Expect that the second layer contains the local blob")
