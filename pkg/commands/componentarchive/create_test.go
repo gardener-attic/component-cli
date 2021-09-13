@@ -6,6 +6,8 @@ package componentarchive_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/layerfs"
@@ -17,7 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/gardener/component-cli/pkg/commands/componentarchive"
-	"github.com/gardener/component-cli/pkg/utils"
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/codec"
 )
 
 var _ = Describe("Create", func() {
@@ -34,24 +37,22 @@ var _ = Describe("Create", func() {
 		opts := &componentarchive.CreateOptions{}
 		opts.Name = "example.com/component/name"
 		opts.Version = "v0.0.1"
+		opts.ComponentArchivePath = "./create-test"
 
 		fileName := "component-descriptor.yaml"
 
+		err := testdataFs.Mkdir(opts.ComponentArchivePath, os.ModePerm)
+		Expect(err).ToNot(HaveOccurred())
+
 		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
 
-		outputfileinfo, err := testdataFs.Stat(fileName)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(outputfileinfo.IsDir()).To(BeFalse(), "output filepath should not be a directory")
-
-		mediatype, err := utils.GetFileType(testdataFs, fileName)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(mediatype).To(ContainSubstring("application/octet-stream"))
-
-		fileCDbytes, err := vfs.ReadFile(testdataFs, fileName)
+		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, fileName))
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(fileCDbytes).To(ContainSubstring(opts.Name))
-		Expect(fileCDbytes).To(ContainSubstring(opts.Version))
+		cd := &cdv2.ComponentDescriptor{}
+		Expect(codec.Decode(data, cd)).To(Succeed())
+		Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
+		Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
 	})
 
 })
