@@ -1,4 +1,4 @@
-package pipeline
+package process
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 type ResourceProcessingPipeline interface {
-	Process(context.Context, *cdv2.ComponentDescriptor, cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error)
+	Process(context.Context, cdv2.ComponentDescriptor, cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error)
 }
 
 type ResourceStreamProcessor interface {

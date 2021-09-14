@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/transport/pipeline"
+	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/util"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
@@ -18,7 +18,7 @@ type localOCIBlobDownloader struct {
 	client ociclient.Client
 }
 
-func NewLocalOCIBlobDownloader(client ociclient.Client) pipeline.ResourceStreamProcessor {
+func NewLocalOCIBlobDownloader(client ociclient.Client) process.ResourceStreamProcessor {
 	obj := localOCIBlobDownloader{
 		client: client,
 	}

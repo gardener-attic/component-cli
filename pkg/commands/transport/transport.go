@@ -14,7 +14,8 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/transport/download"
-	"github.com/gardener/component-cli/pkg/transport/pipeline"
+	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/extension"
 	"github.com/gardener/component-cli/pkg/transport/upload"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
@@ -28,7 +29,7 @@ import (
 
 const (
 	parallelRuns = 1
-	targetCtxUrl = "o.ingress.js-ek.hubforplay.shoot.canary.k8s-hana.ondemand.com/js-transport-test"
+	targetCtxUrl = "eu.gcr.io/gardener-project/test/jschicktanz/target"
 )
 
 type Options struct {
@@ -132,12 +133,12 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 					log.Error(err, "unable to create processors")
 				}
 
-				pip, err := pipeline.NewSequentialPipeline(procs...)
+				pip, err := process.NewResourceProcessingPipeline(procs...)
 				if err != nil {
 					log.Error(err, "unable to create pipeline")
 				}
 
-				processedCD, processedRes, err := pip.Process(ctx, cd, resource)
+				processedCD, processedRes, err := pip.Process(ctx, *cd, resource)
 				if err != nil {
 					log.Error(err, "unable to process resource")
 				}
@@ -160,7 +161,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	fmt.Println("waiting for goroutines to finish")
 	wg.Wait()
-	fmt.Println("avg_duration =", pipeline.TotalTime/time.Millisecond/parallelRuns, "ms")
+	fmt.Println("avg_duration =", process.TotalTime/time.Millisecond/parallelRuns, "ms")
 	fmt.Println("main finished")
 
 	return nil
@@ -199,19 +200,19 @@ func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, com
 	return cds, nil
 }
 
-func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) ([]pipeline.ResourceStreamProcessor, error) {
+func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) ([]process.ResourceStreamProcessor, error) {
 	procBins := []string{
 		"/Users/i500806/dev/pipeman/bin/processor_1",
 		"/Users/i500806/dev/pipeman/bin/processor_2",
 		"/Users/i500806/dev/pipeman/bin/processor_3",
 	}
 
-	procs := []pipeline.ResourceStreamProcessor{
+	procs := []process.ResourceStreamProcessor{
 		download.NewLocalOCIBlobDownloader(client),
 	}
 
 	for _, procBin := range procBins {
-		exec, err := pipeline.NewUDSExecutable(procBin)
+		exec, err := extension.NewStdIOExecutable(context.TODO(), procBin)
 		if err != nil {
 			return nil, err
 		}

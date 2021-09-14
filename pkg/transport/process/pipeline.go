@@ -1,4 +1,4 @@
-package pipeline
+package process
 
 import (
 	"context"
@@ -17,17 +17,17 @@ import (
 var TotalTime time.Duration = 0
 var mux = sync.Mutex{}
 
-type sequentialPipeline struct {
+type resourceProcessingPipelineImpl struct {
 	processors []ResourceStreamProcessor
 }
 
-func (p *sequentialPipeline) Process(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error) {
+func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error) {
 	infile, err := ioutil.TempFile("", "out")
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	err = util.WriteArchive(ctx, cd, res, nil, tar.NewWriter(infile))
+	err = util.WriteArchive(ctx, &cd, res, nil, tar.NewWriter(infile))
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
@@ -56,16 +56,16 @@ func (p *sequentialPipeline) Process(ctx context.Context, cd *cdv2.ComponentDesc
 		return nil, cdv2.Resource{}, err
 	}
 
-	cd, res, blobreader, err := util.ReadArchive(tar.NewReader(infile))
+	processedCD, processedRes, blobreader, err := util.ReadArchive(tar.NewReader(infile))
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}
 	defer blobreader.Close()
 
-	return cd, res, nil
+	return processedCD, processedRes, nil
 }
 
-func (p *sequentialPipeline) process(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
+func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
 	defer infile.Close()
 
 	_, err := infile.Seek(0, 0)
@@ -89,8 +89,8 @@ func (p *sequentialPipeline) process(ctx context.Context, infile *os.File, proc 
 	return outfile, nil
 }
 
-func NewSequentialPipeline(procs ...ResourceStreamProcessor) (ResourceProcessingPipeline, error) {
-	p := sequentialPipeline{
+func NewResourceProcessingPipeline(procs ...ResourceStreamProcessor) (ResourceProcessingPipeline, error) {
+	p := resourceProcessingPipelineImpl{
 		processors: procs,
 	}
 	return &p, nil

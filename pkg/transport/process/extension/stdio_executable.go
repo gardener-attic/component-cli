@@ -1,4 +1,4 @@
-package pipeline
+package extension
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
 type stdIOExecutable struct {
@@ -14,8 +16,10 @@ type stdIOExecutable struct {
 	stdout    io.Reader
 }
 
-func NewStdIOExecutable(bin string) (ResourceStreamProcessor, error) {
-	cmd := exec.Command(bin)
+// NewStdIOExecutable runs resource processor in the background.
+// It communicates with this processor via stdin/stdout pipes.
+func NewStdIOExecutable(ctx context.Context, bin string, args ...string) (process.ResourceStreamProcessor, error) {
+	cmd := exec.CommandContext(ctx, bin, args...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -48,12 +52,17 @@ func (e *stdIOExecutable) Process(ctx context.Context, r io.Reader, w io.Writer)
 
 	err = e.stdin.Close()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to close input writer: %w", err)
 	}
 
 	_, err = io.Copy(w, e.stdout)
 	if err != nil {
 		return fmt.Errorf("unable to read output: %w", err)
+	}
+
+	err = e.processor.Wait()
+	if err != nil {
+		return fmt.Errorf("unable to stop processor: %w", err)
 	}
 
 	return nil
