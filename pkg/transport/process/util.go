@@ -15,35 +15,69 @@ import (
 )
 
 const (
-	ResourceFile            = "resource.yaml"
-	ComponentDescriptorFile = "component-descriptor.yaml"
-	BlobFile                = "blob"
+	componentDescriptorFile = "component-descriptor.yaml"
+	resourceFile            = "resource.yaml"
+	resourceBlobFile        = "resource-blob"
 )
 
-func WriteFile(name string, contentReader io.Reader, outArchive *tar.Writer) error {
-	tmpfile, err := ioutil.TempFile("", "tmp")
+// WriteTARArchive writes the component descriptor, resource and resource blob to a TAR archive
+func WriteTARArchive(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource, resourceBlobReader io.Reader, outArchive *tar.Writer) error {
+	defer outArchive.Close()
+
+	marshaledCD, err := yaml.Marshal(cd)
+	if err != nil {
+		return fmt.Errorf("unable to marshal component descriptor: %w", err)
+	}
+
+	err = writeFileToTARArchive(componentDescriptorFile, bytes.NewReader(marshaledCD), outArchive)
+	if err != nil {
+		return fmt.Errorf("unable to write %s: %w", componentDescriptorFile, err)
+	}
+
+	marshaledRes, err := yaml.Marshal(res)
+	if err != nil {
+		return fmt.Errorf("unable to marshal resource: %w", err)
+	}
+
+	err = writeFileToTARArchive(resourceFile, bytes.NewReader(marshaledRes), outArchive)
+	if err != nil {
+		return fmt.Errorf("unable to write %s: %w", resourceFile, err)
+	}
+
+	if resourceBlobReader != nil {
+		err = writeFileToTARArchive(resourceBlobFile, resourceBlobReader, outArchive)
+		if err != nil {
+			return fmt.Errorf("unable to write %s: %w", resourceBlobFile, err)
+		}
+	}
+
+	return nil
+}
+
+func writeFileToTARArchive(filename string, contentReader io.Reader, outArchive *tar.Writer) error {
+	tempfile, err := ioutil.TempFile("", "")
 	if err != nil {
 		return fmt.Errorf("unable to create tempfile: %w", err)
 	}
-	defer tmpfile.Close()
+	defer tempfile.Close()
 
-	_, err = io.Copy(tmpfile, contentReader)
+	_, err = io.Copy(tempfile, contentReader)
 	if err != nil {
-		return fmt.Errorf("unable to write content to tempfile: %w", err)
+		return fmt.Errorf("unable to write content to file: %w", err)
 	}
 
-	_, err = tmpfile.Seek(0, 0)
+	_, err = tempfile.Seek(0, 0)
 	if err != nil {
-		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
+		return fmt.Errorf("unable to seek to beginning of file: %w", err)
 	}
 
-	fstat, err := tmpfile.Stat()
+	fstat, err := tempfile.Stat()
 	if err != nil {
-		return fmt.Errorf("unable to get file stats: %w", err)
+		return fmt.Errorf("unable to get file info: %w", err)
 	}
 
 	header := tar.Header{
-		Name:    name,
+		Name:    filename,
 		Size:    fstat.Size(),
 		Mode:    int64(fstat.Mode()),
 		ModTime: time.Now(),
@@ -53,58 +87,20 @@ func WriteFile(name string, contentReader io.Reader, outArchive *tar.Writer) err
 		return fmt.Errorf("unable to write tar header: %w", err)
 	}
 
-	_, err = io.Copy(outArchive, tmpfile)
+	_, err = io.Copy(outArchive, tempfile)
 	if err != nil {
-		return fmt.Errorf("unable to write file to archive: %w", err)
+		return fmt.Errorf("unable to write file to tar archive: %w", err)
 	}
 
 	return nil
 }
 
-func WriteArchive(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource, blobReader io.Reader, outwriter *tar.Writer) error {
-	defer outwriter.Close()
-
-	println("start writing data")
-
-	marshaledCD, err := yaml.Marshal(cd)
-	if err != nil {
-		return fmt.Errorf("unable to marshal component descriptor: %w", err)
-	}
-
-	println("writing component descriptor")
-	err = WriteFile(ComponentDescriptorFile, bytes.NewReader(marshaledCD), outwriter)
-	if err != nil {
-		return fmt.Errorf("unable to write component descriptor: %w", err)
-	}
-
-	marshaledRes, err := yaml.Marshal(res)
-	if err != nil {
-		return fmt.Errorf("unable to marshal resource: %w", err)
-	}
-
-	println("writing resource")
-	err = WriteFile(ResourceFile, bytes.NewReader(marshaledRes), outwriter)
-	if err != nil {
-		return fmt.Errorf("unable to write resource: %w", err)
-	}
-
-	if blobReader != nil {
-		println("writing blob")
-		err = WriteFile(BlobFile, blobReader, outwriter)
-		if err != nil {
-			return fmt.Errorf("unable to write blob: %w", err)
-		}
-	}
-
-	println("finished writing data")
-
-	return nil
-}
-
-func ReadArchive(r *tar.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.ReadCloser, error) {
+// ReadTARArchive reads the component descriptor, resource and resource blob from a TAR archive.
+// The resource blob reader can be nil. If a non-nil value is returned, it must be closed by the caller.
+func ReadTARArchive(r *tar.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.ReadCloser, error) {
 	var cd *cdv2.ComponentDescriptor
 	var res cdv2.Resource
-	var blobFile *os.File
+	var f *os.File
 
 	for {
 		header, err := r.Next()
@@ -112,43 +108,43 @@ func ReadArchive(r *tar.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.Re
 			if err == io.EOF {
 				break
 			}
-			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read header: %w", err)
+			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read tar header: %w", err)
 		}
 
 		switch header.Name {
-		case ResourceFile:
-			res, err = ParseResource(r)
+		case resourceFile:
+			res, err = readResource(r)
 			if err != nil {
-				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", ResourceFile, err)
+				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", resourceFile, err)
 			}
-		case ComponentDescriptorFile:
-			cd, err = ParseComponentDescriptor(r)
+		case componentDescriptorFile:
+			cd, err = readComponentDescriptor(r)
 			if err != nil {
-				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", ComponentDescriptorFile, err)
+				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", componentDescriptorFile, err)
 			}
-		case BlobFile:
-			blobFile, err = ioutil.TempFile("", "")
+		case resourceBlobFile:
+			f, err = ioutil.TempFile("", "")
 			if err != nil {
 				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to create tempfile: %w", err)
 			}
-			_, err = io.Copy(blobFile, r)
+			_, err = io.Copy(f, r)
 			if err != nil {
-				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", BlobFile, err)
+				return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to read %s: %w", resourceBlobFile, err)
 			}
 		}
 	}
 
-	if blobFile != nil {
-		_, err := blobFile.Seek(0, 0)
+	if f != nil {
+		_, err := f.Seek(0, 0)
 		if err != nil {
-			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of blobfile: %w", err)
+			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of file: %w", err)
 		}
 	}
 
-	return cd, res, blobFile, nil
+	return cd, res, f, nil
 }
 
-func ParseResource(r *tar.Reader) (cdv2.Resource, error) {
+func readResource(r *tar.Reader) (cdv2.Resource, error) {
 	buf := bytes.NewBuffer([]byte{})
 	_, err := io.Copy(buf, r)
 	if err != nil {
@@ -164,7 +160,7 @@ func ParseResource(r *tar.Reader) (cdv2.Resource, error) {
 	return res, nil
 }
 
-func ParseComponentDescriptor(r *tar.Reader) (*cdv2.ComponentDescriptor, error) {
+func readComponentDescriptor(r *tar.Reader) (*cdv2.ComponentDescriptor, error) {
 	buf := bytes.NewBuffer([]byte{})
 	_, err := io.Copy(buf, r)
 	if err != nil {

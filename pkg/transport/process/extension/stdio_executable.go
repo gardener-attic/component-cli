@@ -16,7 +16,7 @@ type stdIOExecutable struct {
 	stdout    io.Reader
 }
 
-// NewStdIOExecutable runs resource processor in the background.
+// NewStdIOExecutable runs resource processor extension executable in the background.
 // It communicates with this processor via stdin/stdout pipes.
 func NewStdIOExecutable(ctx context.Context, bin string, args ...string) (process.ResourceStreamProcessor, error) {
 	cmd := exec.CommandContext(ctx, bin, args...)

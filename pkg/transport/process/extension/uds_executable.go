@@ -21,7 +21,7 @@ type udsExecutable struct {
 	conn      net.Conn
 }
 
-// NewUDSExecutable runs a resource processor in the background.
+// NewUDSExecutable runs a resource processor extension executable in the background.
 // It communicates with this processor via Unix Domain Sockets.
 func NewUDSExecutable(ctx context.Context, bin string, args ...string) (process.ResourceStreamProcessor, error) {
 	for _, arg := range args {
@@ -77,6 +77,7 @@ func (e *udsExecutable) Process(ctx context.Context, r io.Reader, w io.Writer) e
 		return fmt.Errorf("unable to read output: %w", err)
 	}
 
+	// extension servers must implement ordinary shutdown (!)
 	err = e.processor.Wait()
 	if err != nil {
 		return fmt.Errorf("unable to stop processor: %w", err)
