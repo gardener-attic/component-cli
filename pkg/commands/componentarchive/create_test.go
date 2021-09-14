@@ -55,7 +55,7 @@ var _ = Describe("Create", func() {
 		Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
 		Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
 
-		// Expect(cd.RepositoryContexts.Len() > 0).To(BeTrue(), "The repository contexts should return some data")
+		Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
 		repoCtx := cd.RepositoryContexts[0]
 		Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "check the repository context")
 
@@ -74,6 +74,7 @@ var _ = Describe("Create", func() {
 		Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
 		Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
 
+		Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
 		repoCtx = cd.RepositoryContexts[0]
 		Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "check the repository context")
 
