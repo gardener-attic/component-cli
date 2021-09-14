@@ -13,10 +13,10 @@ import (
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/transport/download"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/download"
 	"github.com/gardener/component-cli/pkg/transport/process/extension"
-	"github.com/gardener/component-cli/pkg/transport/upload"
+	"github.com/gardener/component-cli/pkg/transport/process/upload"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -121,42 +121,19 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	wg := sync.WaitGroup{}
 	for _, cd := range cds {
-		for _, resource := range cd.Resources {
-			resource := resource
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				procs, err := createProcessors(ociClient,targetCtx)
-				if err != nil {
-					log.Error(err, "unable to create processors")
+		cd := cd
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			processedResources, errs := handleResources(ctx, cd, targetCtx, log, ociClient)
+			if len(errs) > 0 {
+				for _, err := range errs {
+					log.Error(err, "")
 				}
+			}
 
-				pip, err := process.NewResourceProcessingPipeline(procs...)
-				if err != nil {
-					log.Error(err, "unable to create pipeline")
-				}
-
-				processedCD, processedRes, err := pip.Process(ctx, *cd, resource)
-				if err != nil {
-					log.Error(err, "unable to process resource")
-				}
-
-				mcd, err := yaml.Marshal(processedCD)
-				if err != nil {
-					log.Error(err, "unable to marshal cd")
-				}
-
-				mres, err := yaml.Marshal(processedRes)
-				if err != nil {
-					log.Error(err, "unable to marshal res")
-				}
-
-				fmt.Println(string(mcd))
-				fmt.Println(string(mres))
-			}()
-		}
+			cd.Resources = processedResources
+		}()
 	}
 
 	fmt.Println("waiting for goroutines to finish")
@@ -165,6 +142,64 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	fmt.Println("main finished")
 
 	return nil
+}
+
+func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, ociClient ociclient.Client) ([]cdv2.Resource, []error) {
+	wg := sync.WaitGroup{}
+	errs := []error{}
+	mux := sync.Mutex{}
+	processedResources := []cdv2.Resource{}
+
+	for _, resource := range cd.Resources {
+		resource := resource
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			procs, err := createProcessors(ociClient, targetCtx)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to create processors: %w", err))
+				return
+			}
+
+			pip, err := process.NewResourceProcessingPipeline(procs...)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to create pipeline: %w", err))
+				return
+			}
+
+			// TODO: do we allow modifications of the component descriptor?
+			// If so, how do we merge the possibly different output of multiple resource pipelines?
+			processedCD, processedRes, err := pip.Process(ctx, *cd, resource)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to process resource: %w", err))
+				return
+			}
+
+			mux.Lock()
+			processedResources = append(processedResources, processedRes)
+			mux.Unlock()
+
+			mcd, err := yaml.Marshal(processedCD)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to marshal cd: %w", err))
+				return
+			}
+
+			mres, err := yaml.Marshal(processedRes)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to marshal res: %w", err))
+				return
+			}
+
+			fmt.Println(string(mcd))
+			fmt.Println(string(mres))
+		}()
+	}
+
+	wg.Wait()
+	return processedResources, errs
 }
 
 func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, componentName, componentVersion, componentNameMapping string) ([]*cdv2.ComponentDescriptor, error) {

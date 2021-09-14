@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/gardener/component-cli/pkg/transport/util"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
@@ -27,7 +26,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	err = util.WriteArchive(ctx, &cd, res, nil, tar.NewWriter(infile))
+	err = WriteArchive(ctx, &cd, res, nil, tar.NewWriter(infile))
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
@@ -56,7 +55,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, err
 	}
 
-	processedCD, processedRes, blobreader, err := util.ReadArchive(tar.NewReader(infile))
+	processedCD, processedRes, blobreader, err := ReadArchive(tar.NewReader(infile))
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}

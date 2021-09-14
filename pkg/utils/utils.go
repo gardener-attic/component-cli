@@ -5,10 +5,12 @@
 package utils
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -166,4 +168,41 @@ func BytesString(bytes uint64, accuracy int) string {
 	)
 
 	return fmt.Sprintf("%s %s", stringValue, unit)
+}
+
+func FilterTARArchive(r *tar.Reader, w *tar.Writer, removePatterns []string) error {
+	defer w.Close()
+
+	NEXT_FILE:
+	for {
+		header, err := r.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("unable to read header: %w", err)
+		}
+
+		for _, removePattern := range removePatterns {
+			removeFile, err := filepath.Match(removePattern, header.Name)
+			if err != nil {
+				return fmt.Errorf("unable to match filename against pattern: %w", err)
+			}
+
+			if removeFile {
+				continue NEXT_FILE
+			}
+		}
+
+		if err := w.WriteHeader(header); err != nil {
+			return fmt.Errorf("unable to write header: %w", err)
+		}
+
+		_, err = io.Copy(w, r)
+		if err != nil {
+			return fmt.Errorf("unable to write file: %w", err)
+		}
+	}
+
+	return nil
 }

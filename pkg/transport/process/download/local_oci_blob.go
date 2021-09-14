@@ -9,7 +9,6 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/util"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 )
@@ -26,7 +25,7 @@ func NewLocalOCIBlobDownloader(client ociclient.Client) process.ResourceStreamPr
 }
 
 func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, _, err := util.ReadArchive(tar.NewReader(r))
+	cd, res, _, err := process.ReadArchive(tar.NewReader(r))
 	if err != nil {
 		return fmt.Errorf("unable to read input archive: %w", err)
 	}
@@ -51,7 +50,7 @@ func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.
 		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
 	}
 
-	err = util.WriteArchive(ctx, cd, res, tmpfile, tar.NewWriter(w))
+	err = process.WriteArchive(ctx, cd, res, tmpfile, tar.NewWriter(w))
 	if err != nil {
 		return fmt.Errorf("unable to write output archive: %w", err)
 	}
