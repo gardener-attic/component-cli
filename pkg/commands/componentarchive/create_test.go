@@ -18,10 +18,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/gardener/component-cli/pkg/commands/componentarchive"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/codec"
 	"github.com/gardener/component-spec/bindings-go/ctf"
+
+	"github.com/gardener/component-cli/pkg/commands/componentarchive"
 )
 
 var _ = Describe("Create", func() {
