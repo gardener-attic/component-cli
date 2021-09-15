@@ -34,7 +34,7 @@ var _ = Describe("Create", func() {
 		testdataFs = layerfs.New(memoryfs.New(), baseFs)
 	})
 
-	It("should create a component archive", func() {
+	It("should create a component archive and overwrite with a newer version", func() {
 		opts := &componentarchive.CreateOptions{}
 		opts.Name = "example.com/component/name"
 		opts.Version = "v0.0.1"
@@ -58,6 +58,9 @@ var _ = Describe("Create", func() {
 		Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
 		repoCtx := cd.RepositoryContexts[0]
 		Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "check the repository context")
+		ociRepoCtx := &cdv2.OCIRegistryRepository{}
+		Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
+		Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
 
 		// check overwrite
 		opts.Version = "v0.0.2"
@@ -77,7 +80,8 @@ var _ = Describe("Create", func() {
 		Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
 		repoCtx = cd.RepositoryContexts[0]
 		Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "check the repository context")
-
+		Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
+		Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
 	})
 
 })
