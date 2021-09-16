@@ -20,7 +20,7 @@ type ResourceProcessingPipeline interface {
 // ResourceStreamProcessor describes an individual processor for processing a resource.
 // A processor can upload, modify, or download a resource.
 type ResourceStreamProcessor interface {
-	// Process executes the processor for a resource. Input and Output streams must be TAR 
+	// Process executes the processor for a resource. Input and Output streams must be TAR
 	// archives which contain the component descriptor, resource, and resource blob.
 	Process(context.Context, io.Reader, io.Writer) error
 }
