@@ -16,10 +16,11 @@ type stdIOExecutable struct {
 	stdout    io.Reader
 }
 
-// NewStdIOExecutable runs resource processor extension executable in the background.
+// NewStdIOExecutable runs a resource processor extension executable in the background.
 // It communicates with this processor via stdin/stdout pipes.
-func NewStdIOExecutable(ctx context.Context, bin string, args ...string) (process.ResourceStreamProcessor, error) {
+func NewStdIOExecutable(ctx context.Context, bin string, args []string, env []string) (process.ResourceStreamProcessor, error) {
 	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = env
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -29,11 +30,6 @@ func NewStdIOExecutable(ctx context.Context, bin string, args ...string) (proces
 		return nil, err
 	}
 	cmd.Stderr = os.Stderr
-
-	err = cmd.Start()
-	if err != nil {
-		return nil, fmt.Errorf("unable to start processor: %w", err)
-	}
 
 	e := stdIOExecutable{
 		processor: cmd,
@@ -45,23 +41,23 @@ func NewStdIOExecutable(ctx context.Context, bin string, args ...string) (proces
 }
 
 func (e *stdIOExecutable) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	_, err := io.Copy(e.stdin, r)
-	if err != nil {
+	if err := e.processor.Start(); err != nil {
+		return fmt.Errorf("unable to start processor: %w", err)
+	}
+
+	if _, err := io.Copy(e.stdin, r); err != nil {
 		return fmt.Errorf("unable to write input: %w", err)
 	}
 
-	err = e.stdin.Close()
-	if err != nil {
+	if err := e.stdin.Close(); err != nil {
 		return fmt.Errorf("unable to close input writer: %w", err)
 	}
 
-	_, err = io.Copy(w, e.stdout)
-	if err != nil {
+	if _, err := io.Copy(w, e.stdout); err != nil {
 		return fmt.Errorf("unable to read output: %w", err)
 	}
 
-	err = e.processor.Wait()
-	if err != nil {
+	if err := e.processor.Wait(); err != nil {
 		return fmt.Errorf("unable to stop processor: %w", err)
 	}
 

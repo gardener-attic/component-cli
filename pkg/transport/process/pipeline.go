@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"io"
 	"os"
 
 	"archive/tar"
@@ -16,13 +17,12 @@ type resourceProcessingPipelineImpl struct {
 }
 
 func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.ComponentDescriptor, cdv2.Resource, error) {
-	infile, err := ioutil.TempFile("", "out")
+	infile, err := ioutil.TempFile("", "")
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	err = WriteTARArchive(ctx, cd, res, nil, tar.NewWriter(infile))
-	if err != nil {
+	if err := WriteTARArchive(ctx, cd, res, nil, tar.NewWriter(infile)); err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
 
@@ -36,8 +36,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 	}
 	defer infile.Close()
 
-	_, err = infile.Seek(0, 0)
-	if err != nil {
+	if _, err := infile.Seek(0, io.SeekStart); err != nil {
 		return nil, cdv2.Resource{}, err
 	}
 
@@ -53,8 +52,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
 	defer infile.Close()
 
-	_, err := infile.Seek(0, 0)
-	if err != nil {
+	if _, err := infile.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("unable to seek to beginning of input file: %w", err)
 	}
 
@@ -66,8 +64,7 @@ func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os
 	inreader := infile
 	outwriter := outfile
 
-	err = proc.Process(ctx, inreader, outwriter)
-	if err != nil {
+	if err := proc.Process(ctx, inreader, outwriter); err != nil {
 		return nil, fmt.Errorf("unable to process resource: %w", err)
 	}
 

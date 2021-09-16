@@ -23,7 +23,7 @@ type udsExecutable struct {
 
 // NewUDSExecutable runs a resource processor extension executable in the background.
 // It communicates with this processor via Unix Domain Sockets.
-func NewUDSExecutable(ctx context.Context, bin string, args ...string) (process.ResourceStreamProcessor, error) {
+func NewUDSExecutable(ctx context.Context, bin string, args []string, env []string) (process.ResourceStreamProcessor, error) {
 	for _, arg := range args {
 		if arg == serverAddressFlag {
 			return nil, fmt.Errorf("the flag %s is not allowed to be set manually", serverAddressFlag)
@@ -38,11 +38,11 @@ func NewUDSExecutable(ctx context.Context, bin string, args ...string) (process.
 	args = append(args, "--addr", addr)
 
 	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err = cmd.Start()
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("unable to start processor: %w", err)
 	}
 
