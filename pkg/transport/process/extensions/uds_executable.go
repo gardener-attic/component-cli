@@ -1,4 +1,7 @@
-package extension
+// SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
+package extensions
 
 import (
 	"context"
@@ -7,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/gardener/component-cli/pkg/transport/process"
@@ -61,26 +65,26 @@ func NewUDSExecutable(ctx context.Context, bin string, args []string, env []stri
 }
 
 func (e *udsExecutable) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	_, err := io.Copy(e.conn, r)
-	if err != nil {
+	if _, err := io.Copy(e.conn, r); err != nil {
 		return fmt.Errorf("unable to write input: %w", err)
 	}
 
 	usock := e.conn.(*net.UnixConn)
-	err = usock.CloseWrite()
-	if err != nil {
+	if err := usock.CloseWrite(); err != nil {
 		return fmt.Errorf("unable to close input writer: %w", err)
 	}
 
-	_, err = io.Copy(w, e.conn)
-	if err != nil {
+	if _, err := io.Copy(w, e.conn); err != nil {
 		return fmt.Errorf("unable to read output: %w", err)
 	}
 
+	if err := e.processor.Process.Signal(syscall.SIGTERM); err != nil {
+		return fmt.Errorf("unable to send SIGTERM to processor: %w", err)
+	}
+
 	// extension servers must implement ordinary shutdown (!)
-	err = e.processor.Wait()
-	if err != nil {
-		return fmt.Errorf("unable to stop processor: %w", err)
+	if err := e.processor.Wait(); err != nil {
+		return fmt.Errorf("unable to wait for processor: %w", err)
 	}
 
 	return nil

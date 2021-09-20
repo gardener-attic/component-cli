@@ -36,3 +36,8 @@ $ export PATH=/usr/local/opt/gnu-tar/libexec/gnubin:\$PATH
 $ export PATH=/usr/local/opt/grep/libexec/gnubin:\$PATH
 EOM
 fi
+
+
+echo "> Compile test processor binary"
+
+go build -o "${PROJECT_ROOT}/tmp/test/bin/processor" "${PROJECT_ROOT}/pkg/transport/process/processors"
