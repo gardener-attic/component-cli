@@ -35,54 +35,86 @@ var _ = Describe("Create", func() {
 		testdataFs = layerfs.New(memoryfs.New(), baseFs)
 	})
 
-	It("should create a component archive and overwrite with a newer version", func() {
-		opts := &componentarchive.CreateOptions{}
-		opts.Name = "example.com/component/name"
-		opts.Version = "v0.0.1"
-		opts.ComponentArchivePath = "./create-test"
-		//opts.ComponentNameMapping = "urlPath"
-		opts.BaseUrl = "example.com/testurl"
+	Context("Create", func() {
+		It("should create a component archive and overwrite with a newer version", func() {
+			opts := &componentarchive.CreateOptions{}
+			opts.Name = "example.com/component/name"
+			opts.Version = "v0.0.1"
+			opts.BaseUrl = "example.com/testurl"
+			opts.ComponentArchivePath = "./create-test"
+			err := testdataFs.Mkdir(opts.ComponentArchivePath, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred(), "Should create a directory with name "+opts.ComponentArchivePath)
 
-		err := testdataFs.Mkdir(opts.ComponentArchivePath, os.ModePerm)
-		Expect(err).ToNot(HaveOccurred())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed(), "Should create a component archive")
 
-		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed())
+			data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+			Expect(err).ToNot(HaveOccurred())
 
-		data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
-		Expect(err).ToNot(HaveOccurred())
+			cd := &cdv2.ComponentDescriptor{}
+			Expect(codec.Decode(data, cd)).To(Succeed())
+			Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
+			Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
 
-		cd := &cdv2.ComponentDescriptor{}
-		Expect(codec.Decode(data, cd)).To(Succeed())
-		Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
-		Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
+			Expect(cd.RepositoryContexts).To(HaveLen(1), "The repository contexts should return some data")
+			repoCtx := cd.RepositoryContexts[0]
+			Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "repository context should be OCIRegistryType")
+			ociRepoCtx := &cdv2.OCIRegistryRepository{}
+			Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
+			Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
+		})
 
-		Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
-		repoCtx := cd.RepositoryContexts[0]
-		Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "check the repository context")
-		ociRepoCtx := &cdv2.OCIRegistryRepository{}
-		Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
-		Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
+	})
 
-		// check overwrite
-		opts.Version = "v0.0.2"
-		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(HaveOccurred(), "Should not overwrite existing component")
+	Context("Overwrite", func() {
 
-		opts.Overwrite = true
-		Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed(), "Should overwrite existing component")
+		It("should create a component archive and overwrite with a newer version", func() {
+			opts := &componentarchive.CreateOptions{}
+			opts.Name = "example.com/component/name"
+			opts.Version = "v0.0.1"
+			opts.BaseUrl = "example.com/testurl"
+			opts.ComponentArchivePath = "./overwrite-test"
+			err := testdataFs.Mkdir(opts.ComponentArchivePath, os.ModePerm)
+			Expect(err).ToNot(HaveOccurred(), "Should create a directory with name "+opts.ComponentArchivePath)
 
-		data, err = vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
-		Expect(err).ToNot(HaveOccurred())
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed(), "Should create a component archive")
 
-		cd = &cdv2.ComponentDescriptor{}
-		Expect(codec.Decode(data, cd)).To(Succeed())
-		Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
-		Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
+			data, err := vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+			Expect(err).ToNot(HaveOccurred())
 
-		Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
-		repoCtx = cd.RepositoryContexts[0]
-		Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "check the repository context")
-		Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
-		Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
+			cd := &cdv2.ComponentDescriptor{}
+			Expect(codec.Decode(data, cd)).To(Succeed())
+			Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
+			Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
+
+			Expect(cd.RepositoryContexts).To(HaveLen(1), "The repository contexts should return some data")
+			repoCtx := cd.RepositoryContexts[0]
+			Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "repository context should be OCIRegistryType")
+			ociRepoCtx := &cdv2.OCIRegistryRepository{}
+			Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
+			Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
+
+			// check overwrite
+			opts.Version = "v0.0.2"
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(HaveOccurred(), "Should not overwrite existing component as Overwrite=false")
+
+			opts.Overwrite = true
+			Expect(opts.Run(context.TODO(), logr.Discard(), testdataFs)).To(Succeed(), "Should overwrite existing component as Overwrite=true")
+
+			data, err = vfs.ReadFile(testdataFs, filepath.Join(opts.ComponentArchivePath, ctf.ComponentDescriptorFileName))
+			Expect(err).ToNot(HaveOccurred())
+
+			cd = &cdv2.ComponentDescriptor{}
+			Expect(codec.Decode(data, cd)).To(Succeed())
+			Expect(cd.Name).To(Equal(opts.Name), "component name should be the same")
+			Expect(cd.Version).To(Equal(opts.Version), "component version should be the same")
+
+			Expect(len(cd.RepositoryContexts) > 0).To(BeTrue(), "The repository contexts should return some data")
+			repoCtx = cd.RepositoryContexts[0]
+			Expect(repoCtx.GetType()).To(Equal(cdv2.OCIRegistryType), "repository context should be OCIRegistryType")
+			ociRepoCtx = &cdv2.OCIRegistryRepository{}
+			Expect(repoCtx.DecodeInto(ociRepoCtx)).To(Succeed())
+			Expect(ociRepoCtx.BaseURL).To(Equal(opts.BaseUrl))
+		})
 	})
 
 })
