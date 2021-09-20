@@ -95,7 +95,9 @@ func main() {
 	}
 
 	h := func(r io.Reader, w io.WriteCloser) {
-		ProcessorRoutine(r, w)
+		if err := ProcessorRoutine(r, w); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	srv, err := NewServer(*addr, h)
@@ -129,7 +131,7 @@ func ProcessorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 		return err
 	}
 
-	cd, res, resourceBlobReader, err := process.ReadTARArchive(tar.NewReader(tmpfile))
+	cd, res, resourceBlobReader, err := process.ReadProcessorMessage(tar.NewReader(tmpfile))
 	if err != nil {
 		return err
 	}
@@ -149,7 +151,7 @@ func ProcessorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 	}
 	res.Labels = append(res.Labels, l)
 
-	if err := process.WriteTARArchive(*cd, res, strings.NewReader(outputData), tar.NewWriter(outputStream)); err != nil {
+	if err := process.WriteProcessorMessage(*cd, res, strings.NewReader(outputData), tar.NewWriter(outputStream)); err != nil {
 		return err
 	}
 

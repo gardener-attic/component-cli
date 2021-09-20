@@ -85,14 +85,14 @@ func testProcessor(processor process.ResourceStreamProcessor) {
 	}
 
 	inputBuf := bytes.NewBuffer([]byte{})
-	err := process.WriteTARArchive(cd, res, strings.NewReader(resourceData), tar.NewWriter(inputBuf))
+	err := process.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), tar.NewWriter(inputBuf))
 	Expect(err).ToNot(HaveOccurred())
 
 	outputBuf := bytes.NewBuffer([]byte{})
 	err = processor.Process(context.TODO(), inputBuf, outputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
-	processedCD, processedRes, processedBlobReader, err := process.ReadTARArchive(tar.NewReader(outputBuf))
+	processedCD, processedRes, processedBlobReader, err := process.ReadProcessorMessage(tar.NewReader(outputBuf))
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(*processedCD).To(Equal(cd))

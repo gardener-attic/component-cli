@@ -25,7 +25,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	if err := WriteTARArchive(cd, res, nil, tar.NewWriter(infile)); err != nil {
+	if err := WriteProcessorMessage(cd, res, nil, tar.NewWriter(infile)); err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
 
@@ -43,7 +43,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, err
 	}
 
-	processedCD, processedRes, blobreader, err := ReadTARArchive(tar.NewReader(infile))
+	processedCD, processedRes, blobreader, err := ReadProcessorMessage(tar.NewReader(infile))
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}
