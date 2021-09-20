@@ -1,9 +1,11 @@
+// SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package process
 
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,7 +23,7 @@ const (
 )
 
 // WriteTARArchive writes the component descriptor, resource and resource blob to a TAR archive
-func WriteTARArchive(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource, resourceBlobReader io.Reader, outArchive *tar.Writer) error {
+func WriteTARArchive(cd cdv2.ComponentDescriptor, res cdv2.Resource, resourceBlobReader io.Reader, outArchive *tar.Writer) error {
 	defer outArchive.Close()
 
 	marshaledCD, err := yaml.Marshal(cd)

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package process
 
 import (
@@ -22,7 +25,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	if err := WriteTARArchive(ctx, cd, res, nil, tar.NewWriter(infile)); err != nil {
+	if err := WriteTARArchive(cd, res, nil, tar.NewWriter(infile)); err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
 
