@@ -26,7 +26,6 @@ const (
 	exampleProcessorBinaryPath = "../../../../tmp/test/bin/example-processor"
 	sleepProcessorBinaryPath   = "../../../../tmp/test/bin/sleep-processor"
 	sleepTimeEnv               = "SLEEP_TIME"
-	timeout                    = 2 * time.Second
 	sleepTime                  = 5 * time.Second
 )
 
@@ -101,6 +100,8 @@ var _ = Describe("transport extensions", func() {
 })
 
 func runTimeoutTest(processor process.ResourceStreamProcessor) {
+	const timeout = 2 * time.Second
+
 	ctx, cancelfunc := context.WithTimeout(context.TODO(), timeout)
 	defer cancelfunc()
 
