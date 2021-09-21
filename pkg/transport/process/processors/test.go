@@ -4,7 +4,6 @@
 package main
 
 import (
-	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -131,7 +130,7 @@ func ProcessorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 		return err
 	}
 
-	cd, res, resourceBlobReader, err := process.ReadProcessorMessage(tar.NewReader(tmpfile))
+	cd, res, resourceBlobReader, err := process.ReadProcessorMessage(tmpfile)
 	if err != nil {
 		return err
 	}
@@ -151,7 +150,7 @@ func ProcessorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 	}
 	res.Labels = append(res.Labels, l)
 
-	if err := process.WriteProcessorMessage(*cd, res, strings.NewReader(outputData), tar.NewWriter(outputStream)); err != nil {
+	if err := process.WriteProcessorMessage(*cd, res, strings.NewReader(outputData), outputStream); err != nil {
 		return err
 	}
 

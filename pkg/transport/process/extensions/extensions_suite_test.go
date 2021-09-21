@@ -4,11 +4,11 @@
 package extensions_test
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -27,6 +27,12 @@ func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "transport extensions Test Suite")
 }
+
+var _ = BeforeSuite(func() {
+	info, err := os.Stat(defaultProcessorBinaryPath)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(info.IsDir()).To(BeFalse())
+}, 5)
 
 var _ = Describe("transport extensions", func() {
 
@@ -85,14 +91,14 @@ func testProcessor(processor process.ResourceStreamProcessor) {
 	}
 
 	inputBuf := bytes.NewBuffer([]byte{})
-	err := process.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), tar.NewWriter(inputBuf))
+	err := process.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), inputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
 	outputBuf := bytes.NewBuffer([]byte{})
 	err = processor.Process(context.TODO(), inputBuf, outputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
-	processedCD, processedRes, processedBlobReader, err := process.ReadProcessorMessage(tar.NewReader(outputBuf))
+	processedCD, processedRes, processedBlobReader, err := process.ReadProcessorMessage(outputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(*processedCD).To(Equal(cd))

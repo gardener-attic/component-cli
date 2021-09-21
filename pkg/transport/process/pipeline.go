@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 
-	"archive/tar"
 	"fmt"
 	"io/ioutil"
 
@@ -25,7 +24,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	if err := WriteProcessorMessage(cd, res, nil, tar.NewWriter(infile)); err != nil {
+	if err := WriteProcessorMessage(cd, res, nil, infile); err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
 
@@ -43,7 +42,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, err
 	}
 
-	processedCD, processedRes, blobreader, err := ReadProcessorMessage(tar.NewReader(infile))
+	processedCD, processedRes, blobreader, err := ReadProcessorMessage(infile)
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}
@@ -59,7 +58,7 @@ func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os
 		return nil, fmt.Errorf("unable to seek to beginning of input file: %w", err)
 	}
 
-	outfile, err := ioutil.TempFile("", "out")
+	outfile, err := ioutil.TempFile("", "")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create temporary outfile: %w", err)
 	}
