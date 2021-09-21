@@ -30,9 +30,8 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	info, err := os.Stat(defaultProcessorBinaryPath)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(info.IsDir()).To(BeFalse())
+	_, err := os.Stat(defaultProcessorBinaryPath)
+	Expect(err).ToNot(HaveOccurred(), "test processor doesn't exists. pls run make install-requirements.")
 }, 5)
 
 var _ = Describe("transport extensions", func() {
