@@ -28,7 +28,7 @@ const (
 )
 
 // WriteProcessorMessage writes a component descriptor, resource and resource blob as a processor
-// message (tar archive with fixed filenames for component descriptor, resource, and resource blob) 
+// message (tar archive with fixed filenames for component descriptor, resource, and resource blob)
 // which can be consumed by processors.
 func WriteProcessorMessage(cd cdv2.ComponentDescriptor, res cdv2.Resource, resourceBlobReader io.Reader, w io.Writer) error {
 	tw := tar.NewWriter(w)
@@ -100,8 +100,8 @@ func writeFileToTARArchive(filename string, contentReader io.Reader, outArchive 
 }
 
 // ReadProcessorMessage reads the component descriptor, resource and resource blob from a processor message
-// (tar archive with fixed filenames for component descriptor, resource, and resource blob) which is 
-// produced by processors. The resource blob reader can be nil. If a non-nil value is returned, it must 
+// (tar archive with fixed filenames for component descriptor, resource, and resource blob) which is
+// produced by processors. The resource blob reader can be nil. If a non-nil value is returned, it must
 // be closed by the caller.
 func ReadProcessorMessage(r io.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.ReadCloser, error) {
 	tr := tar.NewReader(r)

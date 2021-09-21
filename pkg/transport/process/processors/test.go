@@ -18,8 +18,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/gardener/component-cli/pkg/transport/process"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+
+	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
 const processorName = "test-processor"
