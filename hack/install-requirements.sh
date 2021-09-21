@@ -38,6 +38,7 @@ EOM
 fi
 
 
-echo "> Compile test processor binary"
+echo "> Compile processor binaries for testing"
 
-go build -o "${PROJECT_ROOT}/tmp/test/bin/processor" "${PROJECT_ROOT}/pkg/transport/process/processors"
+go build -o "${PROJECT_ROOT}/tmp/test/bin/example-processor" "${PROJECT_ROOT}/pkg/transport/process/processors/example"
+go build -o "${PROJECT_ROOT}/tmp/test/bin/sleep-processor" "${PROJECT_ROOT}/pkg/transport/process/processors/sleep"

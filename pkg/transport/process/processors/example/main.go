@@ -6,101 +6,44 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/extensions"
+	"github.com/gardener/component-cli/pkg/transport/process/processors"
 )
 
-const processorName = "test-processor"
+const processorName = "example-processor"
 
-type ProcessorHandlerFunc func(io.Reader, io.WriteCloser)
-
-type Server struct {
-	listener net.Listener
-	quit     chan interface{}
-	wg       sync.WaitGroup
-	handler  ProcessorHandlerFunc
-}
-
-func NewServer(addr string, h ProcessorHandlerFunc) (*Server, error) {
-	l, err := net.Listen("unix", addr)
-	if err != nil {
-		return nil, err
-	}
-	s := &Server{
-		quit:     make(chan interface{}),
-		listener: l,
-		handler:  h,
-	}
-	return s, nil
-}
-
-func (s *Server) Start() {
-	s.wg.Add(1)
-	go s.serve()
-}
-
-func (s *Server) serve() {
-	defer s.wg.Done()
-
-	for {
-		conn, err := s.listener.Accept()
-		if err != nil {
-			select {
-			case <-s.quit:
-				return
-			default:
-				log.Println("accept error", err)
-			}
-		} else {
-			s.wg.Add(1)
-			go func() {
-				defer s.wg.Done()
-				s.handler(conn, conn)
-			}()
-		}
-	}
-}
-
-func (s *Server) Stop() {
-	close(s.quit)
-	if err := s.listener.Close(); err != nil {
-		println(err)
-	}
-	s.wg.Wait()
-}
-
+// a test processor which adds its name to the resource labels and the resource blob.
+// the resource blob is expected to be plain text data.
 func main() {
-	addr := flag.String("addr", "", "")
-	flag.Parse()
+	addr := os.Getenv(extensions.ServerAddressEnv)
 
-	if *addr == "" {
+	if addr == "" {
 		// if addr is not set, use stdin/stdout for communication
-		if err := ProcessorRoutine(os.Stdin, os.Stdout); err != nil {
+		if err := processorRoutine(os.Stdin, os.Stdout); err != nil {
 			log.Fatal(err)
 		}
 		return
 	}
 
 	h := func(r io.Reader, w io.WriteCloser) {
-		if err := ProcessorRoutine(r, w); err != nil {
+		if err := processorRoutine(r, w); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	srv, err := NewServer(*addr, h)
+	srv, err := processors.NewUDSServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,7 +57,7 @@ func main() {
 	srv.Stop()
 }
 
-func ProcessorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error {
+func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error {
 	defer outputStream.Close()
 
 	tmpfile, err := ioutil.TempFile("", "")

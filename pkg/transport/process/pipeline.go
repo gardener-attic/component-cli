@@ -7,12 +7,15 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"fmt"
 	"io/ioutil"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
+
+const processorTimeout = 30 * time.Second
 
 type resourceProcessingPipelineImpl struct {
 	processors []ResourceStreamProcessor
@@ -65,6 +68,9 @@ func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os
 
 	inreader := infile
 	outwriter := outfile
+
+	ctx, cancelfunc := context.WithTimeout(ctx, processorTimeout)
+	defer cancelfunc()
 
 	if err := proc.Process(ctx, inreader, outwriter); err != nil {
 		return nil, fmt.Errorf("unable to process resource: %w", err)

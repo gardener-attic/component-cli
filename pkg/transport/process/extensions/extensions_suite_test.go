@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	. "github.com/onsi/ginkgo"
@@ -21,7 +23,11 @@ import (
 )
 
 const (
-	defaultProcessorBinaryPath = "../../../../tmp/test/bin/processor"
+	exampleProcessorBinaryPath = "../../../../tmp/test/bin/example-processor"
+	sleepProcessorBinaryPath   = "../../../../tmp/test/bin/sleep-processor"
+	sleepTimeEnv               = "SLEEP_TIME"
+	timeout                    = 2 * time.Second
+	sleepTime                  = 5 * time.Second
 )
 
 func TestConfig(t *testing.T) {
@@ -30,8 +36,11 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	_, err := os.Stat(defaultProcessorBinaryPath)
-	Expect(err).ToNot(HaveOccurred(), "test processor doesn't exists. pls run make install-requirements.")
+	_, err := os.Stat(exampleProcessorBinaryPath)
+	Expect(err).ToNot(HaveOccurred(), exampleProcessorBinaryPath+" doesn't exists. pls run make install-requirements.")
+
+	_, err = os.Stat(sleepProcessorBinaryPath)
+	Expect(err).ToNot(HaveOccurred(), sleepProcessorBinaryPath+" doesn't exists. pls run make install-requirements.")
 }, 5)
 
 var _ = Describe("transport extensions", func() {
@@ -40,10 +49,21 @@ var _ = Describe("transport extensions", func() {
 		It("should modify the processed resource correctly", func() {
 			args := []string{}
 			env := []string{}
-			processor, err := extensions.NewStdIOExecutable(context.TODO(), defaultProcessorBinaryPath, args, env)
+			processor, err := extensions.NewStdIOExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
 
-			testProcessor(processor)
+			runExampleResourceTest(processor)
+		})
+
+		It("should exit with error when timeout is reached", func() {
+			args := []string{}
+			env := []string{
+				fmt.Sprintf("%s=%s", sleepTimeEnv, sleepTime.String()),
+			}
+			processor, err := extensions.NewStdIOExecutable(sleepProcessorBinaryPath, args, env)
+			Expect(err).ToNot(HaveOccurred())
+
+			runTimeoutTest(processor)
 		})
 	})
 
@@ -51,18 +71,46 @@ var _ = Describe("transport extensions", func() {
 		It("should modify the processed resource correctly", func() {
 			args := []string{}
 			env := []string{}
-			processor, err := extensions.NewUDSExecutable(context.TODO(), defaultProcessorBinaryPath, args, env)
+			processor, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
 
-			testProcessor(processor)
+			runExampleResourceTest(processor)
+		})
+
+		It("should raise an error when trying to set the server address env variable manually", func() {
+			args := []string{}
+			env := []string{
+				extensions.ServerAddressEnv + "=/tmp/my-processor.sock",
+			}
+			_, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, env)
+			Expect(err).To(MatchError(fmt.Sprintf("the env variable %s is not allowed to be set manually", extensions.ServerAddressEnv)))
+		})
+
+		It("should exit with error when timeout is reached", func() {
+			args := []string{}
+			env := []string{
+				fmt.Sprintf("%s=%s", sleepTimeEnv, sleepTime.String()),
+			}
+			processor, err := extensions.NewUDSExecutable(sleepProcessorBinaryPath, args, env)
+			Expect(err).ToNot(HaveOccurred())
+
+			runTimeoutTest(processor)
 		})
 	})
 
 })
 
-func testProcessor(processor process.ResourceStreamProcessor) {
+func runTimeoutTest(processor process.ResourceStreamProcessor) {
+	ctx, cancelfunc := context.WithTimeout(context.TODO(), timeout)
+	defer cancelfunc()
+
+	err := processor.Process(ctx, bytes.NewBuffer([]byte{}), bytes.NewBuffer([]byte{}))
+	Expect(err).To(MatchError("unable to wait for processor: signal: killed"))
+}
+
+func runExampleResourceTest(processor process.ResourceStreamProcessor) {
 	const (
-		processorName        = "test-processor"
+		processorName        = "example-processor"
 		resourceData         = "12345"
 		expectedResourceData = resourceData + "\n" + processorName
 	)

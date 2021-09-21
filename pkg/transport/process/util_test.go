@@ -15,7 +15,7 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
-var _ = Describe("utils", func() {
+var _ = Describe("util", func() {
 
 	Context("WriteProcessMessage & ReadProcessMessage", func() {
 
