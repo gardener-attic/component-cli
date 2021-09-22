@@ -138,10 +138,12 @@ func ReadProcessorMessage(r io.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource
 		}
 	}
 
-	if f != nil {
-		if _, err := f.Seek(0, io.SeekStart); err != nil {
-			return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of file: %w", err)
-		}
+	if f == nil {
+		return cd, res, nil, nil
+	}
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of file: %w", err)
 	}
 
 	return cd, res, f, nil

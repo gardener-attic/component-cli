@@ -24,7 +24,7 @@ type ResourceProcessingPipeline interface {
 // A processor can upload, modify, or download a resource.
 type ResourceStreamProcessor interface {
 	// Process executes the processor for a resource. Input and Output streams must be
-	// compliant to a specific format ("processor message"). See also ./util.go for helper 
+	// compliant to a specific format ("processor message"). See also ./util.go for helper
 	// functions to read/write processor messages.
 	Process(context.Context, io.Reader, io.Writer) error
 }

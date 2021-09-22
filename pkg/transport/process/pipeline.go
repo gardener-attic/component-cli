@@ -49,7 +49,9 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}
-	defer blobreader.Close()
+	if blobreader != nil {
+		defer blobreader.Close()
+	}
 
 	return processedCD, processedRes, nil
 }

@@ -17,9 +17,9 @@ import (
 
 var _ = Describe("util", func() {
 
-	Context("WriteProcessMessage & ReadProcessMessage", func() {
+	Context("WriteProcessorMessage & ReadProcessorMessage", func() {
 
-		It("should correctly write and read a process message", func() {
+		It("should correctly write and read a processor message", func() {
 			res := cdv2.Resource{
 				IdentityObjectMeta: cdv2.IdentityObjectMeta{
 					Name:    "my-res",
