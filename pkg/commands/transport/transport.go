@@ -9,14 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gardener/component-cli/ociclient"
-	ociopts "github.com/gardener/component-cli/ociclient/options"
-	"github.com/gardener/component-cli/pkg/commands/constants"
-	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/download"
-	"github.com/gardener/component-cli/pkg/transport/process/extension"
-	"github.com/gardener/component-cli/pkg/transport/process/upload"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -25,6 +17,15 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/component-cli/ociclient"
+	ociopts "github.com/gardener/component-cli/ociclient/options"
+	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/download"
+	"github.com/gardener/component-cli/pkg/transport/process/extension"
+	"github.com/gardener/component-cli/pkg/transport/process/upload"
 )
 
 const (

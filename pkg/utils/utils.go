@@ -17,11 +17,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gardener/component-cli/ociclient/cache"
-	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/component-cli/ociclient/cache"
+	"github.com/gardener/component-cli/pkg/commands/constants"
 )
 
 // PrintPrettyYaml prints the given objects as yaml if enabled.
@@ -173,7 +174,7 @@ func BytesString(bytes uint64, accuracy int) string {
 func FilterTARArchive(r *tar.Reader, w *tar.Writer, removePatterns []string) error {
 	defer w.Close()
 
-	NEXT_FILE:
+NEXT_FILE:
 	for {
 		header, err := r.Next()
 		if err != nil {

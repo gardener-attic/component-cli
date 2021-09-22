@@ -7,11 +7,12 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/transport/process"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/opencontainers/go-digest"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
 type localOCIBlobUploader struct {
@@ -22,7 +23,7 @@ type localOCIBlobUploader struct {
 func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) process.ResourceStreamProcessor {
 	obj := localOCIBlobUploader{
 		targetCtx: targetCtx,
-		client: client,
+		client:    client,
 	}
 	return &obj
 }
@@ -60,7 +61,7 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 	}
 
 	dgst, err := digest.FromReader(tmpfile)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
