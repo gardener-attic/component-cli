@@ -1,7 +1,9 @@
-package upload
+// SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier
+package uploaders
 
 import (
-	"archive/tar"
 	"context"
 	"fmt"
 	"io"
@@ -29,7 +31,7 @@ func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistry
 }
 
 func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, blobreader, err := process.ReadArchive(tar.NewReader(r))
+	cd, res, blobreader, err := process.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read input archive: %w", err)
 	}
@@ -86,7 +88,7 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 		return err
 	}
 
-	err = process.WriteArchive(ctx, cd, res, tmpfile, tar.NewWriter(w))
+	err = process.WriteProcessorMessage(*cd, res, tmpfile, w)
 	if err != nil {
 		return fmt.Errorf("unable to write output archive: %w", err)
 	}

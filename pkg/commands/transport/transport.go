@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
@@ -23,9 +22,9 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/download"
-	"github.com/gardener/component-cli/pkg/transport/process/extension"
-	"github.com/gardener/component-cli/pkg/transport/process/upload"
+	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
+	"github.com/gardener/component-cli/pkg/transport/process/extensions"
+	"github.com/gardener/component-cli/pkg/transport/process/uploaders"
 )
 
 const (
@@ -139,7 +138,6 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	fmt.Println("waiting for goroutines to finish")
 	wg.Wait()
-	fmt.Println("avg_duration =", process.TotalTime/time.Millisecond/parallelRuns, "ms")
 	fmt.Println("main finished")
 
 	return nil
@@ -164,7 +162,7 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 				return
 			}
 
-			pip, err := process.NewResourceProcessingPipeline(procs...)
+			pip := process.NewResourceProcessingPipeline(procs...)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("unable to create pipeline: %w", err))
 				return
@@ -244,18 +242,18 @@ func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryReposit
 	}
 
 	procs := []process.ResourceStreamProcessor{
-		download.NewLocalOCIBlobDownloader(client),
+		downloaders.NewLocalOCIBlobDownloader(client),
 	}
 
 	for _, procBin := range procBins {
-		exec, err := extension.NewStdIOExecutable(context.TODO(), procBin)
+		exec, err := extensions.NewStdIOExecutable(procBin, []string{}, []string{})
 		if err != nil {
 			return nil, err
 		}
 		procs = append(procs, exec)
 	}
 
-	procs = append(procs, upload.NewLocalOCIBlobUploader(client, targetCtx))
+	procs = append(procs, uploaders.NewLocalOCIBlobUploader(client, targetCtx))
 
 	return procs, nil
 }

@@ -15,7 +15,7 @@ type tarArchiveFileFilter struct {
 }
 
 func (f *tarArchiveFileFilter) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, blobreader, err := process.ReadArchive(tar.NewReader(r))
+	cd, res, blobreader, err := process.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read archive: %w", err)
 	}
@@ -24,7 +24,7 @@ func (f *tarArchiveFileFilter) Process(ctx context.Context, r io.Reader, w io.Wr
 		return fmt.Errorf("unable to filter blob: %w", err)
 	}
 
-	if err = process.WriteArchive(ctx, cd, res, nil, tar.NewWriter(w)); err != nil {
+	if err = process.WriteProcessorMessage(*cd, res, nil, w); err != nil {
 		return fmt.Errorf("unable to write archive: %w", err)
 	}
 
