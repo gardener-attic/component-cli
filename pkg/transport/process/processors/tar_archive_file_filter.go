@@ -1,4 +1,4 @@
-package builtin
+package processors
 
 import (
 	"archive/tar"
