@@ -11,11 +11,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
@@ -203,6 +205,44 @@ NEXT_FILE:
 		if err != nil {
 			return fmt.Errorf("unable to write file: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func WriteFileToTARArchive(filename string, contentReader io.Reader, outArchive *tar.Writer) error {
+	tempfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return fmt.Errorf("unable to create tempfile: %w", err)
+	}
+	defer tempfile.Close()
+
+	if _, err := io.Copy(tempfile, contentReader); err != nil {
+		return fmt.Errorf("unable to write content to file: %w", err)
+	}
+
+	if _, err := tempfile.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("unable to seek to beginning of file: %w", err)
+	}
+
+	fstat, err := tempfile.Stat()
+	if err != nil {
+		return fmt.Errorf("unable to get file info: %w", err)
+	}
+
+	header := tar.Header{
+		Name:    filename,
+		Size:    fstat.Size(),
+		Mode:    int64(fstat.Mode()),
+		ModTime: time.Now(),
+	}
+
+	if err := outArchive.WriteHeader(&header); err != nil {
+		return fmt.Errorf("unable to write tar header: %w", err)
+	}
+
+	if _, err := io.Copy(outArchive, tempfile); err != nil {
+		return fmt.Errorf("unable to write file to tar archive: %w", err)
 	}
 
 	return nil

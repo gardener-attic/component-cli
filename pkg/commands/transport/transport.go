@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package transport
 
 import (
@@ -133,6 +136,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 			}
 
 			cd.Resources = processedResources
+
 		}()
 	}
 
@@ -172,7 +176,7 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 			// If so, how do we merge the possibly different output of multiple resource pipelines?
 			processedCD, processedRes, err := pip.Process(ctx, *cd, resource)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("unable to process resource: %w", err))
+				errs = append(errs, fmt.Errorf("unable to process resource %+v: %w", resource, err))
 				return
 			}
 
@@ -236,9 +240,9 @@ func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, com
 
 func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) ([]process.ResourceStreamProcessor, error) {
 	procBins := []string{
-		"/Users/i500806/dev/pipeman/bin/processor_1",
-		"/Users/i500806/dev/pipeman/bin/processor_2",
-		"/Users/i500806/dev/pipeman/bin/processor_3",
+		"../../../pipeman/bin/processor_1",
+		"../../../pipeman/bin/processor_2",
+		"../../../pipeman/bin/processor_3",
 	}
 
 	procs := []process.ResourceStreamProcessor{

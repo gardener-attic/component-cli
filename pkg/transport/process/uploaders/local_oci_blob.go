@@ -90,7 +90,7 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 
 	err = process.WriteProcessorMessage(*cd, res, tmpfile, w)
 	if err != nil {
-		return fmt.Errorf("unable to write output archive: %w", err)
+		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 
 	return nil

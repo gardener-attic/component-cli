@@ -4,14 +4,13 @@
 package downloaders
 
 import (
-	"archive/tar"
 	"context"
 	"fmt"
 	"io"
 
 	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
@@ -27,13 +26,13 @@ func NewOCIImageDownloader(client ociclient.Client) process.ResourceStreamProces
 }
 
 func (d *ociImageDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, _, err := process.ReadArchive(tar.NewReader(r))
+	cd, res, _, err := process.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read input archive: %w", err)
 	}
 
 	if res.Access.GetType() != cdv2.OCIRegistryType {
-		return fmt.Errorf("unsupported acces type: %+v", res.Access)
+		return fmt.Errorf("unsupported access type: %+v", res.Access)
 	}
 
 	if res.Type != cdv2.OCIImageType {
@@ -45,32 +44,15 @@ func (d *ociImageDownloader) Process(ctx context.Context, r io.Reader, w io.Writ
 		return fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
-	ociArtifact, err := d.client.GetOCIArtifact(ctx, ociAccess.ImageReference)
+	blobReader, err := serialize.SerializeOCIArtifact(ctx, d.client, ociAccess.ImageReference)
 	if err != nil {
-		return fmt.Errorf("unable to get oci artifact: %w", err)
+		return fmt.Errorf("unable to serialize oci artifact: %w", err)
 	}
+	defer blobReader.Close()
 
-	if ociArtifact.IsIndex() {
-		handleImageIndex()
-	} else {
-		handleImage()
+	if err := process.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
+		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 
 	return nil
-}
-
-func handleImageIndex(index *oci.Index) {
-
-	for _, m := range index.Manifests {
-
-	}
-
-	artifact.
-}
-
-func handleImage() {
-	err := process.WriteArchive(ctx, cd, res, tmpfile, tar.NewWriter(w))
-	if err != nil {
-		return fmt.Errorf("unable to write output archive: %w", err)
-	}
 }

@@ -42,19 +42,16 @@ func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.
 	}
 	defer tmpfile.Close()
 
-	err = d.fetchLocalOCIBlob(ctx, cd, res, tmpfile)
-	if err != nil {
+	if err := d.fetchLocalOCIBlob(ctx, cd, res, tmpfile); err != nil {
 		return fmt.Errorf("unable to fetch blob: %w", err)
 	}
 
-	_, err = tmpfile.Seek(0, 0)
-	if err != nil {
+	if _, err := tmpfile.Seek(0, 0); err != nil {
 		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
 	}
 
-	err = process.WriteProcessorMessage(*cd, res, tmpfile, w)
-	if err != nil {
-		return fmt.Errorf("unable to write output archive: %w", err)
+	if err := process.WriteProcessorMessage(*cd, res, tmpfile, w); err != nil {
+		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 
 	return nil
@@ -62,8 +59,7 @@ func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.
 
 func (d *localOCIBlobDownloader) fetchLocalOCIBlob(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource, w io.Writer) error {
 	repoctx := cdv2.OCIRegistryRepository{}
-	err := cd.GetEffectiveRepositoryContext().DecodeInto(&repoctx)
-	if err != nil {
+	if err := cd.GetEffectiveRepositoryContext().DecodeInto(&repoctx); err != nil {
 		return fmt.Errorf("unable to decode repository context: %w", err)
 	}
 
@@ -73,8 +69,7 @@ func (d *localOCIBlobDownloader) fetchLocalOCIBlob(ctx context.Context, cd *cdv2
 		return fmt.Errorf("unable to resolve component descriptor: %w", err)
 	}
 
-	_, err = blobResolver.Resolve(ctx, res, w)
-	if err != nil {
+	if _, err := blobResolver.Resolve(ctx, res, w); err != nil {
 		return fmt.Errorf("unable to to resolve blob: %w", err)
 	}
 
