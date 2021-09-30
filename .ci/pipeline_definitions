@@ -12,12 +12,7 @@ component-cli:
         inject_effective_version: true
       component_descriptor:
         snapshot_ctx_repository: gardener-public
-      publish:
-        dockerimages:
-          component-cli:
-            registry: 'gcr-readwrite'
-            target: 'cli'
-            image: eu.gcr.io/gardener-project/component/cli
+
     steps:
       verify:
         image: 'golang:1.16.7'
@@ -31,9 +26,21 @@ component-cli:
     head-update:
       traits:
         draft_release: ~
+        publish:
+          dockerimages:
+            component-cli:
+              registry: 'gcr-readwrite'
+              target: 'cli'
+              image: eu.gcr.io/gardener-project/component/cli
     pull-request:
       traits:
         pull-request: ~
+        publish:
+          dockerimages:
+            component-cli:
+              registry: 'gcr-readwrite'
+              target: 'cli'
+              image: eu.gcr.io/gardener-project/component/cli
     release:
       traits:
         version:
