@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier
-package downloaders
+package uploaders
 
 import (
 	"context"
@@ -15,23 +15,31 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
-type ociImageDownloader struct {
-	client ociclient.Client
-	cache  cache.Cache
+type ociImageUploader struct {
+	targetURL string
+	client    ociclient.Client
+	cache     cache.Cache
 }
 
-func NewOCIImageDownloader(client ociclient.Client, cache cache.Cache) process.ResourceStreamProcessor {
-	obj := ociImageDownloader{
-		client: client,
-		cache:  cache,
+func NewOCIImageUploader(targetURL string, client ociclient.Client, cache cache.Cache) process.ResourceStreamProcessor {
+	obj := ociImageUploader{
+		targetURL: targetURL,
+		client:    client,
+		cache:     cache,
 	}
 	return &obj
 }
 
-func (d *ociImageDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, _, err := process.ReadProcessorMessage(r)
+func (u *ociImageUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
+	cd, res, resBlobReader, err := process.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read input archive: %w", err)
+	}
+	defer resBlobReader.Close()
+
+	ociArtifact, err := serialize.DeserializeOCIArtifact(resBlobReader, u.cache)
+	if err != nil {
+		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
 	}
 
 	if res.Access.GetType() != cdv2.OCIRegistryType {
@@ -47,12 +55,11 @@ func (d *ociImageDownloader) Process(ctx context.Context, r io.Reader, w io.Writ
 		return fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
-	ociArtifact, err := d.client.GetOCIArtifact(ctx, ociAccess.ImageReference)
-	if err != nil {
-		return fmt.Errorf("unable to get oci artifact: %w", err)
+	if err := u.client.PushOCIArtifact(ctx, targetRef, ociArtifact, ociclient.WithStore(u.cache)); err != nil {
+		return fmt.Errorf("unable to push oci artifact: %w", err)
 	}
 
-	blobReader, err := serialize.SerializeOCIArtifact(*ociArtifact, d.cache)
+	blobReader, err := serialize.SerializeOCIArtifact(*ociArtifact, u.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialize oci artifact: %w", err)
 	}

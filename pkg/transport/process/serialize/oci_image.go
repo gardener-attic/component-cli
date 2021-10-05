@@ -6,35 +6,36 @@ package serialize
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"path"
 
-	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/utils"
+	"github.com/opencontainers/image-spec/specs-go"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func SerializeOCIArtifact(ctx context.Context, client ociclient.Client, ref string) (io.ReadCloser, error) {
-	ociArtifact, err := client.GetOCIArtifact(ctx, ref)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get oci artifact: %w", err)
-	}
+const (
+	ManifestFile = "manifest.json"
+	BlobsDir     = "blobs"
+)
 
+func SerializeOCIArtifact(ociArtifact oci.Artifact, cache cache.Cache) (io.ReadCloser, error) {
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create tempfile: %w", err)
 	}
 
 	if ociArtifact.IsIndex() {
-		if err := serializeImageIndex(ctx, client, ref, ociArtifact.GetIndex(), tmpfile); err != nil {
+		if err := serializeImageIndex(cache, ociArtifact.GetIndex(), tmpfile); err != nil {
 			return nil, fmt.Errorf("unable to serialize image index: %w", err)
 		}
 	} else {
-		if err := serializeImage(ctx, client, ref, ociArtifact.GetManifest(), tar.NewWriter(tmpfile)); err != nil {
+		if err := serializeImage(cache, ociArtifact.GetManifest(), ManifestFile, tar.NewWriter(tmpfile)); err != nil {
 			return nil, fmt.Errorf("unable to serialize image: %w", err)
 		}
 	}
@@ -46,23 +47,40 @@ func SerializeOCIArtifact(ctx context.Context, client ociclient.Client, ref stri
 	return tmpfile, nil
 }
 
-func serializeImageIndex(ctx context.Context, client ociclient.Client, ref string, index *oci.Index, w io.Writer) error {
+func serializeImageIndex(cache cache.Cache, index *oci.Index, w io.Writer) error {
 	tw := tar.NewWriter(w)
 	defer tw.Close()
 
+	descs := []ocispecv1.Descriptor{}
 	for _, m := range index.Manifests {
-		if err := serializeImage(ctx, client, ref, m, tw); err != nil {
+		manifestFile := path.Join(BlobsDir, m.Descriptor.Digest.Encoded())
+		if err := serializeImage(cache, m, manifestFile, tw); err != nil {
 			return fmt.Errorf("unable to serialize image: %w", err)
 		}
+		descs = append(descs, m.Descriptor)
+	}
+
+	i := ocispecv1.Index{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2,
+		},
+		Manifests:   descs,
+		Annotations: index.Annotations,
+	}
+
+	indexBytes, err := json.Marshal(i)
+	if err != nil {
+		return fmt.Errorf("unable to marshal index manifest: %w", err)
+	}
+
+	if err := utils.WriteFileToTARArchive(ManifestFile, bytes.NewReader(indexBytes), tw); err != nil {
+		return fmt.Errorf("unable to write index manifest: %w", err)
 	}
 
 	return nil
 }
 
-func serializeImage(ctx context.Context, client ociclient.Client, ref string, manifest *oci.Manifest, tw *tar.Writer) error {
-	imageFilesPrefix := manifest.Descriptor.Digest.Encoded()
-
-	manifestFile := path.Join(imageFilesPrefix, "manifest.json")
+func serializeImage(cache cache.Cache, manifest *oci.Manifest, manifestFile string, tw *tar.Writer) error {
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
 		return fmt.Errorf("unable to marshal manifest: %w", err)
@@ -72,42 +90,68 @@ func serializeImage(ctx context.Context, client ociclient.Client, ref string, ma
 		return fmt.Errorf("unable to write manifest: %w", err)
 	}
 
-	buf := bytes.NewBuffer([]byte{})
-	if err := client.Fetch(ctx, ref, manifest.Data.Config, buf); err != nil {
-		return fmt.Errorf("unable to fetch config blob: %w", err)
-	}
-
-	cfgFile := path.Join(imageFilesPrefix, "config.json")
-	cfgBytes, err := json.Marshal(buf.Bytes())
+	configReader, err := cache.Get(manifest.Data.Config)
 	if err != nil {
-		return fmt.Errorf("unable to marshal config: %w", err)
+		return fmt.Errorf("unable to get config blob from cache: %w", err)
 	}
+	defer configReader.Close()
 
-	if err := utils.WriteFileToTARArchive(cfgFile, bytes.NewReader(cfgBytes), tw); err != nil {
+	cfgFile := path.Join(BlobsDir, manifest.Data.Config.Digest.Encoded())
+	if err := utils.WriteFileToTARArchive(cfgFile, configReader, tw); err != nil {
 		return fmt.Errorf("unable to write config: %w", err)
 	}
 
-	layerFilesPrefix := path.Join(imageFilesPrefix, "layers")
 	for _, layer := range manifest.Data.Layers {
-		tmpfile, err := ioutil.TempFile("", "")
+		layerReader, err := cache.Get(layer)
 		if err != nil {
-			return fmt.Errorf("unable to create tempfile: %w", err)
+			return fmt.Errorf("unable to get layer blob from cache: %w", err)
 		}
-		defer tmpfile.Close()
+		defer layerReader.Close()
 
-		if err := client.Fetch(ctx, ref, layer, tmpfile); err != nil {
-			return fmt.Errorf("unable to fetch layer blob: %w", err)
-		}
-
-		if _, err := tmpfile.Seek(0, 0); err != nil {
-			return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
-		}
-
-		layerFile := path.Join(layerFilesPrefix, layer.Digest.Encoded())
-		if err := utils.WriteFileToTARArchive(layerFile, tmpfile, tw); err != nil {
+		layerFile := path.Join(BlobsDir, layer.Digest.Encoded())
+		if err := utils.WriteFileToTARArchive(layerFile, layerReader, tw); err != nil {
 			return fmt.Errorf("unable to write layer: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func DeserializeOCIArtifact(r io.Reader, cache cache.Cache) (*oci.Artifact, error) {
+	// tr := tar.NewReader(r)
+
+	// for {
+	// 	header, err := tr.Next()
+	// 	if err != nil {
+	// 		if err == io.EOF {
+	// 			break
+	// 		}
+	// 		return nil, fmt.Errorf("unable to read tar header: %w", err)
+	// 	}
+
+	// 	if header.Name == ManifestFile {
+
+	// 	} else if strings.HasPrefix(header.Name, BlobsDir) {
+	// 	} else {
+	// 		return nil, fmt.Errorf()
+	// 	}
+	// }
+
+	// if f == nil {
+	// 	return cd, res, nil, nil
+	// }
+
+	// if _, err := f.Seek(0, io.SeekStart); err != nil {
+	// 	return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of file: %w", err)
+	// }
+
+	// return cd, res, f, nil
+
+	// desc := ocispecv1.Descriptor{}
+
+	// cache.Add(desc, layerReader)
+
+	// ociArtifact := oci.Artifact{}
+
+	return nil, nil
 }

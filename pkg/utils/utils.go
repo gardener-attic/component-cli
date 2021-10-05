@@ -173,12 +173,14 @@ func BytesString(bytes uint64, accuracy int) string {
 	return fmt.Sprintf("%s %s", stringValue, unit)
 }
 
-func FilterTARArchive(r *tar.Reader, w *tar.Writer, removePatterns []string) error {
-	defer w.Close()
+func FilterTARArchive(r io.Reader, w io.Writer, removePatterns []string) error {
+	tr := tar.NewReader(r)
+	tw := tar.NewWriter(w)
+	defer tw.Close()
 
 NEXT_FILE:
 	for {
-		header, err := r.Next()
+		header, err := tr.Next()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -197,11 +199,11 @@ NEXT_FILE:
 			}
 		}
 
-		if err := w.WriteHeader(header); err != nil {
+		if err := tw.WriteHeader(header); err != nil {
 			return fmt.Errorf("unable to write header: %w", err)
 		}
 
-		_, err = io.Copy(w, r)
+		_, err = io.Copy(tw, tr)
 		if err != nil {
 			return fmt.Errorf("unable to write file: %w", err)
 		}

@@ -240,9 +240,9 @@ func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, com
 
 func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) ([]process.ResourceStreamProcessor, error) {
 	procBins := []string{
-		"../../../pipeman/bin/processor_1",
-		"../../../pipeman/bin/processor_2",
-		"../../../pipeman/bin/processor_3",
+		"../../../ctt-playground/bin/processor_1",
+		"../../../ctt-playground/bin/processor_2",
+		"../../../ctt-playground/bin/processor_3",
 	}
 
 	procs := []process.ResourceStreamProcessor{
