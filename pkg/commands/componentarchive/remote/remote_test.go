@@ -322,6 +322,71 @@ var _ = Describe("Remote", func() {
 			Expect(acc.ImageReference).To(ContainSubstring("gardener-project/landscaper/charts/landscaper-controller:v0.11.0"))
 		})
 
+		It("should replace parts of the target ref of copied docker image resource", func() {
+			ctx := context.Background()
+			ociCache, err := cache.NewCache(logr.Discard())
+			Expect(err).ToNot(HaveOccurred())
+
+			cd := &cdv2.ComponentDescriptor{}
+			cd.Name = "example.com/my-test-component"
+			cd.Version = "v0.0.1"
+			cd.Provider = cdv2.InternalProvider
+			Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
+
+			remoteOCIImage := cdv2.Resource{}
+			remoteOCIImage.Name = "component-cli-image"
+			remoteOCIImage.Version = "v0.28.0"
+			remoteOCIImage.Type = cdv2.OCIImageType
+			remoteOCIImage.Relation = cdv2.ExternalRelation
+			remoteOCIImageAcc, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryAccess("eu.gcr.io/gardener-project/component/cli:v0.28.0"))
+			Expect(err).ToNot(HaveOccurred())
+			remoteOCIImage.Access = &remoteOCIImageAcc
+			cd.Resources = append(cd.Resources, remoteOCIImage)
+
+			manifest, err := cdoci.NewManifestBuilder(ociCache, ctf.NewComponentArchive(cd, memoryfs.New())).Build(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			ref, err := components.OCIRef(cd.GetEffectiveRepositoryContext(), cd.Name, cd.Version)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(client.PushManifest(ctx, ref, manifest, ociclient.WithStore(ociCache)))
+
+			baseFs, err := projectionfs.New(osfs.New(), "../")
+			Expect(err).ToNot(HaveOccurred())
+			testdataFs = layerfs.New(memoryfs.New(), baseFs)
+
+			cf, err := testenv.GetConfigFileBytes()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
+
+			copyOpts := &remote.CopyOptions{
+				OciOptions: options.Options{
+					AllowPlainHttp:     false,
+					RegistryConfigPath: "/auth.json",
+				},
+				ComponentName:            cd.Name,
+				ComponentVersion:         cd.Version,
+				SourceRepository:         srcRepoCtxURL,
+				TargetRepository:         targetRepoCtxURL,
+				CopyByValue:              true,
+				TargetArtifactRepository: targetRepoCtxURL,
+				ReplaceOCIRefs: []string{
+					"gardener-project:my-project",
+					"component/cli:component-cli",
+				},
+			}
+			Expect(copyOpts.Run(ctx, logr.Discard(), testdataFs)).To(Succeed())
+
+			compResolver := cdoci.NewResolver(client)
+			targetComp, err := compResolver.Resolve(ctx, cdv2.NewOCIRegistryRepository(targetRepoCtxURL, ""), cd.Name, cd.Version)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(targetComp.Resources).To(HaveLen(1))
+
+			acc := &cdv2.OCIRegistryAccess{}
+			Expect(targetComp.Resources[0].Access.DecodeInto(acc)).To(Succeed())
+			Expect(acc.ImageReference).To(ContainSubstring(targetRepoCtxURL))
+			Expect(acc.ImageReference).To(ContainSubstring("my-project/component-cli:v0.28.0"))
+		})
+
 		It("should copy a component descriptor with a relative oci ref and convert it to a absolute path", func() {
 			ctx := context.Background()
 			ociCache, err := cache.NewCache(logr.Discard())
