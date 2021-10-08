@@ -52,6 +52,7 @@ func NewComponentsCliCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(cachecmd.NewCacheCommand(ctx))
 	cmd.AddCommand(transport.NewTransportCommand(ctx))
 	cmd.AddCommand(config.NewConfigParseCommand(ctx))
+	cmd.AddCommand(transport.NewTestCommand(ctx))
 
 	return cmd
 }

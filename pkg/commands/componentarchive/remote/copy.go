@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -24,8 +23,6 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/gardener/component-cli/ociclient/oci"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -277,7 +274,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 			}
 
 			// mangle the target artifact name to keep the original image ref somehow readable.
-			target, err := targetOCIArtifactRef(c.TargetArtifactRepository, ociRegistryAcc.ImageReference, c.KeepSourceRepository)
+			target, err := utils.TargetOCIArtifactRef(c.TargetArtifactRepository, ociRegistryAcc.ImageReference, c.KeepSourceRepository)
 			if err != nil {
 				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
 			}
@@ -312,7 +309,7 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 			}
 
 			src := path.Join(c.SourceArtifactRepository, relOCIRegistryAcc.Reference)
-			target, err := targetOCIArtifactRef(c.TargetArtifactRepository, src, c.KeepSourceRepository)
+			target, err := utils.TargetOCIArtifactRef(c.TargetArtifactRepository, src, c.KeepSourceRepository)
 			if err != nil {
 				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
 			}
@@ -376,29 +373,4 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 	}
 
 	return nil
-}
-
-func targetOCIArtifactRef(targetRepo, ref string, keepOrigHost bool) (string, error) {
-	if !strings.Contains(targetRepo, "://") {
-		// add dummy protocol to correctly parse the url
-		targetRepo = "http://" + targetRepo
-	}
-	t, err := url.Parse(targetRepo)
-	if err != nil {
-		return "", err
-	}
-	parsedRef, err := oci.ParseRef(ref)
-	if err != nil {
-		return "", err
-	}
-
-	if !keepOrigHost {
-		parsedRef.Host = t.Host
-		parsedRef.Repository = path.Join(t.Path, parsedRef.Repository)
-		return parsedRef.String(), nil
-	}
-	replacedRef := strings.NewReplacer(".", "_", ":", "_").Replace(parsedRef.Name())
-	parsedRef.Repository = path.Join(t.Path, replacedRef)
-	parsedRef.Host = t.Host
-	return parsedRef.String(), nil
 }

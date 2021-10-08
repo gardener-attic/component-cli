@@ -41,7 +41,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 	defer infile.Close()
 
 	if _, err := infile.Seek(0, io.SeekStart); err != nil {
-		return nil, cdv2.Resource{}, err
+		return nil, cdv2.Resource{}, fmt.Errorf("unable to seek to beginning of file: %w", err)
 	}
 
 	processedCD, processedRes, blobreader, err := ReadProcessorMessage(infile)

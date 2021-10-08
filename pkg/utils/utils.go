@@ -14,7 +14,9 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -24,6 +26,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient/cache"
+	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 )
 
@@ -248,4 +251,30 @@ func WriteFileToTARArchive(filename string, contentReader io.Reader, outArchive 
 	}
 
 	return nil
+}
+
+// TargetOCIArtifactRef calculates the target reference for 
+func TargetOCIArtifactRef(targetRepo, ref string, keepOrigHost bool) (string, error) {
+	if !strings.Contains(targetRepo, "://") {
+		// add dummy protocol to correctly parse the url
+		targetRepo = "http://" + targetRepo
+	}
+	t, err := url.Parse(targetRepo)
+	if err != nil {
+		return "", err
+	}
+	parsedRef, err := oci.ParseRef(ref)
+	if err != nil {
+		return "", err
+	}
+
+	if !keepOrigHost {
+		parsedRef.Host = t.Host
+		parsedRef.Repository = path.Join(t.Path, parsedRef.Repository)
+		return parsedRef.String(), nil
+	}
+	replacedRef := strings.NewReplacer(".", "_", ":", "_").Replace(parsedRef.Name())
+	parsedRef.Repository = path.Join(t.Path, replacedRef)
+	parsedRef.Host = t.Host
+	return parsedRef.String(), nil
 }

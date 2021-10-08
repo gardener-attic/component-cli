@@ -12,20 +12,23 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/serialize"
+	"github.com/gardener/component-cli/pkg/utils"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
 type ociImageUploader struct {
-	targetURL string
-	client    ociclient.Client
-	cache     cache.Cache
+	client         ociclient.Client
+	cache          cache.Cache
+	targetRepo     string
+	keepSourceRepo bool
 }
 
-func NewOCIImageUploader(targetURL string, client ociclient.Client, cache cache.Cache) process.ResourceStreamProcessor {
+func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, targetRepo string, keepSourceRepo bool) process.ResourceStreamProcessor {
 	obj := ociImageUploader{
-		targetURL: targetURL,
-		client:    client,
-		cache:     cache,
+		client:         client,
+		cache:          cache,
+		targetRepo:     targetRepo,
+		keepSourceRepo: keepSourceRepo,
 	}
 	return &obj
 }
@@ -55,7 +58,12 @@ func (u *ociImageUploader) Process(ctx context.Context, r io.Reader, w io.Writer
 		return fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
-	if err := u.client.PushOCIArtifact(ctx, targetRef, ociArtifact, ociclient.WithStore(u.cache)); err != nil {
+	target, err := utils.TargetOCIArtifactRef(u.targetRepo, ociAccess.ImageReference, u.keepSourceRepo)
+	if err != nil {
+		return fmt.Errorf("unable to create target oci artifact reference: %w", err)
+	}
+
+	if err := u.client.PushOCIArtifact(ctx, target, ociArtifact, ociclient.WithStore(u.cache)); err != nil {
 		return fmt.Errorf("unable to push oci artifact: %w", err)
 	}
 
