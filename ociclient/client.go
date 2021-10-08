@@ -459,9 +459,34 @@ func (c *client) getHttpClient() *http.Client {
 	}
 }
 
+// getRefParserOptions returns the options for reference parsing
+func (c *client) getRefParserOptions(ref string) ([]name.Option, error) {
+	hosts, err := c.getHostConfig(ref)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find registry host: %w", err)
+	}
+	if len(hosts) == 0 {
+		return nil, fmt.Errorf("no host configuration found: %w", err)
+	}
+
+	hostConfig := hosts[0]
+	var options []name.Option
+	if hostConfig.Scheme == "http" {
+		options = []name.Option{
+			name.Insecure,
+		}
+	}
+	return options, nil
+}
+
 // getTransportForRef returns the authenticated transport for a reference.
 func (c *client) getTransportForRef(ctx context.Context, ref string, scopes ...string) (http.RoundTripper, error) {
-	repo, err := name.ParseReference(ref)
+	parseOptions, err := c.getRefParserOptions(ref)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get ref parser options: %w", err)
+	}
+
+	repo, err := name.ParseReference(ref, parseOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ref: %w", err)
 	}
@@ -556,7 +581,12 @@ func (c *client) ListTags(ctx context.Context, ref string) ([]string, error) {
 
 // ListRepositories lists all repositories for the given registry host.
 func (c *client) ListRepositories(ctx context.Context, ref string) ([]string, error) {
-	repo, err := name.ParseReference(ref)
+	parseOptions, err := c.getRefParserOptions(ref)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get ref parser options: %w", err)
+	}
+
+	repo, err := name.ParseReference(ref, parseOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse ref: %w", err)
 	}
