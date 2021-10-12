@@ -191,7 +191,7 @@ func DeserializeOCIArtifact(r io.Reader, cache cache.Cache) (*oci.Artifact, erro
 			defer blobreader.Close()
 
 			buf := bytes.NewBuffer([]byte{})
-			if _, err := io.Copy(buf, tr); err != nil {
+			if _, err := io.Copy(buf, blobreader); err != nil {
 				return nil, fmt.Errorf("unable to copy %s to buffer: %w", ManifestFile, err)
 			}
 

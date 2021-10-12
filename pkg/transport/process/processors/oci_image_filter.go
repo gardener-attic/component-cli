@@ -4,13 +4,17 @@
 package processors
 
 import (
-	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 
+	"github.com/containerd/containerd/images"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/transport/process"
@@ -21,8 +25,8 @@ import (
 )
 
 type ociImageFilter struct {
-	removePatterns []string
 	cache          cache.Cache
+	removePatterns []string
 }
 
 func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) error {
@@ -76,6 +80,8 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 }
 
 func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, error) {
+	diffIDs := []digest.Digest{}
+	digestMappings := map[digest.Digest]digest.Digest{}
 	filteredLayers := []ocispecv1.Descriptor{}
 	for _, layer := range manifest.Data.Layers {
 		layerBlobReader, err := f.cache.Get(layer)
@@ -88,37 +94,105 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			return nil, fmt.Errorf("unable to create tempfile: %w", err)
 		}
 		defer tmpfile.Close()
+		var layerBlobWriter io.Writer = tmpfile
 
-		if layer.MediaType == ocispecv1.MediaTypeImageLayerGzip {
+		if layer.MediaType == ocispecv1.MediaTypeImageLayerGzip || layer.MediaType == images.MediaTypeDockerSchema2LayerGzip {
 			layerBlobReader, err = gzip.NewReader(layerBlobReader)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create gzip reader for layer: %w", err)
 			}
+			layerBlobWriter = gzip.NewWriter(layerBlobWriter)
 		}
 
-		if err = utils.FilterTARArchive(layerBlobReader, tar.NewWriter(tmpfile), f.removePatterns); err != nil {
+		uncompressedHasher := sha256.New()
+		mw := io.MultiWriter(layerBlobWriter, uncompressedHasher)
+
+		if err = utils.FilterTARArchive(layerBlobReader, mw, f.removePatterns); err != nil {
 			return nil, fmt.Errorf("unable to filter blob: %w", err)
 		}
-
-		blobDigest, err := digest.FromReader(tmpfile)
-		if err != nil {
-			return nil, fmt.Errorf("unable to calculate digest for layer %+v: %w", layer, err)
-		}
-		layer.Digest = blobDigest
 
 		if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
 			return nil, fmt.Errorf("unable to reset input file: %s", err)
 		}
-		if err := f.cache.Add(layer, tmpfile); err != nil {
+
+		filteredDigest, err := digest.FromReader(tmpfile)
+		if err != nil {
+			return nil, fmt.Errorf("unable to calculate digest for layer %+v: %w", layer, err)
+		}
+
+		digestMappings[layer.Digest] = filteredDigest
+		diffIDs = append(diffIDs, digest.NewDigestFromEncoded(digest.SHA256, hex.EncodeToString(uncompressedHasher.Sum(nil))))
+		fstat, err := tmpfile.Stat()
+		if err != nil {
+			return nil, fmt.Errorf("unable to get file stat: %w", err)
+		}
+
+		desc := ocispecv1.Descriptor{
+			MediaType:   layer.MediaType,
+			Digest:      filteredDigest,
+			Size:        fstat.Size(),
+			URLs:        layer.URLs,
+			Platform:    layer.Platform,
+			Annotations: layer.Annotations,
+		}
+		filteredLayers = append(filteredLayers, desc)
+
+		if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
+			return nil, fmt.Errorf("unable to reset input file: %s", err)
+		}
+		if err := f.cache.Add(desc, tmpfile); err != nil {
 			return nil, fmt.Errorf("unable to add filtered layer blob to cache: %w", err)
 		}
 	}
 	manifest.Data.Layers = filteredLayers
+
+	cfgBlob, err := f.cache.Get(manifest.Data.Config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get config blob from cache: %w", err)
+	}
+
+	data, err := io.ReadAll(cfgBlob)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read config blob: %w", err)
+	}
+
+	var config map[string]*json.RawMessage
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal config: %w", err)
+	}
+
+	rootfs := ocispecv1.RootFS{
+		Type:    "layers",
+		DiffIDs: diffIDs,
+	}
+	rootfsRaw, err := utils.RawJSON(rootfs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert rootfs to JSON: %w", err)
+	}
+	config["rootfs"] = rootfsRaw
+
+	marshaledConfig, err := json.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal config: %w", err)
+	}
+
+	configDesc := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageConfig,
+		Digest:    digest.FromBytes(marshaledConfig),
+		Size:      int64(len(marshaledConfig)),
+	}
+	manifest.Data.Config = configDesc
+
+	if err := f.cache.Add(configDesc, io.NopCloser(bytes.NewReader(marshaledConfig))); err != nil {
+		return nil, fmt.Errorf("unable to add filtered layer blob to cache: %w", err)
+	}
+
 	return &manifest, nil
 }
 
-func NewOCIImageFilter(removePatterns []string) process.ResourceStreamProcessor {
+func NewOCIImageFilter(cache cache.Cache, removePatterns []string) process.ResourceStreamProcessor {
 	obj := ociImageFilter{
+		cache:          cache,
 		removePatterns: removePatterns,
 	}
 	return &obj

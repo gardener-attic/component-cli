@@ -253,7 +253,7 @@ func WriteFileToTARArchive(filename string, contentReader io.Reader, outArchive 
 	return nil
 }
 
-// TargetOCIArtifactRef calculates the target reference for 
+// TargetOCIArtifactRef calculates the target reference for
 func TargetOCIArtifactRef(targetRepo, ref string, keepOrigHost bool) (string, error) {
 	if !strings.Contains(targetRepo, "://") {
 		// add dummy protocol to correctly parse the url
