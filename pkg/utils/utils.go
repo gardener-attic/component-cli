@@ -206,8 +206,7 @@ NEXT_FILE:
 			return fmt.Errorf("unable to write header: %w", err)
 		}
 
-		_, err = io.Copy(tw, tr)
-		if err != nil {
+		if _, err = io.Copy(tw, tr); err != nil {
 			return fmt.Errorf("unable to write file: %w", err)
 		}
 	}

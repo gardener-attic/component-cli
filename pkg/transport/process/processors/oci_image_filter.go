@@ -60,7 +60,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	} else {
 		filteredImg, err := f.filterImage(*ociArtifact.GetManifest())
 		if err != nil {
-			return fmt.Errorf("unable to filter image ")
+			return fmt.Errorf("unable to filter image: %w", err)
 		}
 		if err := ociArtifact.SetManifest(filteredImg); err != nil {
 			return fmt.Errorf("unable to set manifest: %w", err)
@@ -101,7 +101,6 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			if err != nil {
 				return nil, fmt.Errorf("unable to create gzip reader for layer: %w", err)
 			}
-			layerBlobWriter = gzip.NewWriter(layerBlobWriter)
 		}
 
 		uncompressedHasher := sha256.New()
@@ -122,6 +121,7 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 
 		digestMappings[layer.Digest] = filteredDigest
 		diffIDs = append(diffIDs, digest.NewDigestFromEncoded(digest.SHA256, hex.EncodeToString(uncompressedHasher.Sum(nil))))
+
 		fstat, err := tmpfile.Stat()
 		if err != nil {
 			return nil, fmt.Errorf("unable to get file stat: %w", err)
