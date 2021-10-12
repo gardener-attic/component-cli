@@ -337,6 +337,11 @@ func (c *Copier) Copy(ctx context.Context, name, version string) error {
 			if err != nil {
 				return fmt.Errorf("unable to create target oci artifact reference for resource %s: %w", res.Name, err)
 			}
+
+			for old, new := range c.ReplaceOCIRefs {
+				target = strings.ReplaceAll(target, old, new)
+			}
+
 			log.V(4).Info(fmt.Sprintf("copy oci artifact %s to %s", src, target))
 			if err := ociclient.Copy(ctx, c.OciClient, src, target); err != nil {
 				return fmt.Errorf("unable to copy oci artifact %s from %s to %s: %w", res.Name, src, target, err)
