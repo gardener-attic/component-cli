@@ -18,8 +18,8 @@ import (
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
-// ServerAddressEnv is the environment variable key which is used for propagating the
-// address under which a processor server should start to a processor binary.
+// ServerAddressEnv is the environment variable key which is used to store the
+// address under which a resource processor server should start.
 const ServerAddressEnv = "SERVER_ADDRESS"
 
 type udsExecutable struct {

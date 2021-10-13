@@ -19,7 +19,6 @@ import (
 
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/extensions"
-	"github.com/gardener/component-cli/pkg/transport/process/processors"
 )
 
 const processorName = "example-processor"
@@ -43,7 +42,7 @@ func main() {
 		}
 	}
 
-	srv, err := processors.NewUDSServer(addr, h)
+	srv, err := process.NewUDSServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}
