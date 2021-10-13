@@ -48,6 +48,16 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 			if err != nil {
 				return fmt.Errorf("unable to filter image %+v: %w", m, err)
 			}
+
+			manifestBytes, err := json.Marshal(filteredManifest.Data)
+			if err != nil {
+				return fmt.Errorf("unable to marshal manifest: ")
+			}
+
+			if err := f.cache.Add(filteredManifest.Descriptor, io.NopCloser(bytes.NewReader(manifestBytes))); err != nil {
+				return fmt.Errorf("unable to add filtered manifest to cache: %w", err)
+			}
+
 			filteredImgs = append(filteredImgs, filteredManifest)
 		}
 		filteredIndex := &oci.Index{
@@ -101,6 +111,9 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			if err != nil {
 				return nil, fmt.Errorf("unable to create gzip reader for layer: %w", err)
 			}
+			gzipw := gzip.NewWriter(layerBlobWriter)
+			defer gzipw.Close()
+			layerBlobWriter = gzipw
 		}
 
 		uncompressedHasher := sha256.New()
@@ -186,6 +199,14 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 	if err := f.cache.Add(configDesc, io.NopCloser(bytes.NewReader(marshaledConfig))); err != nil {
 		return nil, fmt.Errorf("unable to add filtered layer blob to cache: %w", err)
 	}
+
+	manifestBytes, err := json.Marshal(manifest.Data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal manifest: %w", err)
+	}
+
+	manifest.Descriptor.Size = int64(len(manifestBytes))
+	manifest.Descriptor.Digest = digest.FromBytes(manifestBytes)
 
 	return &manifest, nil
 }
