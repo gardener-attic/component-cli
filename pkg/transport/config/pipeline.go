@@ -1,14 +1,17 @@
+// SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/gardener/component-cli/pkg/transport/filter"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
-	"github.com/gardener/component-cli/pkg/transport/process/uploaders"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"sigs.k8s.io/yaml"
 )
 
 type ResourcePipeline struct {
@@ -24,148 +27,194 @@ type ProcessorWithName struct {
 	Name      string
 }
 
+type DD struct {
+	name    string
+	typ     ExtensionType
+	spec    *json.RawMessage
+	filters []filter.Filter
+}
+
+type PD struct {
+	name string
+	typ  ExtensionType
+	spec *json.RawMessage
+}
+
+type UD struct {
+	name    string
+	typ     ExtensionType
+	spec    *json.RawMessage
+	filters []filter.Filter
+}
+
+type RD struct {
+	name       string
+	processors []string
+	filters    []filter.Filter
+}
+
 type ProcessorsLookup struct {
-	downloaders []struct {
-		ProcessorWithName
-		filters []filter.Filter
-	}
-	processors []ProcessorWithName
+	downloaders []DD
+	processors  []PD
+	uploaders   []UD
+	rules       []RD
+}
 
-	uploaders []struct {
-		ProcessorWithName
-		filters []filter.Filter
+func NewPipelineCompiler(transportCfgPath string, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingPipelineCompiler, error) {
+	transportCfgYaml, err := os.ReadFile(transportCfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read transport config file: %w", err)
 	}
 
-	rules []struct {
-		name       string
-		processors []string
-		filters    []filter.Filter
+	var transportCfg transportConfig
+	err = yaml.Unmarshal(transportCfgYaml, &transportCfg)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse transport config file: %w", err)
 	}
+
+	compiler, err := compileFromConfig(&transportCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating lookup table %w", err)
+	}
+
+	c := ProcessingPipelineCompiler{
+		lookup:            compiler,
+		downloaderFactory: df,
+		processorFactory:  pf,
+		uploaderFactory:   uf,
+	}
+
+	return &c, nil
 }
 
 type ProcessingPipelineCompiler struct {
-	lookup ProcessorsLookup
+	lookup            *ProcessorsLookup
+	uploaderFactory   *UploaderFactory
+	downloaderFactory *DownloaderFactory
+	processorFactory  *ProcessorFactory
 }
 
 // Create a ProcessingPipelineCompiler on the base of a config
-func CompileFromConfig(config *Config) (*ProcessingPipelineCompiler, error) {
+func compileFromConfig(config *transportConfig) (*ProcessorsLookup, error) {
 	var lookup ProcessorsLookup
+	ff := NewFilterFactory()
 
 	// downloader
-	for _, downlaoderDefinition := range config.Downloaders {
-		if downlaoderDefinition.Type == ExecutableProcessor {
-			fmt.Println("Not yet implemented")
-		} else {
-			downloader := createBuiltInProcessor(string(downlaoderDefinition.Type), downlaoderDefinition.Spec)
-			filters, err := createFilterList(downlaoderDefinition.Filters)
-			if err != nil {
-				return nil, fmt.Errorf("failed creating downloader %s: %w", downlaoderDefinition.Name, err)
-			}
-			lookup.downloaders = append(lookup.downloaders, struct {
-				ProcessorWithName
-				filters []filter.Filter
-			}{ProcessorWithName{downloader, downlaoderDefinition.Name}, filters})
+	for _, downloaderDefinition := range config.Downloaders {
+		filters, err := createFilterList(downloaderDefinition.Filters, ff)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating downloader %s: %w", downloaderDefinition.Name, err)
 		}
+		lookup.downloaders = append(lookup.downloaders, DD{
+			name:    downloaderDefinition.Name,
+			typ:     downloaderDefinition.Type,
+			spec:    downloaderDefinition.Spec,
+			filters: filters,
+		})
 	}
 
 	// processors
 	for _, processorsDefinition := range config.Processors {
-		if processorsDefinition.Type == ExecutableProcessor {
-			fmt.Println("Not yet implemented")
-		} else {
-			processor := createBuiltInProcessor(string(processorsDefinition.Type), processorsDefinition.Spec)
-			lookup.processors = append(lookup.processors, struct {
-				Processor process.ResourceStreamProcessor
-				Name      string
-			}{processor, processorsDefinition.Name})
-		}
+		lookup.processors = append(lookup.processors, PD{
+			name: processorsDefinition.Name,
+			typ:  processorsDefinition.Type,
+			spec: processorsDefinition.Spec,
+		})
 	}
 
 	// uploaders
 	for _, uploaderDefinition := range config.Uploaders {
-		if uploaderDefinition.Type == ExecutableProcessor {
-			fmt.Println("Not yet implemented")
-		} else {
-			uploader := createBuiltInProcessor(string(uploaderDefinition.Type), uploaderDefinition.Spec)
-			filters, err := createFilterList(uploaderDefinition.Filters)
-			if err != nil {
-				return nil, fmt.Errorf("failed creating downloader %s: %w", uploaderDefinition.Name, err)
-			}
-			lookup.uploaders = append(lookup.uploaders, struct {
-				ProcessorWithName
-				filters []filter.Filter
-			}{ProcessorWithName{uploader, uploaderDefinition.Name}, filters})
+		filters, err := createFilterList(uploaderDefinition.Filters, ff)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating downloader %s: %w", uploaderDefinition.Name, err)
 		}
+		lookup.uploaders = append(lookup.uploaders, UD{
+			name:    uploaderDefinition.Name,
+			typ:     uploaderDefinition.Type,
+			spec:    uploaderDefinition.Spec,
+			filters: filters,
+		})
 	}
 
 	// rules
 	for _, rule := range config.Rules {
-		var ruleLookup struct {
-			name       string
-			processors []string
-			filters    []filter.Filter
-		}
-		ruleLookup.name = rule.Name
+		processors := []string{}
 		for _, processor := range rule.Processors {
-			ruleLookup.processors = append(ruleLookup.processors, processor.Name)
+			processors = append(processors, processor.Name)
 		}
-		filters, err := createFilterList(rule.Filters)
+		filters, err := createFilterList(rule.Filters, ff)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating rule %s: %w", rule.Name, err)
 		}
-		ruleLookup.filters = filters
+		ruleLookup := RD{
+			name:       rule.Name,
+			processors: processors,
+			filters:    filters,
+		}
 		lookup.rules = append(lookup.rules, ruleLookup)
 	}
 
-	return &ProcessingPipelineCompiler{
-		lookup: lookup,
-	}, nil
+	return &lookup, nil
 }
 
-func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cds []cdv2.ComponentDescriptor) ([]ResourcePipeline, error) {
-	var pipelines []ResourcePipeline
+func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cd cdv2.ComponentDescriptor, res cdv2.Resource) (*ResourcePipeline, error) {
+	pipeline := ResourcePipeline{
+		Cd:       &cd,
+		Resource: &res,
+	}
 
-	// loop through all resources
-	for _, cd := range cds {
-		for _, res := range cd.Resources {
-			var pipeline ResourcePipeline
-			pipeline.Cd = &cd
-			pipeline.Resource = &res
-
-			// find matching downloader
-			for _, downloader := range c.lookup.downloaders {
-				matches := doesAllFilterMatch(downloader.filters, cd, res)
-				if matches {
-					pipeline.Downloaders = append(pipeline.Downloaders, ProcessorWithName{downloader.Processor, downloader.Name})
-				}
+	// find matching downloader
+	for _, downloader := range c.lookup.downloaders {
+		matches := doesAllFilterMatch(downloader.filters, cd, res)
+		if matches {
+			dl, err := c.downloaderFactory.Create(string(downloader.typ), downloader.spec)
+			if err != nil {
+				return nil, err
 			}
-
-			// find matching uploader
-			for _, uploader := range c.lookup.uploaders {
-				matches := doesAllFilterMatch(uploader.filters, cd, res)
-				if matches {
-					pipeline.Uploaders = append(pipeline.Uploaders, ProcessorWithName{uploader.Processor, uploader.Name})
-				}
-			}
-
-			// loop through all rules to find corresponding processors
-			for _, rule := range c.lookup.rules {
-				matches := doesAllFilterMatch(rule.filters, cd, res)
-				if matches {
-					for _, processorName := range rule.processors {
-						processorDefined, err := lookupProcessorByName(processorName, &c.lookup)
-						if err != nil {
-							return nil, fmt.Errorf("failed compiling rule %s: %w", rule.name, err)
-						}
-						pipeline.Processors = append(pipeline.Processors, ProcessorWithName{processorDefined.Processor, processorDefined.Name})
-					}
-				}
-			}
-			pipelines = append(pipelines, pipeline)
+			pipeline.Downloaders = append(pipeline.Downloaders, ProcessorWithName{
+				Name:      downloader.name,
+				Processor: dl,
+			})
 		}
 	}
 
-	return pipelines, nil
+	// find matching uploader
+	for _, uploader := range c.lookup.uploaders {
+		matches := doesAllFilterMatch(uploader.filters, cd, res)
+		if matches {
+			ul, err := c.downloaderFactory.Create(string(uploader.typ), uploader.spec)
+			if err != nil {
+				return nil, err
+			}
+			pipeline.Uploaders = append(pipeline.Uploaders, ProcessorWithName{
+				Name:      uploader.name,
+				Processor: ul,
+			})
+		}
+	}
+
+	// loop through all rules to find corresponding processors
+	for _, rule := range c.lookup.rules {
+		matches := doesAllFilterMatch(rule.filters, cd, res)
+		if matches {
+			for _, processorName := range rule.processors {
+				processorDefined, err := lookupProcessorByName(processorName, c.lookup)
+				if err != nil {
+					return nil, fmt.Errorf("failed compiling rule %s: %w", rule.name, err)
+				}
+				p, err := c.processorFactory.Create(string(processorDefined.typ), processorDefined.spec)
+				if err != nil {
+					return nil, err
+				}
+				pipeline.Processors = append(pipeline.Processors, ProcessorWithName{
+					Name:      processorDefined.name,
+					Processor: p,
+				})
+			}
+		}
+	}
+
+	return &pipeline, nil
 }
 
 func doesAllFilterMatch(filters []filter.Filter, cd cdv2.ComponentDescriptor, res cdv2.Resource) bool {
@@ -177,22 +226,10 @@ func doesAllFilterMatch(filters []filter.Filter, cd cdv2.ComponentDescriptor, re
 	return true
 }
 
-func createBuiltInProcessor(builtinType string, spec *json.RawMessage) process.ResourceStreamProcessor {
-	switch builtinType {
-	case "LocalOCIBlobDownloader": //TODO: make to constant
-		// TODO parse config into corresponding config structure
-		return downloaders.NewLocalOCIBlobDownloader(nil) // TODO: pass correct oci client
-	case "LocalOCIBlobUploader":
-		// TODO parse config into corresponding config structure
-		return uploaders.NewLocalOCIBlobUploader(nil, cdv2.OCIRegistryRepository{}) // TODO: pass correct oci client
-	}
-	return nil // TODO: change to error
-}
-
-func createFilterList(filterDefinitions []FilterDefinition) ([]filter.Filter, error) {
+func createFilterList(filterDefinitions []FilterDefinition, ff *FilterFactory) ([]filter.Filter, error) {
 	var filters []filter.Filter
 	for _, f := range filterDefinitions {
-		filter, err := createFilter(f.Type, f.Args)
+		filter, err := ff.Create(f.Type, f.Args)
 		if err != nil {
 			return nil, fmt.Errorf("error creating filter list for type %s with args %s: %w", f.Type, string(*f.Args), err)
 		}
@@ -201,21 +238,9 @@ func createFilterList(filterDefinitions []FilterDefinition) ([]filter.Filter, er
 	return filters, nil
 }
 
-func createFilter(filterType string, args *json.RawMessage) (filter.Filter, error) {
-	switch filterType {
-	case "ComponentFilter": // TODO: make constant
-		filter, err := filter.CreateComponentFilterFromConfig(args)
-		if err != nil {
-			return nil, fmt.Errorf("can not create filter %s with provided args", filterType)
-		}
-		return filter, nil
-	}
-	return nil, fmt.Errorf("can not find filter %s", filterType)
-}
-
-func lookupProcessorByName(name string, lookup *ProcessorsLookup) (*ProcessorWithName, error) {
+func lookupProcessorByName(name string, lookup *ProcessorsLookup) (*PD, error) {
 	for _, processor := range lookup.processors {
-		if processor.Name == name {
+		if processor.name == name {
 			return &processor, nil
 		}
 	}
