@@ -12,16 +12,17 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type executableSpec struct {
-	Bin  string
-	Args []string
-	Env  []string
-}
-
-func createExecutable(spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
-	var specstr executableSpec
-	if err := yaml.Unmarshal(*spec, &specstr); err != nil {
-		return nil, fmt.Errorf("unable to parse downloader spec: %w", err)
+func createExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+	type executableSpec struct {
+		Bin  string
+		Args []string
+		Env  []string
 	}
-	return extensions.NewUDSExecutable(specstr.Bin, specstr.Args, specstr.Env)
+
+	var spec executableSpec
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
+		return nil, fmt.Errorf("unable to parse spec: %w", err)
+	}
+	
+	return extensions.NewUDSExecutable(spec.Bin, spec.Args, spec.Env)
 }

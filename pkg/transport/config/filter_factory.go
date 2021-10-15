@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gardener/component-cli/pkg/transport/filter"
+	"sigs.k8s.io/yaml"
 )
 
 func NewFilterFactory() *FilterFactory {
@@ -19,12 +20,22 @@ type FilterFactory struct{}
 func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filter.Filter, error) {
 	switch typ {
 	case "ComponentFilter":
-		filter, err := filter.CreateComponentFilterFromConfig(spec)
-		if err != nil {
-			return nil, fmt.Errorf("can not create filter %s with provided args", typ)
-		}
-		return filter, nil
+		return f.createComponentFilter(spec)
 	default:
-		return nil, fmt.Errorf("unable to create downloader: unknown type %s", typ)
+		return nil, fmt.Errorf("unknown filter type %s", typ)
 	}
+}
+
+func (f *FilterFactory) createComponentFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+	type filterSpec struct {
+		IncludeComponentNames []string `json:"includeComponentNames"`
+	}
+
+	var spec filterSpec
+	err := yaml.Unmarshal(*rawSpec, &spec)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse spec: %w", err)
+	}
+
+	return filter.NewComponentFilter(spec.IncludeComponentNames...)
 }

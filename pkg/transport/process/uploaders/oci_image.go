@@ -19,15 +19,15 @@ import (
 type ociImageUploader struct {
 	client         ociclient.Client
 	cache          cache.Cache
-	targetRepo     string
+	baseUrl        string
 	keepSourceRepo bool
 }
 
-func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, targetRepo string, keepSourceRepo bool) process.ResourceStreamProcessor {
+func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, baseUrl string, keepSourceRepo bool) process.ResourceStreamProcessor {
 	obj := ociImageUploader{
 		client:         client,
 		cache:          cache,
-		targetRepo:     targetRepo,
+		baseUrl:        baseUrl,
 		keepSourceRepo: keepSourceRepo,
 	}
 	return &obj
@@ -58,7 +58,7 @@ func (u *ociImageUploader) Process(ctx context.Context, r io.Reader, w io.Writer
 		return fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
-	target, err := utils.TargetOCIArtifactRef(u.targetRepo, ociAccess.ImageReference, u.keepSourceRepo)
+	target, err := utils.TargetOCIArtifactRef(u.baseUrl, ociAccess.ImageReference, u.keepSourceRepo)
 	if err != nil {
 		return fmt.Errorf("unable to create target oci artifact reference: %w", err)
 	}

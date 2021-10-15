@@ -22,6 +22,6 @@ func (f *ProcessorFactory) Create(typ string, spec *json.RawMessage) (process.Re
 	case "executable":
 		return createExecutable(spec)
 	default:
-		return nil, fmt.Errorf("unable to create processor: unknown type %s", typ)
+		return nil, fmt.Errorf("unknown processor type %s", typ)
 	}
 }
