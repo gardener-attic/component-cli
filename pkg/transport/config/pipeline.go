@@ -4,6 +4,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,12 +15,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type ResourcePipeline struct {
-	Cd          *cdv2.ComponentDescriptor
-	Resource    *cdv2.Resource
-	Downloaders []ProcessorWithName
-	Processors  []ProcessorWithName
-	Uploaders   []ProcessorWithName
+type ProcessingJob struct {
+	ComponentDescriptor *cdv2.ComponentDescriptor
+	Resource            *cdv2.Resource
+	Downloaders         []ProcessorWithName
+	Processors          []ProcessorWithName
+	Uploaders           []ProcessorWithName
+	ProcessedResource   *cdv2.Resource
 }
 
 type ProcessorWithName struct {
@@ -60,7 +62,7 @@ type ProcessorsLookup struct {
 	rules       []RD
 }
 
-func NewPipelineCompiler(transportCfgPath string, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingPipelineCompiler, error) {
+func NewProcessingJobFactory(transportCfgPath string, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
 	transportCfgYaml, err := os.ReadFile(transportCfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read transport config file: %w", err)
@@ -77,7 +79,7 @@ func NewPipelineCompiler(transportCfgPath string, df *DownloaderFactory, pf *Pro
 		return nil, fmt.Errorf("failed creating lookup table %w", err)
 	}
 
-	c := ProcessingPipelineCompiler{
+	c := ProcessingJobFactory{
 		lookup:            compiler,
 		downloaderFactory: df,
 		processorFactory:  pf,
@@ -87,7 +89,7 @@ func NewPipelineCompiler(transportCfgPath string, df *DownloaderFactory, pf *Pro
 	return &c, nil
 }
 
-type ProcessingPipelineCompiler struct {
+type ProcessingJobFactory struct {
 	lookup            *ProcessorsLookup
 	uploaderFactory   *UploaderFactory
 	downloaderFactory *DownloaderFactory
@@ -157,10 +159,10 @@ func compileFromConfig(config *transportConfig) (*ProcessorsLookup, error) {
 	return &lookup, nil
 }
 
-func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cd cdv2.ComponentDescriptor, res cdv2.Resource) (*ResourcePipeline, error) {
-	pipeline := ResourcePipeline{
-		Cd:       &cd,
-		Resource: &res,
+func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Resource) (*ProcessingJob, error) {
+	job := ProcessingJob{
+		ComponentDescriptor: &cd,
+		Resource:            &res,
 	}
 
 	// find matching downloader
@@ -171,7 +173,7 @@ func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cd cdv2.ComponentDes
 			if err != nil {
 				return nil, err
 			}
-			pipeline.Downloaders = append(pipeline.Downloaders, ProcessorWithName{
+			job.Downloaders = append(job.Downloaders, ProcessorWithName{
 				Name:      downloader.name,
 				Processor: dl,
 			})
@@ -186,7 +188,7 @@ func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cd cdv2.ComponentDes
 			if err != nil {
 				return nil, err
 			}
-			pipeline.Uploaders = append(pipeline.Uploaders, ProcessorWithName{
+			job.Uploaders = append(job.Uploaders, ProcessorWithName{
 				Name:      uploader.name,
 				Processor: ul,
 			})
@@ -206,7 +208,7 @@ func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cd cdv2.ComponentDes
 				if err != nil {
 					return nil, err
 				}
-				pipeline.Processors = append(pipeline.Processors, ProcessorWithName{
+				job.Processors = append(job.Processors, ProcessorWithName{
 					Name:      processorDefined.name,
 					Processor: p,
 				})
@@ -214,7 +216,7 @@ func (c *ProcessingPipelineCompiler) CreateResourcePipeline(cd cdv2.ComponentDes
 		}
 	}
 
-	return &pipeline, nil
+	return &job, nil
 }
 
 func doesAllFilterMatch(filters []filter.Filter, cd cdv2.ComponentDescriptor, res cdv2.Resource) bool {
@@ -245,4 +247,30 @@ func lookupProcessorByName(name string, lookup *ProcessorsLookup) (*PD, error) {
 		}
 	}
 	return nil, fmt.Errorf("can not find processor %s", name)
+}
+
+func (j *ProcessingJob) Process(ctx context.Context) error {
+	processors := []process.ResourceStreamProcessor{}
+
+	for _, d := range j.Downloaders {
+		processors = append(processors, d.Processor)
+	}
+
+	for _, p := range j.Processors {
+		processors = append(processors, p.Processor)
+	}
+
+	for _, u := range j.Uploaders {
+		processors = append(processors, u.Processor)
+	}
+
+	p := process.NewResourceProcessingPipeline(processors...)
+	_, processedResource, err := p.Process(ctx, *j.ComponentDescriptor, *j.Resource)
+	if err != nil {
+		return err
+	}
+
+	j.ProcessedResource = &processedResource
+
+	return nil
 }

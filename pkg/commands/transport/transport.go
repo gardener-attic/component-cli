@@ -21,29 +21,30 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/ociclient/cache"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
-	"github.com/gardener/component-cli/pkg/transport/process/extensions"
-	"github.com/gardener/component-cli/pkg/transport/process/uploaders"
+	"github.com/gardener/component-cli/pkg/transport/config"
 )
 
 const (
 	parallelRuns = 1
-	targetCtxUrl = "eu.gcr.io/gardener-project/test/jschicktanz/target"
 )
 
 type Options struct {
-	// BaseUrl is the oci registry where the component is stored.
-	BaseUrl string
+	SourceRepository string
+	TargetRepository string
+
 	// ComponentName is the unique name of the component in the registry.
 	ComponentName string
 	// Version is the component Version in the oci registry.
 	Version string
 
-	ComponentNameMapping string
+	// TransportCfgPath is the path to the transport config file
+	TransportCfgPath string
+	// RepoCtxOverrideCfgPath is the path to the repo context override config file
+	RepoCtxOverrideCfgPath string
 
 	// OCIOptions contains all oci client related options.
 	OCIOptions ociopts.Options
@@ -71,13 +72,15 @@ func NewTransportCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.ComponentNameMapping, "component-name-mapping", string(cdv2.OCIRegistryURLPathMapping), "[OPTIONAL] repository context name mapping")
+	fs.StringVar(&o.SourceRepository, "from", "", "source repository base url.")
+	fs.StringVar(&o.TargetRepository, "to", "", "target repository where the components are copied to.")
+	fs.StringVar(&o.TransportCfgPath, "transport-cfg", "", "path to the transport config file")
+	fs.StringVar(&o.RepoCtxOverrideCfgPath, "repo-ctx-override-cfg", "", "path to the repo context override config file")
 	o.OCIOptions.AddFlags(fs)
 }
 
 func (o *Options) Complete(args []string) error {
-	// todo: validate args
-	o.BaseUrl = args[0]
+	o.SourceRepository = args[0]
 	o.ComponentName = args[1]
 	o.Version = args[2]
 
@@ -90,7 +93,7 @@ func (o *Options) Complete(args []string) error {
 		return fmt.Errorf("unable to create cache directory %s: %w", o.OCIOptions.CacheDir, err)
 	}
 
-	if len(o.BaseUrl) == 0 {
+	if len(o.SourceRepository) == 0 {
 		return errors.New("the base url must be defined")
 	}
 	if len(o.ComponentName) == 0 {
@@ -98,6 +101,10 @@ func (o *Options) Complete(args []string) error {
 	}
 	if len(o.Version) == 0 {
 		return errors.New("a component's Version must be defined")
+	}
+
+	if len(o.TransportCfgPath) == 0 {
+		return errors.New("a path to a transport config file must be defined")
 	}
 
 	return nil
@@ -109,17 +116,29 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
 	}
 
-	cds, err := ResolveRecursive(ctx, ociClient, o.BaseUrl, o.ComponentName, o.Version, o.ComponentNameMapping)
+	ociCache, err := cache.NewCache(log, cache.WithBasePath(o.OCIOptions.CacheDir))
+	if err != nil {
+		return fmt.Errorf("unable to build cache: %w", err)
+	}
+
+	if err := cache.InjectCacheInto(ociClient, ociCache); err != nil {
+		return fmt.Errorf("unable to inject cache into oci client: %w", err)
+	}
+
+	sourceCtx := cdv2.NewOCIRegistryRepository(o.SourceRepository, "")
+	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to resolve component: %w", err)
 	}
 
-	targetCtx := cdv2.OCIRegistryRepository{
-		ObjectType: cdv2.ObjectType{
-			Type: cdv2.OCIRegistryType,
-		},
-		BaseURL:              targetCtxUrl,
-		ComponentNameMapping: cdv2.ComponentNameMapping(o.ComponentNameMapping),
+	targetCtx := cdv2.NewOCIRegistryRepository(o.TargetRepository, "")
+
+	df := config.NewDownloaderFactory(ociClient, ociCache)
+	pf := config.NewProcessorFactory(ociCache)
+	uf := config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
+	pjf, err := config.NewProcessingJobFactory(o.TransportCfgPath, df, pf, uf)
+	if err != nil {
+		return err
 	}
 
 	wg := sync.WaitGroup{}
@@ -128,7 +147,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			processedResources, errs := handleResources(ctx, cd, targetCtx, log, ociClient)
+			processedResources, errs := handleResources(ctx, cd, *targetCtx, log, pjf)
 			if len(errs) > 0 {
 				for _, err := range errs {
 					log.Error(err, "")
@@ -147,7 +166,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	return nil
 }
 
-func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, ociClient ociclient.Client) ([]cdv2.Resource, []error) {
+func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *config.ProcessingPipelineCompiler) ([]cdv2.Resource, []error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
 	mux := sync.Mutex{}
@@ -160,43 +179,27 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 		go func() {
 			defer wg.Done()
 
-			procs, err := createProcessors(ociClient, targetCtx)
+			job, err := processingJobFactory.Create(*cd, resource)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("unable to create processors: %w", err))
+				errs = append(errs, fmt.Errorf("unable to create processing job: %w", err))
 				return
 			}
 
-			pip := process.NewResourceProcessingPipeline(procs...)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("unable to create pipeline: %w", err))
-				return
-			}
-
-			// TODO: do we allow modifications of the component descriptor?
-			// If so, how do we merge the possibly different output of multiple resource pipelines?
-			processedCD, processedRes, err := pip.Process(ctx, *cd, resource)
-			if err != nil {
+			if err = job.Process(ctx); err != nil {
 				errs = append(errs, fmt.Errorf("unable to process resource %+v: %w", resource, err))
 				return
 			}
 
 			mux.Lock()
-			processedResources = append(processedResources, processedRes)
+			processedResources = append(processedResources, *job.ProcessedResource)
 			mux.Unlock()
 
-			mcd, err := yaml.Marshal(processedCD)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("unable to marshal cd: %w", err))
-				return
-			}
-
-			mres, err := yaml.Marshal(processedRes)
+			mres, err := yaml.Marshal(*job.ProcessedResource)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("unable to marshal res: %w", err))
 				return
 			}
 
-			fmt.Println(string(mcd))
 			fmt.Println(string(mres))
 		}()
 	}
@@ -205,21 +208,14 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 	return processedResources, errs
 }
 
-func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, componentName, componentVersion, componentNameMapping string) ([]*cdv2.ComponentDescriptor, error) {
-	repoCtx := cdv2.OCIRegistryRepository{
-		ObjectType: cdv2.ObjectType{
-			Type: cdv2.OCIRegistryType,
-		},
-		BaseURL:              baseUrl,
-		ComponentNameMapping: cdv2.ComponentNameMapping(componentNameMapping),
-	}
-	ociRef, err := cdoci.OCIRef(repoCtx, componentName, componentVersion)
+func ResolveRecursive(ctx context.Context, client ociclient.Client, repo cdv2.OCIRegistryRepository, componentName, componentVersion string) ([]*cdv2.ComponentDescriptor, error) {
+	ociRef, err := cdoci.OCIRef(repo, componentName, componentVersion)
 	if err != nil {
 		return nil, fmt.Errorf("invalid component reference: %w", err)
 	}
 
 	cdresolver := cdoci.NewResolver(client)
-	cd, err := cdresolver.Resolve(ctx, &repoCtx, componentName, componentVersion)
+	cd, err := cdresolver.Resolve(ctx, &repo, componentName, componentVersion)
 	if err != nil {
 		return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 	}
@@ -228,7 +224,7 @@ func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, com
 		cd,
 	}
 	for _, ref := range cd.ComponentReferences {
-		cds2, err := ResolveRecursive(ctx, client, baseUrl, ref.ComponentName, ref.Version, componentNameMapping)
+		cds2, err := ResolveRecursive(ctx, client, repo, ref.ComponentName, ref.Version)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve ref %+v: %w", ref, err)
 		}
@@ -236,28 +232,4 @@ func ResolveRecursive(ctx context.Context, client ociclient.Client, baseUrl, com
 	}
 
 	return cds, nil
-}
-
-func createProcessors(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) ([]process.ResourceStreamProcessor, error) {
-	procBins := []string{
-		"../../../ctt-playground/bin/processor_1",
-		"../../../ctt-playground/bin/processor_2",
-		"../../../ctt-playground/bin/processor_3",
-	}
-
-	procs := []process.ResourceStreamProcessor{
-		downloaders.NewLocalOCIBlobDownloader(client),
-	}
-
-	for _, procBin := range procBins {
-		exec, err := extensions.NewStdIOExecutable(procBin, []string{}, []string{})
-		if err != nil {
-			return nil, err
-		}
-		procs = append(procs, exec)
-	}
-
-	procs = append(procs, uploaders.NewLocalOCIBlobUploader(client, targetCtx))
-
-	return procs, nil
 }
