@@ -12,13 +12,13 @@ import (
 	"sync"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -151,22 +151,37 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 			if len(errs) > 0 {
 				for _, err := range errs {
 					log.Error(err, "")
+					return
 				}
 			}
 
 			cd.Resources = processedResources
 
+			manifest, err := cdoci.NewManifestBuilder(ociCache, ctf.NewComponentArchive(cd, nil)).Build(ctx)
+			if err != nil {
+				log.Error(err, "unable to build oci artifact for component acrchive")
+				return
+			}
+
+			ociRef, err := cdoci.OCIRef(*targetCtx, o.ComponentName, o.Version)
+			if err != nil {
+				log.Error(err, "unable to build component reference")
+				return
+			}
+
+			if err := ociClient.PushManifest(ctx, ociRef, manifest); err != nil {
+				log.Error(err, "unable to push manifest")
+				return
+			}
 		}()
 	}
 
-	fmt.Println("waiting for goroutines to finish")
 	wg.Wait()
-	fmt.Println("main finished")
 
 	return nil
 }
 
-func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *config.ProcessingPipelineCompiler) ([]cdv2.Resource, []error) {
+func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *config.ProcessingJobFactory) ([]cdv2.Resource, []error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
 	mux := sync.Mutex{}
@@ -193,14 +208,6 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 			mux.Lock()
 			processedResources = append(processedResources, *job.ProcessedResource)
 			mux.Unlock()
-
-			mres, err := yaml.Marshal(*job.ProcessedResource)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("unable to marshal res: %w", err))
-				return
-			}
-
-			fmt.Println(string(mres))
 		}()
 	}
 
