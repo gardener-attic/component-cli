@@ -55,7 +55,7 @@ func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filt
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filter.NewComponentFilter(spec.IncludeResourceTypes...)
+	return filter.NewResourceTypeFilter(spec.IncludeResourceTypes...)
 }
 
 func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filter.Filter, error) {

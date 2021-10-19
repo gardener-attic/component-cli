@@ -19,7 +19,6 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/transport"
 	"github.com/gardener/component-cli/pkg/logcontext"
 	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/transport/config"
 	"github.com/gardener/component-cli/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -51,7 +50,6 @@ func NewComponentsCliCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(oci.NewOCICommand(ctx))
 	cmd.AddCommand(cachecmd.NewCacheCommand(ctx))
 	cmd.AddCommand(transport.NewTransportCommand(ctx))
-	cmd.AddCommand(config.NewConfigParseCommand(ctx))
 	cmd.AddCommand(transport.NewTestCommand(ctx))
 
 	return cmd

@@ -5,9 +5,12 @@ package config
 
 import "encoding/json"
 
+type meta struct {
+	Version string `json:"version"`
+}
+
 type transportConfig struct {
-	Meta        string
-	Version     string                 `json:"version"`
+	Meta        meta                   `json:"meta"`
 	Uploaders   []UploaderDefinition   `json:"uploaders"`
 	Processors  []ProcessorDefinition  `json:"processors"`
 	Downloaders []DownloaderDefinition `json:"downloaders"`
@@ -32,7 +35,7 @@ type HookDefinition struct {
 
 type FilterDefinition struct {
 	Type string           `json:"type"`
-	Args *json.RawMessage `json:"args"`
+	Spec *json.RawMessage `json:"spec"`
 }
 
 type DownloaderDefinition struct {

@@ -31,9 +31,9 @@ type UploaderFactory struct {
 
 func (f *UploaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
-	case "localOCIBlob":
+	case "localOciBlobUL":
 		return uploaders.NewLocalOCIBlobUploader(f.client, f.targetCtx), nil
-	case "ociImage":
+	case "ociImageUL":
 		return f.createOCIImageUploader(spec)
 	case "executable":
 		return createExecutable(spec)

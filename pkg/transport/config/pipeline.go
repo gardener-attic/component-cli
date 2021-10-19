@@ -167,8 +167,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 
 	// find matching downloader
 	for _, downloader := range c.lookup.downloaders {
-		matches := doesAllFilterMatch(downloader.filters, cd, res)
-		if matches {
+		if doesAllFilterMatch(downloader.filters, cd, res) {
 			dl, err := c.downloaderFactory.Create(string(downloader.typ), downloader.spec)
 			if err != nil {
 				return nil, err
@@ -182,9 +181,8 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 
 	// find matching uploader
 	for _, uploader := range c.lookup.uploaders {
-		matches := doesAllFilterMatch(uploader.filters, cd, res)
-		if matches {
-			ul, err := c.downloaderFactory.Create(string(uploader.typ), uploader.spec)
+		if doesAllFilterMatch(uploader.filters, cd, res) {
+			ul, err := c.uploaderFactory.Create(string(uploader.typ), uploader.spec)
 			if err != nil {
 				return nil, err
 			}
@@ -197,8 +195,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 
 	// loop through all rules to find corresponding processors
 	for _, rule := range c.lookup.rules {
-		matches := doesAllFilterMatch(rule.filters, cd, res)
-		if matches {
+		if doesAllFilterMatch(rule.filters, cd, res) {
 			for _, processorName := range rule.processors {
 				processorDefined, err := lookupProcessorByName(processorName, c.lookup)
 				if err != nil {
@@ -231,9 +228,9 @@ func doesAllFilterMatch(filters []filter.Filter, cd cdv2.ComponentDescriptor, re
 func createFilterList(filterDefinitions []FilterDefinition, ff *FilterFactory) ([]filter.Filter, error) {
 	var filters []filter.Filter
 	for _, f := range filterDefinitions {
-		filter, err := ff.Create(f.Type, f.Args)
+		filter, err := ff.Create(f.Type, f.Spec)
 		if err != nil {
-			return nil, fmt.Errorf("error creating filter list for type %s with args %s: %w", f.Type, string(*f.Args), err)
+			return nil, fmt.Errorf("error creating filter list for type %s with args %s: %w", f.Type, string(*f.Spec), err)
 		}
 		filters = append(filters, filter)
 	}

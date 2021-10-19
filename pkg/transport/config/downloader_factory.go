@@ -11,7 +11,6 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
-	"sigs.k8s.io/yaml"
 )
 
 func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *DownloaderFactory {
@@ -28,28 +27,13 @@ type DownloaderFactory struct {
 
 func (f *DownloaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
-	case "localOCIBlob":
+	case "localOciBlobDL":
 		return downloaders.NewLocalOCIBlobDownloader(f.client), nil
-	case "ociImage":
-		return f.createOCIImageDownloader(spec)
+	case "ociImageDL":
+		return downloaders.NewOCIImageDownloader(f.client, f.cache), nil
 	case "executable":
 		return createExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown downloader type %s", typ)
 	}
-}
-
-func (f *DownloaderFactory) createOCIImageDownloader(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
-	type downloaderSpec struct {
-		BaseUrl        string `json:"baseUrl"`
-		KeepSourceRepo bool   `json:"keepSourceRepo"`
-	}
-
-	var spec downloaderSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse spec: %w", err)
-	}
-
-	return downloaders.NewOCIImageDownloader(f.client, f.cache), nil
 }

@@ -80,9 +80,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) Complete(args []string) error {
-	o.SourceRepository = args[0]
-	o.ComponentName = args[1]
-	o.Version = args[2]
+	o.ComponentName = args[0]
+	o.Version = args[1]
 
 	cliHomeDir, err := constants.CliHomeDir()
 	if err != nil {
@@ -93,9 +92,6 @@ func (o *Options) Complete(args []string) error {
 		return fmt.Errorf("unable to create cache directory %s: %w", o.OCIOptions.CacheDir, err)
 	}
 
-	if len(o.SourceRepository) == 0 {
-		return errors.New("the base url must be defined")
-	}
 	if len(o.ComponentName) == 0 {
 		return errors.New("a component name must be defined")
 	}
@@ -103,6 +99,9 @@ func (o *Options) Complete(args []string) error {
 		return errors.New("a component's Version must be defined")
 	}
 
+	if len(o.SourceRepository) == 0 {
+		return errors.New("the base url must be defined")
+	}
 	if len(o.TransportCfgPath) == 0 {
 		return errors.New("a path to a transport config file must be defined")
 	}
