@@ -21,6 +21,10 @@ func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filter.Filter
 	switch typ {
 	case "ComponentFilter":
 		return f.createComponentFilter(spec)
+	case "ResourceTypeFilter":
+		return f.createResourceTypeFilter(spec)
+	case "AccessTypeFilter":
+		return f.createAccessTypeFilter(spec)
 	default:
 		return nil, fmt.Errorf("unknown filter type %s", typ)
 	}
@@ -38,4 +42,32 @@ func (f *FilterFactory) createComponentFilter(rawSpec *json.RawMessage) (filter.
 	}
 
 	return filter.NewComponentFilter(spec.IncludeComponentNames...)
+}
+
+func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+	type filterSpec struct {
+		IncludeResourceTypes []string `json:"includeResourceTypes"`
+	}
+
+	var spec filterSpec
+	err := yaml.Unmarshal(*rawSpec, &spec)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse spec: %w", err)
+	}
+
+	return filter.NewComponentFilter(spec.IncludeResourceTypes...)
+}
+
+func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+	type filterSpec struct {
+		IncludeAccessTypes []string `json:"includeAccessTypes"`
+	}
+
+	var spec filterSpec
+	err := yaml.Unmarshal(*rawSpec, &spec)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse spec: %w", err)
+	}
+
+	return filter.NewAccessTypeFilter(spec.IncludeAccessTypes...)
 }
