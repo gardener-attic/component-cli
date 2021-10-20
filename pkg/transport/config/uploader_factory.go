@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	LocalOCIBlobUploaderType = "localOciBlobUL"
-	OCIImageUploaderType     = "ociImageUL"
+	LocalOCIBlobUploaderType = "LocalOciBlobUploader"
+	OCIImageUploaderType     = "OciImageUploader"
 )
 
 func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository) *UploaderFactory {

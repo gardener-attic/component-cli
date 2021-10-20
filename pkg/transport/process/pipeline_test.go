@@ -48,8 +48,8 @@ var _ = Describe("pipeline", func() {
 				},
 			}
 
-			p1 := processors.NewLabellingProcessor(l1)
-			p2 := processors.NewLabellingProcessor(l2)
+			p1 := processors.NewResourceLabeler(l1)
+			p2 := processors.NewResourceLabeler(l2)
 			pipeline := process.NewResourceProcessingPipeline(p1, p2)
 
 			actualCD, actualRes, err := pipeline.Process(context.TODO(), cd, res)
