@@ -14,6 +14,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	ResourceLabelerProcessorType = "ResourceLabeler"
+	OCIImageFilterProcessorType  = "OciImageFilter"
+)
+
 func NewProcessorFactory(ociCache cache.Cache) *ProcessorFactory {
 	return &ProcessorFactory{
 		cache: ociCache,
@@ -26,18 +31,18 @@ type ProcessorFactory struct {
 
 func (f *ProcessorFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
-	case "label":
-		return f.createLabellingProcessor(spec)
-	case "ociImageFilter":
+	case ResourceLabelerProcessorType:
+		return f.createResourceLabeler(spec)
+	case OCIImageFilterProcessorType:
 		return f.createOCIImageFilter(spec)
-	case "executable":
+	case ExecutableType:
 		return createExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown processor type %s", typ)
 	}
 }
 
-func (f *ProcessorFactory) createLabellingProcessor(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+func (f *ProcessorFactory) createResourceLabeler(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	type processorSpec struct {
 		Labels cdv2.Labels `json:"labels"`
 	}
@@ -48,7 +53,7 @@ func (f *ProcessorFactory) createLabellingProcessor(rawSpec *json.RawMessage) (p
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return processors.NewLabellingProcessor(spec.Labels...), nil
+	return processors.NewResourceLabeler(spec.Labels...), nil
 }
 
 func (f *ProcessorFactory) createOCIImageFilter(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {

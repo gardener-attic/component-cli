@@ -11,6 +11,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	ComponentNameFilterType = "ComponentNameFilter"
+	ResourceTypeFilterType  = "ResourceTypeFilter"
+	AccessTypeFilterType    = "AccessTypeFilter"
+)
+
 func NewFilterFactory() *FilterFactory {
 	return &FilterFactory{}
 }
@@ -19,18 +25,18 @@ type FilterFactory struct{}
 
 func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filter.Filter, error) {
 	switch typ {
-	case "ComponentFilter":
-		return f.createComponentFilter(spec)
-	case "ResourceTypeFilter":
+	case ComponentNameFilterType:
+		return f.createComponentNameFilter(spec)
+	case ResourceTypeFilterType:
 		return f.createResourceTypeFilter(spec)
-	case "AccessTypeFilter":
+	case AccessTypeFilterType:
 		return f.createAccessTypeFilter(spec)
 	default:
 		return nil, fmt.Errorf("unknown filter type %s", typ)
 	}
 }
 
-func (f *FilterFactory) createComponentFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
 	type filterSpec struct {
 		IncludeComponentNames []string `json:"includeComponentNames"`
 	}
@@ -41,7 +47,7 @@ func (f *FilterFactory) createComponentFilter(rawSpec *json.RawMessage) (filter.
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filter.NewComponentFilter(spec.IncludeComponentNames...)
+	return filter.NewComponentNameFilter(spec.IncludeComponentNames...)
 }
 
 func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filter.Filter, error) {

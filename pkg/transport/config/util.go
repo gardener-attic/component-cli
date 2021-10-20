@@ -12,6 +12,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	ExecutableType = "executable"
+)
+
 func createExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	type executableSpec struct {
 		Bin  string
@@ -23,6 +27,6 @@ func createExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor
 	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
-	
+
 	return extensions.NewUDSExecutable(spec.Bin, spec.Args, spec.Env)
 }

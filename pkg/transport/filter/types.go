@@ -8,5 +8,6 @@ import (
 )
 
 type Filter interface {
+	// Matches receives a component descriptor and a resource and returns whether they match the filter criteria
 	Matches(*cdv2.ComponentDescriptor, cdv2.Resource) bool
 }

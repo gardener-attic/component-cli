@@ -10,11 +10,11 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
-type componentFilter struct {
+type componentNameFilter struct {
 	includeComponentNames []*regexp.Regexp
 }
 
-func (f componentFilter) Matches(cd *cdv2.ComponentDescriptor, r cdv2.Resource) bool {
+func (f componentNameFilter) Matches(cd *cdv2.ComponentDescriptor, r cdv2.Resource) bool {
 	var matches bool
 	for _, icn := range f.includeComponentNames {
 		if matches = icn.MatchString(cd.Name); matches {
@@ -24,7 +24,7 @@ func (f componentFilter) Matches(cd *cdv2.ComponentDescriptor, r cdv2.Resource) 
 	return matches
 }
 
-func NewComponentFilter(includeComponentNames ...string) (Filter, error) {
+func NewComponentNameFilter(includeComponentNames ...string) (Filter, error) {
 	icnRegexps := []*regexp.Regexp{}
 	for _, icn := range includeComponentNames {
 		icnRegexp, err := regexp.Compile(icn)
@@ -34,7 +34,7 @@ func NewComponentFilter(includeComponentNames ...string) (Filter, error) {
 		icnRegexps = append(icnRegexps, icnRegexp)
 	}
 
-	filter := componentFilter{
+	filter := componentNameFilter{
 		includeComponentNames: icnRegexps,
 	}
 

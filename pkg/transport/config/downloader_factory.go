@@ -13,6 +13,11 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
 )
 
+const (
+	LocalOCIBlobDownloaderType = "LocalOciBlobDownloader"
+	OCIImageDownloaderType     = "OciImageDownloader"
+)
+
 func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *DownloaderFactory {
 	return &DownloaderFactory{
 		client: client,
@@ -27,11 +32,11 @@ type DownloaderFactory struct {
 
 func (f *DownloaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
-	case "localOciBlobDL":
+	case LocalOCIBlobDownloaderType:
 		return downloaders.NewLocalOCIBlobDownloader(f.client), nil
-	case "ociImageDL":
+	case OCIImageDownloaderType:
 		return downloaders.NewOCIImageDownloader(f.client, f.cache), nil
-	case "executable":
+	case ExecutableType:
 		return createExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown downloader type %s", typ)

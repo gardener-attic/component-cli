@@ -15,6 +15,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	LocalOCIBlobUploaderType = "localOciBlobUL"
+	OCIImageUploaderType     = "ociImageUL"
+)
+
 func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository) *UploaderFactory {
 	return &UploaderFactory{
 		client:    client,
@@ -31,11 +36,11 @@ type UploaderFactory struct {
 
 func (f *UploaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
-	case "localOciBlobUL":
+	case LocalOCIBlobUploaderType:
 		return uploaders.NewLocalOCIBlobUploader(f.client, f.targetCtx), nil
-	case "ociImageUL":
+	case OCIImageUploaderType:
 		return f.createOCIImageUploader(spec)
-	case "executable":
+	case ExecutableType:
 		return createExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown uploader type %s", typ)
