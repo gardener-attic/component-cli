@@ -104,9 +104,11 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			return nil, fmt.Errorf("unable to create tempfile: %w", err)
 		}
 		defer tmpfile.Close()
-		var layerBlobWriter io.Writer = tmpfile
+		var layerBlobWriter io.WriteCloser = tmpfile
 
-		if layer.MediaType == ocispecv1.MediaTypeImageLayerGzip || layer.MediaType == images.MediaTypeDockerSchema2LayerGzip {
+		isGzipCompressedLayer := layer.MediaType == ocispecv1.MediaTypeImageLayerGzip || layer.MediaType == images.MediaTypeDockerSchema2LayerGzip
+
+		if isGzipCompressedLayer {
 			layerBlobReader, err = gzip.NewReader(layerBlobReader)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create gzip reader for layer: %w", err)
@@ -121,6 +123,13 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 
 		if err = utils.FilterTARArchive(layerBlobReader, mw, f.removePatterns); err != nil {
 			return nil, fmt.Errorf("unable to filter blob: %w", err)
+		}
+
+		if isGzipCompressedLayer {
+			// close gzip writer (flushes any unwritten data and writes gzip footer)
+			if err := layerBlobWriter.Close(); err != nil {
+				return nil, fmt.Errorf("unable to close layer writer: %w", err)
+			}
 		}
 
 		if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
