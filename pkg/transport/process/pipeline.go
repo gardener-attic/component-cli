@@ -14,7 +14,7 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
-const processorTimeout = 30 * time.Second
+const processorTimeout = 60 * time.Second
 
 type resourceProcessingPipelineImpl struct {
 	processors []ResourceStreamProcessor
