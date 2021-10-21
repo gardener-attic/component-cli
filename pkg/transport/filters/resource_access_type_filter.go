@@ -9,11 +9,11 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
-type accessTypeFilter struct {
+type resourceAccessTypeFilter struct {
 	includeAccessTypes []string
 }
 
-func (f accessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
+func (f resourceAccessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
 	for _, accessType := range f.includeAccessTypes {
 		if r.Access.Type == accessType {
 			return true
@@ -22,12 +22,12 @@ func (f accessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) 
 	return false
 }
 
-func NewAccessTypeFilter(includeAccessTypes ...string) (Filter, error) {
+func NewResourceAccessTypeFilter(includeAccessTypes ...string) (Filter, error) {
 	if len(includeAccessTypes) == 0 {
 		return nil, fmt.Errorf("includeAccessTypes must not be empty")
 	}
 
-	filter := accessTypeFilter{
+	filter := resourceAccessTypeFilter{
 		includeAccessTypes: includeAccessTypes,
 	}
 

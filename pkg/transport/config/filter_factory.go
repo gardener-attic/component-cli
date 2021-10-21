@@ -14,7 +14,7 @@ import (
 const (
 	ComponentNameFilterType = "ComponentNameFilter"
 	ResourceTypeFilterType  = "ResourceTypeFilter"
-	AccessTypeFilterType    = "AccessTypeFilter"
+	AccessTypeFilterType    = "ResourceAccessTypeFilter"
 )
 
 func NewFilterFactory() *FilterFactory {
@@ -75,5 +75,5 @@ func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filter
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewAccessTypeFilter(spec.IncludeAccessTypes...)
+	return filters.NewResourceAccessTypeFilter(spec.IncludeAccessTypes...)
 }
