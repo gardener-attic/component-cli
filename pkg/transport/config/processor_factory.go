@@ -7,11 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"sigs.k8s.io/yaml"
+
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/processors"
-	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	"sigs.k8s.io/yaml"
 )
 
 const (

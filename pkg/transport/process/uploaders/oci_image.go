@@ -8,12 +8,13 @@ import (
 	"fmt"
 	"io"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 	"github.com/gardener/component-cli/pkg/utils"
-	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
 type ociImageUploader struct {

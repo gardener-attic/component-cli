@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/component-cli/pkg/transport/filters"
-	"github.com/gardener/component-cli/pkg/transport/process"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/component-cli/pkg/transport/filters"
+	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
 type ProcessingJob struct {

@@ -11,9 +11,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/gardener/component-cli/pkg/utils"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 const (

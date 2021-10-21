@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"io"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/serialize"
-	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type ociImageDownloader struct {

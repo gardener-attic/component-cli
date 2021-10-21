@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/extensions"
-	"sigs.k8s.io/yaml"
 )
 
 const (

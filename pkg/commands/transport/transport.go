@@ -28,10 +28,6 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/config"
 )
 
-const (
-	parallelRuns = 1
-)
-
 type Options struct {
 	SourceRepository string
 	TargetRepository string

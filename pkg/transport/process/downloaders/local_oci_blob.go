@@ -9,10 +9,11 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/transport/process"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
+
+	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
 type localOCIBlobDownloader struct {

@@ -13,12 +13,13 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gardener/component-cli/ociclient/cache"
-	"github.com/gardener/component-cli/ociclient/oci"
-	"github.com/gardener/component-cli/pkg/utils"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/gardener/component-cli/ociclient/cache"
+	"github.com/gardener/component-cli/ociclient/oci"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 const (

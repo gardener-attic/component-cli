@@ -6,10 +6,11 @@ package filters_test
 import (
 	"testing"
 
-	filter "github.com/gardener/component-cli/pkg/transport/filters"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	filter "github.com/gardener/component-cli/pkg/transport/filters"
 )
 
 func TestConfig(t *testing.T) {
@@ -27,7 +28,7 @@ var _ = Describe("filters", func() {
 				Access: cdv2.NewEmptyUnstructured(cdv2.OCIRegistryType),
 			}
 
-			f, err := filter.NewAccessTypeFilter(cdv2.OCIRegistryType)
+			f, err := filter.NewResourceAccessTypeFilter(cdv2.OCIRegistryType)
 			Expect(err).ToNot(HaveOccurred())
 
 			actualMatch := f.Matches(cd, res)
@@ -40,7 +41,7 @@ var _ = Describe("filters", func() {
 				Access: cdv2.NewEmptyUnstructured(cdv2.OCIRegistryType),
 			}
 
-			f, err := filter.NewAccessTypeFilter(cdv2.LocalOCIBlobType)
+			f, err := filter.NewResourceAccessTypeFilter(cdv2.LocalOCIBlobType)
 			Expect(err).ToNot(HaveOccurred())
 
 			actualMatch := f.Matches(cd, res)
@@ -50,7 +51,7 @@ var _ = Describe("filters", func() {
 
 		It("should return error upon creation if include list is empty", func() {
 			includeAccessTypes := []string{}
-			_, err := filter.NewAccessTypeFilter(includeAccessTypes...)
+			_, err := filter.NewResourceAccessTypeFilter(includeAccessTypes...)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("includeAccessTypes must not be empty"))
 		})
