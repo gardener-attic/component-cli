@@ -22,6 +22,7 @@ func (f resourceAccessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Re
 	return false
 }
 
+// NewResourceAccessTypeFilter creates a new resourceAccessTypeFilter
 func NewResourceAccessTypeFilter(includeAccessTypes ...string) (Filter, error) {
 	if len(includeAccessTypes) == 0 {
 		return nil, fmt.Errorf("includeAccessTypes must not be empty")

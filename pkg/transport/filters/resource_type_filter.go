@@ -22,6 +22,7 @@ func (f resourceTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource
 	return false
 }
 
+// NewResourceTypeFilter creates a new resourceTypeFilter
 func NewResourceTypeFilter(includeResourceTypes ...string) (Filter, error) {
 	if len(includeResourceTypes) == 0 {
 		return nil, fmt.Errorf("includeResourceTypes must not be empty")

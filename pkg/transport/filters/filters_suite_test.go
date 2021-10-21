@@ -20,7 +20,7 @@ func TestConfig(t *testing.T) {
 
 var _ = Describe("filters", func() {
 
-	Context("accessTypeFilter", func() {
+	Context("resourceAccessTypeFilter", func() {
 
 		It("should match if access type is in include list", func() {
 			cd := cdv2.ComponentDescriptor{}
@@ -46,7 +46,6 @@ var _ = Describe("filters", func() {
 
 			actualMatch := f.Matches(cd, res)
 			Expect(actualMatch).To(Equal(false))
-
 		})
 
 		It("should return error upon creation if include list is empty", func() {
@@ -75,7 +74,6 @@ var _ = Describe("filters", func() {
 
 			actualMatch := f.Matches(cd, res)
 			Expect(actualMatch).To(Equal(true))
-
 		})
 
 		It("should not match if resource type is not in include list", func() {
@@ -93,7 +91,6 @@ var _ = Describe("filters", func() {
 
 			actualMatch := f.Matches(cd, res)
 			Expect(actualMatch).To(Equal(false))
-
 		})
 
 		It("should return error upon creation if include list is empty", func() {

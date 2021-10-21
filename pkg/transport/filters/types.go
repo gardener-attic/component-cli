@@ -7,6 +7,7 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
+// Filter
 type Filter interface {
 	// Matches matches a component descriptor and a resource against the filter
 	Matches(cdv2.ComponentDescriptor, cdv2.Resource) bool

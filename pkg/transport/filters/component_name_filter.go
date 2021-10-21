@@ -15,15 +15,15 @@ type componentNameFilter struct {
 }
 
 func (f componentNameFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
-	var matches bool
 	for _, icn := range f.includeComponentNames {
-		if matches = icn.MatchString(cd.Name); matches {
-			break
+		if icn.MatchString(cd.Name) {
+			return true
 		}
 	}
-	return matches
+	return false
 }
 
+// NewComponentNameFilter creates a new componentNameFilter
 func NewComponentNameFilter(includeComponentNames ...string) (Filter, error) {
 	if len(includeComponentNames) == 0 {
 		return nil, fmt.Errorf("includeComponentNames must not be empty")
