@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gardener/component-cli/pkg/transport/filter"
+	"github.com/gardener/component-cli/pkg/transport/filters"
 	"sigs.k8s.io/yaml"
 )
 
@@ -23,7 +23,7 @@ func NewFilterFactory() *FilterFactory {
 
 type FilterFactory struct{}
 
-func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filter.Filter, error) {
+func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filters.Filter, error) {
 	switch typ {
 	case ComponentNameFilterType:
 		return f.createComponentNameFilter(spec)
@@ -36,7 +36,7 @@ func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filter.Filter
 	}
 }
 
-func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
 	type filterSpec struct {
 		IncludeComponentNames []string `json:"includeComponentNames"`
 	}
@@ -47,10 +47,10 @@ func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (fil
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filter.NewComponentNameFilter(spec.IncludeComponentNames...)
+	return filters.NewComponentNameFilter(spec.IncludeComponentNames...)
 }
 
-func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
 	type filterSpec struct {
 		IncludeResourceTypes []string `json:"includeResourceTypes"`
 	}
@@ -61,10 +61,10 @@ func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filt
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filter.NewResourceTypeFilter(spec.IncludeResourceTypes...)
+	return filters.NewResourceTypeFilter(spec.IncludeResourceTypes...)
 }
 
-func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filter.Filter, error) {
+func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
 	type filterSpec struct {
 		IncludeAccessTypes []string `json:"includeAccessTypes"`
 	}
@@ -75,5 +75,5 @@ func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filter
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filter.NewAccessTypeFilter(spec.IncludeAccessTypes...)
+	return filters.NewAccessTypeFilter(spec.IncludeAccessTypes...)
 }

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package filter
+package filters
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ type componentNameFilter struct {
 	includeComponentNames []*regexp.Regexp
 }
 
-func (f componentNameFilter) Matches(cd *cdv2.ComponentDescriptor, r cdv2.Resource) bool {
+func (f componentNameFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
 	var matches bool
 	for _, icn := range f.includeComponentNames {
 		if matches = icn.MatchString(cd.Name); matches {
@@ -25,6 +25,10 @@ func (f componentNameFilter) Matches(cd *cdv2.ComponentDescriptor, r cdv2.Resour
 }
 
 func NewComponentNameFilter(includeComponentNames ...string) (Filter, error) {
+	if len(includeComponentNames) == 0 {
+		return nil, fmt.Errorf("includeComponentNames must not be empty")
+	}
+
 	icnRegexps := []*regexp.Regexp{}
 	for _, icn := range includeComponentNames {
 		icnRegexp, err := regexp.Compile(icn)

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/component-cli/pkg/transport/filter"
+	"github.com/gardener/component-cli/pkg/transport/filters"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"sigs.k8s.io/yaml"
@@ -18,13 +18,13 @@ import (
 type ProcessingJob struct {
 	ComponentDescriptor *cdv2.ComponentDescriptor
 	Resource            *cdv2.Resource
-	Downloaders         []namedResourceStreamProcessor
-	Processors          []namedResourceStreamProcessor
-	Uploaders           []namedResourceStreamProcessor
+	Downloaders         []NamedResourceStreamProcessor
+	Processors          []NamedResourceStreamProcessor
+	Uploaders           []NamedResourceStreamProcessor
 	ProcessedResource   *cdv2.Resource
 }
 
-type namedResourceStreamProcessor struct {
+type NamedResourceStreamProcessor struct {
 	Processor process.ResourceStreamProcessor
 	Name      string
 }
@@ -33,7 +33,7 @@ type parsedDownloaderDefinition struct {
 	Name    string
 	Type    string
 	Spec    *json.RawMessage
-	Filters []filter.Filter
+	Filters []filters.Filter
 }
 
 type parsedProcessorDefinition struct {
@@ -46,13 +46,13 @@ type parsedUploaderDefinition struct {
 	Name    string
 	Type    string
 	Spec    *json.RawMessage
-	Filters []filter.Filter
+	Filters []filters.Filter
 }
 
 type parsedRuleDefinition struct {
 	Name       string
 	Processors []string
-	Filters    []filter.Filter
+	Filters    []filters.Filter
 }
 
 type parsedTransportConfig struct {
@@ -172,7 +172,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 			if err != nil {
 				return nil, err
 			}
-			job.Downloaders = append(job.Downloaders, namedResourceStreamProcessor{
+			job.Downloaders = append(job.Downloaders, NamedResourceStreamProcessor{
 				Name:      downloader.Name,
 				Processor: dl,
 			})
@@ -186,7 +186,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 			if err != nil {
 				return nil, err
 			}
-			job.Uploaders = append(job.Uploaders, namedResourceStreamProcessor{
+			job.Uploaders = append(job.Uploaders, NamedResourceStreamProcessor{
 				Name:      uploader.Name,
 				Processor: ul,
 			})
@@ -205,7 +205,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 				if err != nil {
 					return nil, err
 				}
-				job.Processors = append(job.Processors, namedResourceStreamProcessor{
+				job.Processors = append(job.Processors, NamedResourceStreamProcessor{
 					Name:      processorDefined.Name,
 					Processor: p,
 				})
@@ -216,17 +216,17 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 	return &job, nil
 }
 
-func areAllFiltersMatching(filters []filter.Filter, cd cdv2.ComponentDescriptor, res cdv2.Resource) bool {
+func areAllFiltersMatching(filters []filters.Filter, cd cdv2.ComponentDescriptor, res cdv2.Resource) bool {
 	for _, filter := range filters {
-		if !filter.Matches(&cd, res) {
+		if !filter.Matches(cd, res) {
 			return false
 		}
 	}
 	return true
 }
 
-func createFilterList(filterDefinitions []filterDefinition, ff *FilterFactory) ([]filter.Filter, error) {
-	var filters []filter.Filter
+func createFilterList(filterDefinitions []filterDefinition, ff *FilterFactory) ([]filters.Filter, error) {
+	var filters []filters.Filter
 	for _, f := range filterDefinitions {
 		filter, err := ff.Create(f.Type, f.Spec)
 		if err != nil {
