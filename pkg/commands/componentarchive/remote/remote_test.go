@@ -333,15 +333,25 @@ var _ = Describe("Remote", func() {
 			cd.Provider = cdv2.InternalProvider
 			Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
 
-			remoteOCIImage := cdv2.Resource{}
-			remoteOCIImage.Name = "component-cli-image"
-			remoteOCIImage.Version = "v0.28.0"
-			remoteOCIImage.Type = cdv2.OCIImageType
-			remoteOCIImage.Relation = cdv2.ExternalRelation
-			remoteOCIImageAcc, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryAccess("eu.gcr.io/gardener-project/component/cli:v0.28.0"))
+			registryAccessImage := cdv2.Resource{}
+			registryAccessImage.Name = "component-cli-image"
+			registryAccessImage.Version = "v0.28.0"
+			registryAccessImage.Type = cdv2.OCIImageType
+			registryAccessImage.Relation = cdv2.ExternalRelation
+			registryAcc, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryAccess("eu.gcr.io/gardener-project/component/cli:v0.28.0"))
 			Expect(err).ToNot(HaveOccurred())
-			remoteOCIImage.Access = &remoteOCIImageAcc
-			cd.Resources = append(cd.Resources, remoteOCIImage)
+			registryAccessImage.Access = &registryAcc
+			cd.Resources = append(cd.Resources, registryAccessImage)
+
+			relativeAccessImage := cdv2.Resource{}
+			relativeAccessImage.Name = "component-cli-image-relative-acc"
+			relativeAccessImage.Version = "v0.28.0"
+			relativeAccessImage.Type = cdv2.OCIImageType
+			relativeAccessImage.Relation = cdv2.ExternalRelation
+			relativeOCIRefAcc, err := cdv2.NewUnstructured(cdv2.NewRelativeOciAccess("component/cli:v0.28.0"))
+			Expect(err).ToNot(HaveOccurred())
+			relativeAccessImage.Access = &relativeOCIRefAcc
+			cd.Resources = append(cd.Resources, relativeAccessImage)
 
 			manifest, err := cdoci.NewManifestBuilder(ociCache, ctf.NewComponentArchive(cd, memoryfs.New())).Build(ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -367,6 +377,7 @@ var _ = Describe("Remote", func() {
 				SourceRepository:         srcRepoCtxURL,
 				TargetRepository:         targetRepoCtxURL,
 				CopyByValue:              true,
+				SourceArtifactRepository: "eu.gcr.io/gardener-project",
 				TargetArtifactRepository: targetRepoCtxURL,
 				ReplaceOCIRefs: []string{
 					"gardener-project:my-project",
@@ -379,12 +390,17 @@ var _ = Describe("Remote", func() {
 			targetComp, err := compResolver.Resolve(ctx, cdv2.NewOCIRegistryRepository(targetRepoCtxURL, ""), cd.Name, cd.Version)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(targetComp.Resources).To(HaveLen(1))
+			Expect(targetComp.Resources).To(HaveLen(2))
 
-			acc := &cdv2.OCIRegistryAccess{}
-			Expect(targetComp.Resources[0].Access.DecodeInto(acc)).To(Succeed())
-			Expect(acc.ImageReference).To(ContainSubstring(targetRepoCtxURL))
-			Expect(acc.ImageReference).To(ContainSubstring("my-project/component-cli:v0.28.0"))
+			res1Acc := &cdv2.OCIRegistryAccess{}
+			Expect(targetComp.Resources[0].Access.DecodeInto(res1Acc)).To(Succeed())
+			Expect(res1Acc.ImageReference).To(ContainSubstring(targetRepoCtxURL))
+			Expect(res1Acc.ImageReference).To(ContainSubstring("my-project/component-cli:v0.28.0"))
+
+			res2Acc := &cdv2.OCIRegistryAccess{}
+			Expect(targetComp.Resources[1].Access.DecodeInto(res2Acc)).To(Succeed())
+			Expect(res2Acc.ImageReference).To(ContainSubstring(targetRepoCtxURL))
+			Expect(res2Acc.ImageReference).To(ContainSubstring("my-project/component-cli:v0.28.0"))
 		})
 
 		It("should copy a component descriptor with a relative oci ref and convert it to a absolute path", func() {
