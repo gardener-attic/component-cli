@@ -56,7 +56,7 @@ github.com/gardener/component-spec/bindings-go/codec
 github.com/gardener/component-spec/bindings-go/ctf
 github.com/gardener/component-spec/bindings-go/oci
 github.com/gardener/component-spec/bindings-go/utils/selector
-# github.com/gardener/image-vector v0.5.0
+# github.com/gardener/image-vector v0.6.0
 ## explicit
 github.com/gardener/image-vector/pkg
 # github.com/ghodss/yaml v1.0.0
@@ -112,7 +112,6 @@ github.com/klauspost/compress/zstd/internal/xxhash
 github.com/mandelsoft/filepath/pkg/filepath
 # github.com/mandelsoft/vfs v0.0.0-20210530103237-5249dc39ce91
 ## explicit
-github.com/mandelsoft/vfs/pkg/composefs
 github.com/mandelsoft/vfs/pkg/layerfs
 github.com/mandelsoft/vfs/pkg/memoryfs
 github.com/mandelsoft/vfs/pkg/osfs
@@ -352,8 +351,6 @@ gopkg.in/inf.v0
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.4.0
 gopkg.in/yaml.v2
-# gotest.tools/v3 v3.0.3
-## explicit
 # k8s.io/api v0.20.6
 ## explicit
 k8s.io/api/core/v1
