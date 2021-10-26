@@ -19,6 +19,7 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v2"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -128,10 +129,20 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	targetCtx := cdv2.NewOCIRegistryRepository(o.TargetRepository, "")
 
+	transportCfgYaml, err := os.ReadFile(o.TransportCfgPath)
+	if err != nil {
+		return fmt.Errorf("unable to read transport config file: %w", err)
+	}
+
+	var transportCfg config.TransportConfig
+	if err := yaml.Unmarshal(transportCfgYaml, &transportCfg); err != nil {
+		return fmt.Errorf("unable to parse transport config file: %w", err)
+	}
+
 	df := config.NewDownloaderFactory(ociClient, ociCache)
 	pf := config.NewProcessorFactory(ociCache)
 	uf := config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
-	pjf, err := config.NewProcessingJobFactory(o.TransportCfgPath, df, pf, uf)
+	pjf, err := config.NewProcessingJobFactory(transportCfg, df, pf, uf)
 	if err != nil {
 		return err
 	}

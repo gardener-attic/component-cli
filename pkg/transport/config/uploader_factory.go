@@ -18,7 +18,7 @@ import (
 
 const (
 	LocalOCIBlobUploaderType = "LocalOciBlobUploader"
-	OCIImageUploaderType     = "OciImageUploader"
+	OCIImageUploaderType     = "OciArtifactUploader"
 )
 
 func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository) *UploaderFactory {
@@ -38,9 +38,9 @@ type UploaderFactory struct {
 func (f *UploaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
 	case LocalOCIBlobUploaderType:
-		return uploaders.NewLocalOCIBlobUploader(f.client, f.targetCtx), nil
+		return uploaders.NewLocalOCIBlobUploader(f.client, f.targetCtx)
 	case OCIImageUploaderType:
-		return f.createOCIImageUploader(spec)
+		return f.createOCIArtifactUploader(spec)
 	case ExecutableType:
 		return createExecutable(spec)
 	default:
@@ -48,7 +48,7 @@ func (f *UploaderFactory) Create(typ string, spec *json.RawMessage) (process.Res
 	}
 }
 
-func (f *UploaderFactory) createOCIImageUploader(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+func (f *UploaderFactory) createOCIArtifactUploader(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	type uploaderSpec struct {
 		BaseUrl        string `json:"baseUrl"`
 		KeepSourceRepo bool   `json:"keepSourceRepo"`
@@ -60,5 +60,5 @@ func (f *UploaderFactory) createOCIImageUploader(rawSpec *json.RawMessage) (proc
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return uploaders.NewOCIImageUploader(f.client, f.cache, spec.BaseUrl, spec.KeepSourceRepo), nil
+	return uploaders.NewOCIImageUploader(f.client, f.cache, spec.BaseUrl, spec.KeepSourceRepo)
 }

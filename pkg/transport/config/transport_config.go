@@ -9,46 +9,46 @@ type meta struct {
 	Version string `json:"version"`
 }
 
-type transportConfig struct {
+type TransportConfig struct {
 	Meta        meta                   `json:"meta"`
-	Uploaders   []uploaderDefinition   `json:"uploaders"`
-	Processors  []processorDefinition  `json:"processors"`
-	Downloaders []downloaderDefinition `json:"downloaders"`
-	Rules       []rule                 `json:"rules"`
+	Uploaders   []UploaderDefinition   `json:"uploaders"`
+	Processors  []ProcessorDefinition  `json:"processors"`
+	Downloaders []DownloaderDefinition `json:"downloaders"`
+	Rules       []Rule                 `json:"rules"`
 }
 
-type baseProcessorDefinition struct {
+type BaseProcessorDefinition struct {
 	Name string           `json:"name"`
 	Type string           `json:"type"`
 	Spec *json.RawMessage `json:"spec"`
 }
 
-type filterDefinition struct {
+type FilterDefinition struct {
 	Type string           `json:"type"`
 	Spec *json.RawMessage `json:"spec"`
 }
 
-type downloaderDefinition struct {
-	baseProcessorDefinition
-	Filters []filterDefinition `json:"filters"`
+type DownloaderDefinition struct {
+	BaseProcessorDefinition
+	Filters []FilterDefinition `json:"filters"`
 }
 
-type uploaderDefinition struct {
-	baseProcessorDefinition
-	Filters []filterDefinition `json:"filters"`
+type UploaderDefinition struct {
+	BaseProcessorDefinition
+	Filters []FilterDefinition `json:"filters"`
 }
 
-type processorDefinition struct {
-	baseProcessorDefinition
+type ProcessorDefinition struct {
+	BaseProcessorDefinition
 }
 
-type processorReference struct {
+type ProcessorReference struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
 }
 
-type rule struct {
+type Rule struct {
 	Name       string
-	Filters    []filterDefinition   `json:"filters"`
-	Processors []processorReference `json:"processors"`
+	Filters    []FilterDefinition   `json:"filters"`
+	Processors []ProcessorReference `json:"processors"`
 }

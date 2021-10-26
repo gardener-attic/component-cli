@@ -5,6 +5,7 @@ package uploaders
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,23 +23,27 @@ type localOCIBlobUploader struct {
 	targetCtx cdv2.OCIRegistryRepository
 }
 
-func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) process.ResourceStreamProcessor {
+func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistryRepository) (process.ResourceStreamProcessor, error) {
+	if client == nil {
+		return nil, errors.New("client must not be nil")
+	}
+
 	obj := localOCIBlobUploader{
 		targetCtx: targetCtx,
 		client:    client,
 	}
-	return &obj
+	return &obj, nil
 }
 
 func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
 	cd, res, blobreader, err := process.ReadProcessorMessage(r)
 	if err != nil {
-		return fmt.Errorf("unable to read input archive: %w", err)
+		return fmt.Errorf("unable to read processor message: %w", err)
 	}
 	defer blobreader.Close()
 
 	if res.Access.GetType() != cdv2.LocalOCIBlobType {
-		return fmt.Errorf("unsupported access type: %+v", res.Access)
+		return fmt.Errorf("unsupported access type: %s", res.Access.Type)
 	}
 
 	tmpfile, err := ioutil.TempFile("", "")

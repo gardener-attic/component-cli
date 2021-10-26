@@ -5,6 +5,7 @@ package downloaders
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,21 +21,26 @@ type localOCIBlobDownloader struct {
 	client ociclient.Client
 }
 
-func NewLocalOCIBlobDownloader(client ociclient.Client) process.ResourceStreamProcessor {
+// NewLocalOCIBlobDownloader creates a new localOCIBlobDownloader
+func NewLocalOCIBlobDownloader(client ociclient.Client) (process.ResourceStreamProcessor, error) {
+	if client == nil {
+		return nil, errors.New("client must not be nil")
+	}
+
 	obj := localOCIBlobDownloader{
 		client: client,
 	}
-	return &obj
+	return &obj, nil
 }
 
 func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
 	cd, res, _, err := process.ReadProcessorMessage(r)
 	if err != nil {
-		return fmt.Errorf("unable to read input archive: %w", err)
+		return fmt.Errorf("unable to read processor message: %w", err)
 	}
 
 	if res.Access.GetType() != cdv2.LocalOCIBlobType {
-		return fmt.Errorf("unsupported access type: %+v", res.Access)
+		return fmt.Errorf("unsupported access type: %s", res.Access.Type)
 	}
 
 	tmpfile, err := ioutil.TempFile("", "")

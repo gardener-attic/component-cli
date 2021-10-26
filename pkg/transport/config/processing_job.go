@@ -7,10 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/pkg/transport/filters"
 	"github.com/gardener/component-cli/pkg/transport/process"
@@ -63,18 +61,7 @@ type parsedTransportConfig struct {
 	Rules       []parsedRuleDefinition
 }
 
-func NewProcessingJobFactory(transportCfgPath string, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
-	transportCfgYaml, err := os.ReadFile(transportCfgPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read transport config file: %w", err)
-	}
-
-	var transportCfg transportConfig
-	err = yaml.Unmarshal(transportCfgYaml, &transportCfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse transport config file: %w", err)
-	}
-
+func NewProcessingJobFactory(transportCfg TransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
 	parsedTransportConfig, err := parseTransportConfig(&transportCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating lookup table %w", err)
@@ -98,7 +85,7 @@ type ProcessingJobFactory struct {
 }
 
 // Create a ProcessorsLookup on the base of a config
-func parseTransportConfig(config *transportConfig) (*parsedTransportConfig, error) {
+func parseTransportConfig(config *TransportConfig) (*parsedTransportConfig, error) {
 	var parsedConfig parsedTransportConfig
 	ff := NewFilterFactory()
 
@@ -149,12 +136,12 @@ func parseTransportConfig(config *transportConfig) (*parsedTransportConfig, erro
 		if err != nil {
 			return nil, fmt.Errorf("unable to create rule %s: %w", rule.Name, err)
 		}
-		ruleLookup := parsedRuleDefinition{
+		rule := parsedRuleDefinition{
 			Name:       rule.Name,
 			Processors: processors,
 			Filters:    filters,
 		}
-		parsedConfig.Rules = append(parsedConfig.Rules, ruleLookup)
+		parsedConfig.Rules = append(parsedConfig.Rules, rule)
 	}
 
 	return &parsedConfig, nil
@@ -226,7 +213,7 @@ func areAllFiltersMatching(filters []filters.Filter, cd cdv2.ComponentDescriptor
 	return true
 }
 
-func createFilterList(filterDefinitions []filterDefinition, ff *FilterFactory) ([]filters.Filter, error) {
+func createFilterList(filterDefinitions []FilterDefinition, ff *FilterFactory) ([]filters.Filter, error) {
 	var filters []filters.Filter
 	for _, f := range filterDefinitions {
 		filter, err := ff.Create(f.Type, f.Spec)

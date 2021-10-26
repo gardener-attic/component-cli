@@ -6,6 +6,7 @@ package downloaders
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -18,31 +19,36 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 )
 
-type ociImageDownloader struct {
+type ociArtifactDownloader struct {
 	client ociclient.Client
 	cache  cache.Cache
 }
 
-func NewOCIImageDownloader(client ociclient.Client, cache cache.Cache) process.ResourceStreamProcessor {
-	obj := ociImageDownloader{
+// NewOCIArtifactDownloader creates a new ociArtifactDownloader
+func NewOCIArtifactDownloader(client ociclient.Client, cache cache.Cache) (process.ResourceStreamProcessor, error) {
+	if client == nil {
+		return nil, errors.New("client must not be nil")
+	}
+
+	if cache == nil {
+		return nil, errors.New("cache must not be nil")
+	}
+
+	obj := ociArtifactDownloader{
 		client: client,
 		cache:  cache,
 	}
-	return &obj
+	return &obj, nil
 }
 
-func (d *ociImageDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
+func (d *ociArtifactDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
 	cd, res, _, err := process.ReadProcessorMessage(r)
 	if err != nil {
-		return fmt.Errorf("unable to read input archive: %w", err)
+		return fmt.Errorf("unable to read processor message: %w", err)
 	}
 
 	if res.Access.GetType() != cdv2.OCIRegistryType {
-		return fmt.Errorf("unsupported access type: %+v", res.Access)
-	}
-
-	if res.Type != cdv2.OCIImageType {
-		return fmt.Errorf("unsupported resource type: %s", res.Type)
+		return fmt.Errorf("unsupported access type: %s", res.Access.Type)
 	}
 
 	ociAccess := &cdv2.OCIRegistryAccess{}
@@ -81,7 +87,7 @@ func (d *ociImageDownloader) Process(ctx context.Context, r io.Reader, w io.Writ
 	return nil
 }
 
-func (d *ociImageDownloader) fetchConfigAndLayerBlobs(ctx context.Context, ref string, manifest *ocispecv1.Manifest) error {
+func (d *ociArtifactDownloader) fetchConfigAndLayerBlobs(ctx context.Context, ref string, manifest *ocispecv1.Manifest) error {
 	buf := bytes.NewBuffer([]byte{})
 	if err := d.client.Fetch(ctx, ref, manifest.Config, buf); err != nil {
 		return fmt.Errorf("unable to fetch config blob: %w", err)
@@ -89,7 +95,7 @@ func (d *ociImageDownloader) fetchConfigAndLayerBlobs(ctx context.Context, ref s
 	for _, l := range manifest.Layers {
 		buf := bytes.NewBuffer([]byte{})
 		if err := d.client.Fetch(ctx, ref, l, buf); err != nil {
-			return fmt.Errorf("unable to fetch config blob: %w", err)
+			return fmt.Errorf("unable to fetch layer blob: %w", err)
 		}
 	}
 	return nil

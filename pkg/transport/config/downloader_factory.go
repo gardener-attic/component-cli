@@ -15,7 +15,7 @@ import (
 
 const (
 	LocalOCIBlobDownloaderType = "LocalOciBlobDownloader"
-	OCIImageDownloaderType     = "OciImageDownloader"
+	OCIArtifactDownloaderType  = "OciArtifactDownloader"
 )
 
 func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *DownloaderFactory {
@@ -33,9 +33,9 @@ type DownloaderFactory struct {
 func (f *DownloaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch typ {
 	case LocalOCIBlobDownloaderType:
-		return downloaders.NewLocalOCIBlobDownloader(f.client), nil
-	case OCIImageDownloaderType:
-		return downloaders.NewOCIImageDownloader(f.client, f.cache), nil
+		return downloaders.NewLocalOCIBlobDownloader(f.client)
+	case OCIArtifactDownloaderType:
+		return downloaders.NewOCIArtifactDownloader(f.client, f.cache)
 	case ExecutableType:
 		return createExecutable(spec)
 	default:
