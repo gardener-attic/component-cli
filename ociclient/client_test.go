@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/ociclient/oci"
+	"github.com/gardener/component-cli/pkg/testutils"
 
 	"github.com/gardener/component-cli/ociclient"
 )
@@ -36,14 +36,14 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest := uploadTestManifest(ctx, ref)
+			manifest, _ := testutils.UploadTestManifest(ctx, client, ref)
 
 			res, err := client.GetManifest(ctx, ref)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.Config).To(Equal(manifest.Config))
 			Expect(res.Layers).To(Equal(manifest.Layers))
 
-			compareManifestToTestManifest(ctx, ref, res)
+			testutils.CompareManifestToTestManifest(ctx, client, ref, res)
 		}, 20)
 
 		It("should push and pull an oci image index", func() {
@@ -93,7 +93,7 @@ var _ = Describe("client", func() {
 
 			ref := testenv.Addr + "/image-index/3/img:v0.0.1"
 			manifest1Ref := testenv.Addr + "/image-index/1/img-platform-1:v0.0.1"
-			manifest := uploadTestManifest(ctx, manifest1Ref)
+			manifest, _ := testutils.UploadTestManifest(ctx, client, manifest1Ref)
 			index := oci.Index{
 				Manifests: []*oci.Manifest{
 					{
@@ -124,7 +124,7 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest := uploadTestManifest(ctx, ref)
+			manifest, _ := testutils.UploadTestManifest(ctx, client, ref)
 
 			newRef := testenv.Addr + "/new/artifact:v0.0.1"
 			Expect(ociclient.Copy(ctx, client, ref, newRef)).To(Succeed())
@@ -161,7 +161,7 @@ var _ = Describe("client", func() {
 			compareImageIndices(actualArtifact.GetIndex(), index)
 
 			for _, manifest := range actualArtifact.GetIndex().Manifests {
-				compareManifestToTestManifest(ctx, newRef, manifest.Data)
+				testutils.CompareManifestToTestManifest(ctx, client, newRef, manifest.Data)
 			}
 		}, 20)
 
@@ -285,47 +285,6 @@ var _ = Describe("client", func() {
 
 })
 
-func uploadTestManifest(ctx context.Context, ref string) *ocispecv1.Manifest {
-	data := []byte("test")
-	layerData := []byte("test-config")
-	manifest := &ocispecv1.Manifest{
-		Config: ocispecv1.Descriptor{
-			MediaType: "text/plain",
-			Digest:    digest.FromBytes(data),
-			Size:      int64(len(data)),
-		},
-		Layers: []ocispecv1.Descriptor{
-			{
-				MediaType: "text/plain",
-				Digest:    digest.FromBytes(layerData),
-				Size:      int64(len(layerData)),
-			},
-		},
-	}
-	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		switch desc.Digest.String() {
-		case manifest.Config.Digest.String():
-			_, err := writer.Write(data)
-			return err
-		default:
-			_, err := writer.Write(layerData)
-			return err
-		}
-	})
-	Expect(client.PushManifest(ctx, ref, manifest, ociclient.WithStore(store))).To(Succeed())
-	return manifest
-}
-
-func compareManifestToTestManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest) {
-	var configBlob bytes.Buffer
-	Expect(client.Fetch(ctx, ref, manifest.Config, &configBlob)).To(Succeed())
-	Expect(configBlob.String()).To(Equal("test"))
-
-	var layerBlob bytes.Buffer
-	Expect(client.Fetch(ctx, ref, manifest.Layers[0], &layerBlob)).To(Succeed())
-	Expect(layerBlob.String()).To(Equal("test-config"))
-}
-
 func uploadTestIndex(ctx context.Context, indexRef string) *oci.Index {
 	splitted := strings.Split(indexRef, ":")
 	indexRepo := strings.Join(splitted[0:len(splitted)-1], ":")
@@ -333,8 +292,8 @@ func uploadTestIndex(ctx context.Context, indexRef string) *oci.Index {
 
 	manifest1Ref := fmt.Sprintf("%s-platform-1:%s", indexRepo, tag)
 	manifest2Ref := fmt.Sprintf("%s-platform-2:%s", indexRepo, tag)
-	manifest1 := uploadTestManifest(ctx, manifest1Ref)
-	manifest2 := uploadTestManifest(ctx, manifest2Ref)
+	manifest1, _ := testutils.UploadTestManifest(ctx, client, manifest1Ref)
+	manifest2, _ := testutils.UploadTestManifest(ctx, client, manifest2Ref)
 	index := oci.Index{
 		Manifests: []*oci.Manifest{
 			{

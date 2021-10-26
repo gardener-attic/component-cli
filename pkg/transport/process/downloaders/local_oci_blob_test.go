@@ -8,7 +8,6 @@ import (
 	"context"
 	"io"
 
-	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -27,7 +26,7 @@ var _ = Describe("localOciBlob", func() {
 			err := process.WriteProcessorMessage(testComponent, localOciBlobRes, nil, inProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
-			d, err := downloaders.NewLocalOCIBlobDownloader(client)
+			d, err := downloaders.NewLocalOCIBlobDownloader(ociClient)
 			Expect(err).ToNot(HaveOccurred())
 
 			outProcessorMsg := bytes.NewBuffer([]byte{})
@@ -44,31 +43,17 @@ var _ = Describe("localOciBlob", func() {
 			resBlob := bytes.NewBuffer([]byte{})
 			_, err = io.Copy(resBlob, resBlobReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resBlob.Bytes()).To(Equal(localOciBlobResData))
+			Expect(resBlob.Bytes()).To(Equal(localOciBlobData))
 		})
 
 		It("should return error if called with resource of invalid type", func() {
-			cd := cdv2.ComponentDescriptor{}
+			ociArtifactRes := testComponent.Resources[ociArtifactResIndex]
 
-			access, err := cdv2.NewUnstructured(
-				cdv2.NewOCIRegistryAccess("example-registry.com/test/image:1.0.0"),
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			res := cdv2.Resource{
-				IdentityObjectMeta: cdv2.IdentityObjectMeta{
-					Name:    "my-res",
-					Version: "0.1.0",
-					Type:    "helm",
-				},
-				Access: &access,
-			}
-
-			d, err := downloaders.NewLocalOCIBlobDownloader(client)
+			d, err := downloaders.NewLocalOCIBlobDownloader(ociClient)
 			Expect(err).ToNot(HaveOccurred())
 
 			b1 := bytes.NewBuffer([]byte{})
-			err = process.WriteProcessorMessage(cd, res, nil, b1)
+			err = process.WriteProcessorMessage(testComponent, ociArtifactRes, nil, b1)
 			Expect(err).ToNot(HaveOccurred())
 
 			b2 := bytes.NewBuffer([]byte{})

@@ -21,7 +21,9 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/credentials"
+	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/ociclient/test/envtest"
+	"github.com/gardener/component-cli/pkg/testutils"
 )
 
 func TestConfig(t *testing.T) {
@@ -31,12 +33,14 @@ func TestConfig(t *testing.T) {
 
 var (
 	testenv              *envtest.Environment
-	client               ociclient.Client
-	ocicache             cache.Cache
+	ociClient            ociclient.Client
+	ociCache             cache.Cache
 	keyring              *credentials.GeneralOciKeyring
 	testComponent        cdv2.ComponentDescriptor
-	localOciBlobResData  = []byte("Hello World")
 	localOciBlobResIndex = 0
+	localOciBlobData     = []byte("Hello World")
+	ociArtifactResIndex  = 1
+	expectedOciArtifact  oci.Artifact
 )
 
 var _ = BeforeSuite(func() {
@@ -52,9 +56,9 @@ var _ = BeforeSuite(func() {
 		Username: testenv.BasicAuth.Username,
 		Password: testenv.BasicAuth.Password,
 	})).To(Succeed())
-	ocicache = cache.NewInMemoryCache()
+	ociCache = cache.NewInMemoryCache()
 	var err error
-	client, err = ociclient.NewClient(logr.Discard(), ociclient.WithKeyring(keyring), ociclient.WithCache(ocicache))
+	ociClient, err = ociclient.NewClient(logr.Discard(), ociclient.WithKeyring(keyring), ociclient.WithCache(ociCache))
 	Expect(err).ToNot(HaveOccurred())
 
 	uploadTestComponent()
@@ -65,7 +69,7 @@ var _ = AfterSuite(func() {
 })
 
 func uploadTestComponent() {
-	dgst := digest.FromBytes(localOciBlobResData)
+	dgst := digest.FromBytes(localOciBlobData)
 
 	fs := memoryfs.New()
 	Expect(fs.Mkdir(ctf.BlobsDirectoryName, os.ModePerm)).To(Succeed())
@@ -73,7 +77,7 @@ func uploadTestComponent() {
 	blobfile, err := fs.Create(ctf.BlobPath(dgst.String()))
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = blobfile.Write(localOciBlobResData)
+	_, err = blobfile.Write(localOciBlobData)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(blobfile.Close()).To(Succeed())
@@ -98,6 +102,33 @@ func uploadTestComponent() {
 		Access:   &localOciBlobAcc,
 	}
 
+	ociArtifactRef := testenv.Addr + "/test/downloaders/image:0.1.0"
+
+	m, d := testutils.UploadTestManifest(ctx, ociClient, ociArtifactRef)
+	a, err := oci.NewManifestArtifact(&oci.Manifest{
+		Descriptor: d,
+		Data:       m,
+	})
+	Expect(err).ToNot(HaveOccurred())
+	expectedOciArtifact = *a
+
+	ociArtifactAcc, err := cdv2.NewUnstructured(
+		cdv2.NewOCIRegistryAccess(
+			ociArtifactRef,
+		),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	ociArtifactRes := cdv2.Resource{
+		IdentityObjectMeta: cdv2.IdentityObjectMeta{
+			Name:    "oci-artifact-res",
+			Version: "0.1.0",
+			Type:    cdv2.OCIImageType,
+		},
+		Relation: cdv2.LocalRelation,
+		Access:   &ociArtifactAcc,
+	}
+
 	ociRepo := cdv2.NewOCIRegistryRepository(testenv.Addr+"/test/downloaders", "")
 	repoCtx, err := cdv2.NewUnstructured(
 		ociRepo,
@@ -116,19 +147,20 @@ func uploadTestComponent() {
 			},
 			Resources: []cdv2.Resource{
 				localOciBlobRes,
+				ociArtifactRes,
 			},
 		},
 	}
 
-	manifest, err := cdoci.NewManifestBuilder(ocicache, ctf.NewComponentArchive(&localCd, fs)).Build(ctx)
+	manifest, err := cdoci.NewManifestBuilder(ociCache, ctf.NewComponentArchive(&localCd, fs)).Build(ctx)
 	Expect(err).ToNot(HaveOccurred())
 
 	ociRef, err := cdoci.OCIRef(*ociRepo, localCd.Name, localCd.Version)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(client.PushManifest(ctx, ociRef, manifest)).To(Succeed())
+	Expect(ociClient.PushManifest(ctx, ociRef, manifest)).To(Succeed())
 
-	cdresolver := cdoci.NewResolver(client)
+	cdresolver := cdoci.NewResolver(ociClient)
 	actualCd, err := cdresolver.Resolve(ctx, ociRepo, localCd.Name, localCd.Version)
 	Expect(err).ToNot(HaveOccurred())
 

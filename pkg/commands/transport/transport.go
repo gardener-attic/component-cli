@@ -19,7 +19,7 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"

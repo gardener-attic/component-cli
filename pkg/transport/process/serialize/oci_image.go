@@ -223,7 +223,9 @@ func DeserializeOCIArtifact(r io.Reader, cache cache.Cache) (*oci.Artifact, erro
 
 		m := oci.Manifest{
 			Descriptor: ocispecv1.Descriptor{
-				Digest: digest.FromBytes(buf.Bytes()),
+				MediaType: ocispecv1.MediaTypeImageManifest,
+				Digest:    digest.FromBytes(buf.Bytes()),
+				Size:      int64(buf.Len()),
 			},
 			Data: &manifest,
 		}
