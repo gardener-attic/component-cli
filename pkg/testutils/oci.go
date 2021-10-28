@@ -11,11 +11,12 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/ociclient/oci"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/ociclient/oci"
 )
 
 func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {

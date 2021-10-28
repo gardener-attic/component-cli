@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier
-package serialize
+package process
 
 import (
 	"archive/tar"
@@ -28,6 +28,7 @@ const (
 	BlobsDir     = "blobs"
 )
 
+//
 func SerializeOCIArtifact(ociArtifact oci.Artifact, cache cache.Cache) (io.ReadCloser, error) {
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {

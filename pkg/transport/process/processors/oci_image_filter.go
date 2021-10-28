@@ -21,7 +21,6 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -37,7 +36,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	}
 	defer blobreader.Close()
 
-	ociArtifact, err := serialize.DeserializeOCIArtifact(blobreader, f.cache)
+	ociArtifact, err := process.DeserializeOCIArtifact(blobreader, f.cache)
 	if err != nil {
 		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
 	}
@@ -78,7 +77,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 		}
 	}
 
-	blobReader, err := serialize.SerializeOCIArtifact(*ociArtifact, f.cache)
+	blobReader, err := process.SerializeOCIArtifact(*ociArtifact, f.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialice oci artifact: %w", err)
 	}

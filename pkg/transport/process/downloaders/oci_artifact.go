@@ -16,7 +16,6 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 )
 
 type ociArtifactDownloader struct {
@@ -73,7 +72,7 @@ func (d *ociArtifactDownloader) Process(ctx context.Context, r io.Reader, w io.W
 		}
 	}
 
-	blobReader, err := serialize.SerializeOCIArtifact(*ociArtifact, d.cache)
+	blobReader, err := process.SerializeOCIArtifact(*ociArtifact, d.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialize oci artifact: %w", err)
 	}

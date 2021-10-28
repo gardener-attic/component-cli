@@ -13,7 +13,6 @@ import (
 	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
-	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 )
 
 var _ = Describe("ociArtifact", func() {
@@ -41,9 +40,10 @@ var _ = Describe("ociArtifact", func() {
 			Expect(*actualCd).To(Equal(testComponent))
 			Expect(actualRes).To(Equal(ociImageRes))
 
-			actualOciArtifact, err := serialize.DeserializeOCIArtifact(resBlobReader, ociCache)
+			actualOciArtifact, err := process.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*actualOciArtifact.GetManifest()).To(Equal(expectedImageManifest))
+			testutils.CompareManifestToTestManifest(context.TODO(), ociClient, imageRef, expectedImageManifest.Data)
 		})
 
 		It("should download and stream oci image index", func() {
@@ -67,7 +67,7 @@ var _ = Describe("ociArtifact", func() {
 			Expect(*actualCd).To(Equal(testComponent))
 			Expect(actualRes).To(Equal(ociImageIndexRes))
 
-			actualOciArtifact, err := serialize.DeserializeOCIArtifact(resBlobReader, ociCache)
+			actualOciArtifact, err := process.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			testutils.CompareImageIndices(actualOciArtifact.GetIndex(), &expectedImageIndex)
 		})
