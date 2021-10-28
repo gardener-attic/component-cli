@@ -14,6 +14,7 @@ import (
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/memoryfs"
+	"github.com/mandelsoft/vfs/pkg/vfs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
@@ -32,15 +33,19 @@ func TestConfig(t *testing.T) {
 }
 
 var (
-	testenv              *envtest.Environment
-	ociClient            ociclient.Client
-	ociCache             cache.Cache
-	keyring              *credentials.GeneralOciKeyring
-	testComponent        cdv2.ComponentDescriptor
-	localOciBlobResIndex = 0
-	localOciBlobData     = []byte("Hello World")
-	ociArtifactResIndex  = 1
-	expectedOciArtifact  oci.Artifact
+	testenv               *envtest.Environment
+	ociClient             ociclient.Client
+	ociCache              cache.Cache
+	keyring               *credentials.GeneralOciKeyring
+	testComponent         cdv2.ComponentDescriptor
+	localOciBlobResIndex  = 0
+	localOciBlobData      = []byte("Hello World")
+	imageRef              string
+	imageResIndex         = 1
+	expectedImageManifest oci.Manifest
+	imageIndexRef         string
+	imageIndexResIndex    = 2
+	expectedImageIndex    oci.Index
 )
 
 var _ = BeforeSuite(func() {
@@ -69,65 +74,12 @@ var _ = AfterSuite(func() {
 })
 
 func uploadTestComponent() {
-	dgst := digest.FromBytes(localOciBlobData)
-
-	fs := memoryfs.New()
-	Expect(fs.Mkdir(ctf.BlobsDirectoryName, os.ModePerm)).To(Succeed())
-
-	blobfile, err := fs.Create(ctf.BlobPath(dgst.String()))
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = blobfile.Write(localOciBlobData)
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(blobfile.Close()).To(Succeed())
-
 	ctx := context.TODO()
+	fs := memoryfs.New()
 
-	localOciBlobAcc, err := cdv2.NewUnstructured(
-		cdv2.NewLocalFilesystemBlobAccess(
-			dgst.String(),
-			"text/plain",
-		),
-	)
-	Expect(err).ToNot(HaveOccurred())
-
-	localOciBlobRes := cdv2.Resource{
-		IdentityObjectMeta: cdv2.IdentityObjectMeta{
-			Name:    "local-oci-blob-res",
-			Version: "0.1.0",
-			Type:    "plain-text",
-		},
-		Relation: cdv2.LocalRelation,
-		Access:   &localOciBlobAcc,
-	}
-
-	ociArtifactRef := testenv.Addr + "/test/downloaders/image:0.1.0"
-
-	m, d := testutils.UploadTestManifest(ctx, ociClient, ociArtifactRef)
-	a, err := oci.NewManifestArtifact(&oci.Manifest{
-		Descriptor: d,
-		Data:       m,
-	})
-	Expect(err).ToNot(HaveOccurred())
-	expectedOciArtifact = *a
-
-	ociArtifactAcc, err := cdv2.NewUnstructured(
-		cdv2.NewOCIRegistryAccess(
-			ociArtifactRef,
-		),
-	)
-	Expect(err).ToNot(HaveOccurred())
-
-	ociArtifactRes := cdv2.Resource{
-		IdentityObjectMeta: cdv2.IdentityObjectMeta{
-			Name:    "oci-artifact-res",
-			Version: "0.1.0",
-			Type:    cdv2.OCIImageType,
-		},
-		Relation: cdv2.LocalRelation,
-		Access:   &ociArtifactAcc,
-	}
+	localOciBlobRes := createLocalOciBlobRes(fs)
+	imageRes := createImageRes(ctx)
+	imageIndexRes := createImageIndexRes(ctx)
 
 	ociRepo := cdv2.NewOCIRegistryRepository(testenv.Addr+"/test/downloaders", "")
 	repoCtx, err := cdv2.NewUnstructured(
@@ -147,7 +99,8 @@ func uploadTestComponent() {
 			},
 			Resources: []cdv2.Resource{
 				localOciBlobRes,
-				ociArtifactRes,
+				imageRes,
+				imageIndexRes,
 			},
 		},
 	}
@@ -165,4 +118,99 @@ func uploadTestComponent() {
 	Expect(err).ToNot(HaveOccurred())
 
 	testComponent = *actualCd
+}
+
+func createLocalOciBlobRes(fs vfs.FileSystem) cdv2.Resource {
+	Expect(fs.Mkdir(ctf.BlobsDirectoryName, os.ModePerm)).To(Succeed())
+
+	dgst := digest.FromBytes(localOciBlobData)
+	blobfile, err := fs.Create(ctf.BlobPath(dgst.String()))
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = blobfile.Write(localOciBlobData)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(blobfile.Close()).To(Succeed())
+
+	localOciBlobAcc, err := cdv2.NewUnstructured(
+		cdv2.NewLocalFilesystemBlobAccess(
+			dgst.String(),
+			"text/plain",
+		),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	localOciBlobRes := cdv2.Resource{
+		IdentityObjectMeta: cdv2.IdentityObjectMeta{
+			Name:    "local-oci-blob",
+			Version: "0.1.0",
+			Type:    "plain-text",
+		},
+		Relation: cdv2.LocalRelation,
+		Access:   &localOciBlobAcc,
+	}
+
+	return localOciBlobRes
+}
+
+func createImageRes(ctx context.Context) cdv2.Resource {
+	imageRef = testenv.Addr + "/test/downloaders/image:0.1.0"
+
+	manifest, desc, err := testutils.UploadTestManifest(ctx, ociClient, imageRef)
+	Expect(err).ToNot(HaveOccurred())
+
+	// TODO: currently needed to fill the cache. remove from test, also from ociclient unit test
+	testutils.CompareManifestToTestManifest(context.TODO(), ociClient, imageRef, manifest)
+
+	expectedImageManifest = oci.Manifest{
+		Descriptor: desc,
+		Data:       manifest,
+	}
+
+	acc, err := cdv2.NewUnstructured(
+		cdv2.NewOCIRegistryAccess(
+			imageRef,
+		),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	res := cdv2.Resource{
+		IdentityObjectMeta: cdv2.IdentityObjectMeta{
+			Name:    "image",
+			Version: "0.1.0",
+			Type:    cdv2.OCIImageType,
+		},
+		Relation: cdv2.LocalRelation,
+		Access:   &acc,
+	}
+
+	return res
+}
+
+func createImageIndexRes(ctx context.Context) cdv2.Resource {
+	imageIndexRef = testenv.Addr + "/test/downloaders/image-index:0.1.0"
+
+	i, err := testutils.UploadTestIndex(ctx, ociClient, imageIndexRef)
+	Expect(err).ToNot(HaveOccurred())
+
+	expectedImageIndex = *i
+
+	acc, err := cdv2.NewUnstructured(
+		cdv2.NewOCIRegistryAccess(
+			imageIndexRef,
+		),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	res := cdv2.Resource{
+		IdentityObjectMeta: cdv2.IdentityObjectMeta{
+			Name:    "image-index",
+			Version: "0.1.0",
+			Type:    cdv2.OCIImageType,
+		},
+		Relation: cdv2.LocalRelation,
+		Access:   &acc,
+	}
+
+	return res
 }

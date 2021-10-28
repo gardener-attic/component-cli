@@ -47,7 +47,7 @@ var _ = Describe("localOciBlob", func() {
 		})
 
 		It("should return error if called with resource of invalid type", func() {
-			ociArtifactRes := testComponent.Resources[ociArtifactResIndex]
+			ociArtifactRes := testComponent.Resources[imageResIndex]
 
 			d, err := downloaders.NewLocalOCIBlobDownloader(ociClient)
 			Expect(err).ToNot(HaveOccurred())

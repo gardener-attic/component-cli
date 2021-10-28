@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
 	"github.com/gardener/component-cli/pkg/transport/process/serialize"
@@ -19,11 +20,11 @@ var _ = Describe("ociArtifact", func() {
 
 	Context("Process", func() {
 
-		It("should download and stream resource", func() {
-			ociArtifactRes := testComponent.Resources[ociArtifactResIndex]
+		It("should download and stream oci image", func() {
+			ociImageRes := testComponent.Resources[imageResIndex]
 
 			inProcessorMsg := bytes.NewBuffer([]byte{})
-			err := process.WriteProcessorMessage(testComponent, ociArtifactRes, nil, inProcessorMsg)
+			err := process.WriteProcessorMessage(testComponent, ociImageRes, nil, inProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
 			d, err := downloaders.NewOCIArtifactDownloader(ociClient, ociCache)
@@ -38,11 +39,37 @@ var _ = Describe("ociArtifact", func() {
 			defer resBlobReader.Close()
 
 			Expect(*actualCd).To(Equal(testComponent))
-			Expect(actualRes).To(Equal(ociArtifactRes))
+			Expect(actualRes).To(Equal(ociImageRes))
 
 			actualOciArtifact, err := serialize.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*actualOciArtifact).To(Equal(expectedOciArtifact))
+			Expect(*actualOciArtifact.GetManifest()).To(Equal(expectedImageManifest))
+		})
+
+		It("should download and stream oci image index", func() {
+			ociImageIndexRes := testComponent.Resources[imageIndexResIndex]
+
+			inProcessorMsg := bytes.NewBuffer([]byte{})
+			err := process.WriteProcessorMessage(testComponent, ociImageIndexRes, nil, inProcessorMsg)
+			Expect(err).ToNot(HaveOccurred())
+
+			d, err := downloaders.NewOCIArtifactDownloader(ociClient, ociCache)
+			Expect(err).ToNot(HaveOccurred())
+
+			outProcessorMsg := bytes.NewBuffer([]byte{})
+			err = d.Process(context.TODO(), inProcessorMsg, outProcessorMsg)
+			Expect(err).ToNot(HaveOccurred())
+
+			actualCd, actualRes, resBlobReader, err := process.ReadProcessorMessage(outProcessorMsg)
+			Expect(err).ToNot(HaveOccurred())
+			defer resBlobReader.Close()
+
+			Expect(*actualCd).To(Equal(testComponent))
+			Expect(actualRes).To(Equal(ociImageIndexRes))
+
+			actualOciArtifact, err := serialize.DeserializeOCIArtifact(resBlobReader, ociCache)
+			Expect(err).ToNot(HaveOccurred())
+			testutils.CompareImageIndices(actualOciArtifact.GetIndex(), &expectedImageIndex)
 		})
 
 		It("should return error if called with resource of invalid type", func() {

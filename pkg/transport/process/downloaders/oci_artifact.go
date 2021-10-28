@@ -61,7 +61,6 @@ func (d *ociArtifactDownloader) Process(ctx context.Context, r io.Reader, w io.W
 		return fmt.Errorf("unable to get oci artifact: %w", err)
 	}
 
-	// fetch config blobs which adds them to the client cache
 	if ociArtifact.IsManifest() {
 		if err := d.fetchConfigAndLayerBlobs(ctx, ociAccess.ImageReference, ociArtifact.GetManifest().Data); err != nil {
 			return err

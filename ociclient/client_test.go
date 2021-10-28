@@ -7,18 +7,14 @@ package ociclient_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/opencontainers/go-digest"
-	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/ociclient/oci"
@@ -36,13 +32,15 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest, _ := testutils.UploadTestManifest(ctx, client, ref)
+			manifest, _, err := testutils.UploadTestManifest(ctx, client, ref)
+			Expect(err).ToNot(HaveOccurred())
 
 			res, err := client.GetManifest(ctx, ref)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.Config).To(Equal(manifest.Config))
 			Expect(res.Layers).To(Equal(manifest.Layers))
 
+			// TODO: oci image index test only working because cache is filled in this function with config/layer blobs. should be fixed
 			testutils.CompareManifestToTestManifest(ctx, client, ref, res)
 		}, 20)
 
@@ -51,14 +49,15 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			indexRef := testenv.Addr + "/image-index/1/img:v0.0.1"
-			index := uploadTestIndex(ctx, indexRef)
+			index, err := testutils.UploadTestIndex(ctx, client, indexRef)
+			Expect(err).ToNot(HaveOccurred())
 
 			actualArtifact, err := client.GetOCIArtifact(ctx, indexRef)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			compareImageIndices(actualArtifact.GetIndex(), index)
+			testutils.CompareImageIndices(actualArtifact.GetIndex(), index)
 		}, 20)
 
 		It("should push and pull an empty oci image index", func() {
@@ -84,7 +83,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			compareImageIndices(actualArtifact.GetIndex(), &index)
+			testutils.CompareImageIndices(actualArtifact.GetIndex(), &index)
 		}, 20)
 
 		It("should push and pull an oci image index with only 1 manifest and no platform information", func() {
@@ -93,7 +92,9 @@ var _ = Describe("client", func() {
 
 			ref := testenv.Addr + "/image-index/3/img:v0.0.1"
 			manifest1Ref := testenv.Addr + "/image-index/1/img-platform-1:v0.0.1"
-			manifest, _ := testutils.UploadTestManifest(ctx, client, manifest1Ref)
+			manifest, _, err := testutils.UploadTestManifest(ctx, client, manifest1Ref)
+			Expect(err).ToNot(HaveOccurred())
+
 			index := oci.Index{
 				Manifests: []*oci.Manifest{
 					{
@@ -116,7 +117,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			compareImageIndices(actualArtifact.GetIndex(), &index)
+			testutils.CompareImageIndices(actualArtifact.GetIndex(), &index)
 		}, 20)
 
 		It("should copy an oci artifact", func() {
@@ -124,7 +125,8 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest, _ := testutils.UploadTestManifest(ctx, client, ref)
+			manifest, _, err := testutils.UploadTestManifest(ctx, client, ref)
+			Expect(err).ToNot(HaveOccurred())
 
 			newRef := testenv.Addr + "/new/artifact:v0.0.1"
 			Expect(ociclient.Copy(ctx, client, ref, newRef)).To(Succeed())
@@ -140,7 +142,7 @@ var _ = Describe("client", func() {
 
 			var layerBlob bytes.Buffer
 			Expect(client.Fetch(ctx, ref, res.Layers[0], &layerBlob)).To(Succeed())
-			Expect(layerBlob.String()).To(Equal("test-config"))
+			Expect(layerBlob.String()).To(Equal("layer-data"))
 		}, 20)
 
 		It("should copy an oci image index", func() {
@@ -148,7 +150,8 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/copy/image-index/src/img:v0.0.1"
-			index := uploadTestIndex(ctx, ref)
+			index, err := testutils.UploadTestIndex(ctx, client, ref)
+			Expect(err).ToNot(HaveOccurred())
 
 			newRef := testenv.Addr + "/copy/image-index/tgt/img:v0.0.1"
 			Expect(ociclient.Copy(ctx, client, ref, newRef)).To(Succeed())
@@ -158,7 +161,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			compareImageIndices(actualArtifact.GetIndex(), index)
+			testutils.CompareImageIndices(actualArtifact.GetIndex(), index)
 
 			for _, manifest := range actualArtifact.GetIndex().Manifests {
 				testutils.CompareManifestToTestManifest(ctx, client, newRef, manifest.Data)
@@ -284,64 +287,3 @@ var _ = Describe("client", func() {
 	})
 
 })
-
-func uploadTestIndex(ctx context.Context, indexRef string) *oci.Index {
-	splitted := strings.Split(indexRef, ":")
-	indexRepo := strings.Join(splitted[0:len(splitted)-1], ":")
-	tag := splitted[len(splitted)-1]
-
-	manifest1Ref := fmt.Sprintf("%s-platform-1:%s", indexRepo, tag)
-	manifest2Ref := fmt.Sprintf("%s-platform-2:%s", indexRepo, tag)
-	manifest1, _ := testutils.UploadTestManifest(ctx, client, manifest1Ref)
-	manifest2, _ := testutils.UploadTestManifest(ctx, client, manifest2Ref)
-	index := oci.Index{
-		Manifests: []*oci.Manifest{
-			{
-				Descriptor: ocispecv1.Descriptor{
-					Platform: &ocispecv1.Platform{
-						Architecture: "amd64",
-						OS:           "linux",
-					},
-				},
-				Data: manifest1,
-			},
-			{
-				Descriptor: ocispecv1.Descriptor{
-					Platform: &ocispecv1.Platform{
-						Architecture: "amd64",
-						OS:           "windows",
-					},
-				},
-				Data: manifest2,
-			},
-		},
-		Annotations: map[string]string{
-			"test": "test",
-		},
-	}
-
-	tmp, err := oci.NewIndexArtifact(&index)
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(client.PushOCIArtifact(ctx, indexRef, tmp)).To(Succeed())
-	return &index
-}
-
-func compareImageIndices(actualIndex *oci.Index, expectedIndex *oci.Index) {
-	Expect(actualIndex.Annotations).To(Equal(expectedIndex.Annotations))
-	Expect(len(actualIndex.Manifests)).To(Equal(len(expectedIndex.Manifests)))
-
-	for i := 0; i < len(actualIndex.Manifests); i++ {
-		actualManifest := actualIndex.Manifests[i]
-		expectedManifest := expectedIndex.Manifests[i]
-
-		expectedManifestBytes, err := json.Marshal(expectedManifest.Data)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(actualManifest.Descriptor.MediaType).To(Equal(ocispecv1.MediaTypeImageManifest))
-		Expect(actualManifest.Descriptor.Digest).To(Equal(digest.FromBytes(expectedManifestBytes)))
-		Expect(actualManifest.Descriptor.Size).To(Equal(int64(len(expectedManifestBytes))))
-		Expect(actualManifest.Descriptor.Platform).To(Equal(expectedManifest.Descriptor.Platform))
-		Expect(actualManifest.Data).To(Equal(expectedManifest.Data))
-	}
-}
