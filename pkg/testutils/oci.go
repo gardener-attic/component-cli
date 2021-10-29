@@ -20,13 +20,13 @@ import (
 )
 
 func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
-	data := []byte("test")
+	configData := []byte("test")
 	layerData := []byte("layer-data")
 	manifest := &ocispecv1.Manifest{
 		Config: ocispecv1.Descriptor{
 			MediaType: "text/plain",
-			Digest:    digest.FromBytes(data),
-			Size:      int64(len(data)),
+			Digest:    digest.FromBytes(configData),
+			Size:      int64(len(configData)),
 		},
 		Layers: []ocispecv1.Descriptor{
 			{
@@ -39,7 +39,7 @@ func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string
 	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
 		switch desc.Digest.String() {
 		case manifest.Config.Digest.String():
-			_, err := writer.Write(data)
+			_, err := writer.Write(configData)
 			return err
 		default:
 			_, err := writer.Write(layerData)

@@ -318,10 +318,21 @@ func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest,
 		}
 	}
 
-	manifestDesc, err := createDescriptorFromManifest(cache, manifest)
+	manifestDesc, err := CreateDescriptorFromManifest(manifest)
 	if err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to create manifest descriptor: %w", err)
 	}
+
+	manifestBytes, err := json.Marshal(manifest)
+	if err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to marshal manifest: %w", err)
+	}
+
+	manifestBuf := bytes.NewBuffer(manifestBytes)
+	if err := cache.Add(manifestDesc, ioutil.NopCloser(manifestBuf)); err != nil {
+		return ocispecv1.Descriptor{}, fmt.Errorf("unable to add manifest to cache: %w", err)
+	}
+
 	if err := c.pushContent(ctx, cache, pusher, manifestDesc); err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to push manifest: %w", err)
 	}
@@ -727,7 +738,7 @@ func doRequestWithPaging(ctx context.Context, u *url.URL, pFunc pagingFunc) erro
 	}
 }
 
-func createDescriptorFromManifest(cache cache.Cache, manifest *ocispecv1.Manifest) (ocispecv1.Descriptor, error) {
+func CreateDescriptorFromManifest(manifest *ocispecv1.Manifest) (ocispecv1.Descriptor, error) {
 	if manifest.SchemaVersion == 0 {
 		manifest.SchemaVersion = 2
 	}
@@ -741,10 +752,6 @@ func createDescriptorFromManifest(cache cache.Cache, manifest *ocispecv1.Manifes
 		Size:      int64(len(manifestBytes)),
 	}
 
-	manifestBuf := bytes.NewBuffer(manifestBytes)
-	if err := cache.Add(manifestDescriptor, ioutil.NopCloser(manifestBuf)); err != nil {
-		return ocispecv1.Descriptor{}, err
-	}
 	return manifestDescriptor, nil
 }
 

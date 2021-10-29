@@ -17,18 +17,28 @@ import (
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
 const (
+	// ManifestFile is the name of the manifest file of a serialized oci artifact
 	ManifestFile = "manifest.json"
-	IndexFile    = "index.json"
-	BlobsDir     = "blobs"
+
+	// IndexFile is the name of the image index file of a serialized oci artifact
+	IndexFile = "index.json"
+
+	// BlobsDir is the name of the blobs directory of a serialized oci artifact
+	BlobsDir = "blobs"
 )
 
-//
+// SerializeOCIArtifact serializes an oci artifact into a TAR archive. the TAR archive contains
+// the manifest.json (if the oci artifact is of type manifest) or index.json (if the oci artifact
+// is a docker image list / oci image index) and a single directory which contains all blobs.
+// the cache instance is used for reading config and layer blobs. returns a reader for the TAR
+// archive which must be closed by the caller.
 func SerializeOCIArtifact(ociArtifact oci.Artifact, cache cache.Cache) (io.ReadCloser, error) {
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -58,11 +68,19 @@ func serializeImageIndex(cache cache.Cache, index *oci.Index, w io.Writer) error
 
 	manifestDescs := []ocispecv1.Descriptor{}
 	for _, m := range index.Manifests {
-		manifestFile := path.Join(BlobsDir, m.Descriptor.Digest.Encoded())
+		mDesc, err := ociclient.CreateDescriptorFromManifest(m.Data)
+		if err != nil {
+			return fmt.Errorf("unable to create manifest descriptor: %w", err)
+		}
+		mDesc.Annotations = m.Descriptor.Annotations
+		mDesc.Platform = m.Descriptor.Platform
+		mDesc.URLs = m.Descriptor.URLs
+
+		manifestFile := path.Join(BlobsDir, mDesc.Digest.Encoded())
 		if err := serializeImage(cache, m, manifestFile, tw); err != nil {
 			return fmt.Errorf("unable to serialize image: %w", err)
 		}
-		manifestDescs = append(manifestDescs, m.Descriptor)
+		manifestDescs = append(manifestDescs, mDesc)
 	}
 
 	i := ocispecv1.Index{
@@ -75,11 +93,11 @@ func serializeImageIndex(cache cache.Cache, index *oci.Index, w io.Writer) error
 
 	indexBytes, err := json.Marshal(i)
 	if err != nil {
-		return fmt.Errorf("unable to marshal index manifest: %w", err)
+		return fmt.Errorf("unable to marshal image index: %w", err)
 	}
 
 	if err := utils.WriteFileToTARArchive(IndexFile, bytes.NewReader(indexBytes), tw); err != nil {
-		return fmt.Errorf("unable to write index manifest: %w", err)
+		return fmt.Errorf("unable to write image index: %w", err)
 	}
 
 	return nil
@@ -122,6 +140,10 @@ func serializeImage(cache cache.Cache, manifest *oci.Manifest, manifestFile stri
 	return nil
 }
 
+// DeserializeOCIArtifact deserializes an oci artifact from a TAR archive. the TAR archive must contain
+// the manifest.json (if the oci artifact is of type manifest) or index.json (if the oci artifact
+// is a docker image list / oci image index) and a single directory which contains all blobs.
+// all blobs from the blobs directory are additionally stored in the cache instance.
 func DeserializeOCIArtifact(r io.Reader, cache cache.Cache) (*oci.Artifact, error) {
 	tr := tar.NewReader(r)
 
@@ -149,30 +171,31 @@ func DeserializeOCIArtifact(r io.Reader, cache cache.Cache) (*oci.Artifact, erro
 		} else if strings.HasPrefix(header.Name, BlobsDir) {
 			tmpfile, err := ioutil.TempFile("", "")
 			if err != nil {
-				return nil, fmt.Errorf("")
+				return nil, fmt.Errorf("unable to create tempfile: %w", err)
 			}
 
 			if _, err := io.Copy(tmpfile, tr); err != nil {
-				return nil, fmt.Errorf("")
+				return nil, fmt.Errorf("unable to copy file content to tempfile: %w", err)
 			}
 
-			dgst, err := digest.FromReader(tmpfile)
-			if err != nil {
-				return nil, fmt.Errorf("unable to calculate digest for blobfile %s: %w", header.Name, err)
-			}
-
-			if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
-				return nil, fmt.Errorf("unable to seek to beginning of file: %w", err)
+			splittedFilename := strings.Split(header.Name, "/")
+			if len(splittedFilename) != 2 {
+				return nil, fmt.Errorf("unable to process file: invalid filename %s must follow schema blobs/<content-hash>", header.Name)
 			}
 
 			desc := ocispecv1.Descriptor{
-				Digest: dgst,
+				Digest: digest.NewDigestFromEncoded(digest.SHA256, splittedFilename[1]),
 			}
+
+			if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
+				return nil, fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
+			}
+
 			if err := cache.Add(desc, tmpfile); err != nil {
 				return nil, fmt.Errorf("unable to write blob %+v to cache: %w", desc, err)
 			}
 		} else {
-			return nil, fmt.Errorf("unknown file")
+			return nil, fmt.Errorf("unknown file %s", header.Name)
 		}
 	}
 
@@ -194,12 +217,12 @@ func DeserializeOCIArtifact(r io.Reader, cache cache.Cache) (*oci.Artifact, erro
 
 			buf := bytes.NewBuffer([]byte{})
 			if _, err := io.Copy(buf, blobreader); err != nil {
-				return nil, fmt.Errorf("unable to copy %s to buffer: %w", ManifestFile, err)
+				return nil, fmt.Errorf("unable to copy manifest to buffer: %w", err)
 			}
 
 			var manifest ocispecv1.Manifest
 			if err := json.Unmarshal(buf.Bytes(), &manifest); err != nil {
-				return nil, fmt.Errorf("unable to unmarshal %s: %w", ManifestFile, err)
+				return nil, fmt.Errorf("unable to unmarshal manifest: %w", err)
 			}
 
 			m := oci.Manifest{
