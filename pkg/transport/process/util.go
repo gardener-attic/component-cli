@@ -13,10 +13,11 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 const (
@@ -42,7 +43,7 @@ func WriteProcessorMessage(cd cdv2.ComponentDescriptor, res cdv2.Resource, resou
 		return fmt.Errorf("unable to marshal component descriptor: %w", err)
 	}
 
-	if err := writeFileToTARArchive(ComponentDescriptorFile, bytes.NewReader(marshaledCD), tw); err != nil {
+	if err := utils.WriteFileToTARArchive(ComponentDescriptorFile, bytes.NewReader(marshaledCD), tw); err != nil {
 		return fmt.Errorf("unable to write %s: %w", ComponentDescriptorFile, err)
 	}
 
@@ -51,52 +52,14 @@ func WriteProcessorMessage(cd cdv2.ComponentDescriptor, res cdv2.Resource, resou
 		return fmt.Errorf("unable to marshal resource: %w", err)
 	}
 
-	if err := writeFileToTARArchive(ResourceFile, bytes.NewReader(marshaledRes), tw); err != nil {
+	if err := utils.WriteFileToTARArchive(ResourceFile, bytes.NewReader(marshaledRes), tw); err != nil {
 		return fmt.Errorf("unable to write %s: %w", ResourceFile, err)
 	}
 
 	if resourceBlobReader != nil {
-		if err := writeFileToTARArchive(ResourceBlobFile, resourceBlobReader, tw); err != nil {
+		if err := utils.WriteFileToTARArchive(ResourceBlobFile, resourceBlobReader, tw); err != nil {
 			return fmt.Errorf("unable to write %s: %w", ResourceBlobFile, err)
 		}
-	}
-
-	return nil
-}
-
-func writeFileToTARArchive(filename string, contentReader io.Reader, outArchive *tar.Writer) error {
-	tempfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return fmt.Errorf("unable to create tempfile: %w", err)
-	}
-	defer tempfile.Close()
-
-	if _, err := io.Copy(tempfile, contentReader); err != nil {
-		return fmt.Errorf("unable to write content to file: %w", err)
-	}
-
-	if _, err := tempfile.Seek(0, io.SeekStart); err != nil {
-		return fmt.Errorf("unable to seek to beginning of file: %w", err)
-	}
-
-	fstat, err := tempfile.Stat()
-	if err != nil {
-		return fmt.Errorf("unable to get file info: %w", err)
-	}
-
-	header := tar.Header{
-		Name:    filename,
-		Size:    fstat.Size(),
-		Mode:    int64(fstat.Mode()),
-		ModTime: time.Now(),
-	}
-
-	if err := outArchive.WriteHeader(&header); err != nil {
-		return fmt.Errorf("unable to write tar header: %w", err)
-	}
-
-	if _, err := io.Copy(outArchive, tempfile); err != nil {
-		return fmt.Errorf("unable to write file to tar archive: %w", err)
 	}
 
 	return nil
