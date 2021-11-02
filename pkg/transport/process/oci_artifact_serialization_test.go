@@ -4,17 +4,20 @@
 package process_test
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
+	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
+	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/opencontainers/go-digest"
-	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 var _ = Describe("oci artifact serialization", func() {
@@ -24,7 +27,7 @@ var _ = Describe("oci artifact serialization", func() {
 		It("should correctly serialize and deserialize image", func() {
 			configData := []byte("config-data")
 			layerData := []byte("layer-data")
-			m, _, err := createManifest(configData, layerData)
+			m, _, err := testutils.CreateManifest(configData, layerData)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedOciArtifact, err := oci.NewManifestArtifact(
@@ -67,9 +70,9 @@ var _ = Describe("oci artifact serialization", func() {
 			configData2 := []byte("config-data-2")
 			layerData2 := []byte("layer-data-2")
 
-			m1, m1Desc, err := createManifest(configData1, layerData1)
+			m1, m1Desc, err := testutils.CreateManifest(configData1, layerData1)
 			Expect(err).ToNot(HaveOccurred())
-			m2, m2Desc, err := createManifest(configData2, layerData2)
+			m2, m2Desc, err := testutils.CreateManifest(configData2, layerData2)
 			Expect(err).ToNot(HaveOccurred())
 
 			m1Bytes, err := json.Marshal(m1)
@@ -144,57 +147,56 @@ var _ = Describe("oci artifact serialization", func() {
 			_, err = io.Copy(actualLayerBuf, actualLayerReader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualLayerBuf.Bytes()).To(Equal(layerData2))
-
 		})
 
 	})
 
 	Context("serialize oci artifact", func() {
 
-		It("should raise error if ....", func() {
-
+		It("should raise error if cache is nil", func() {
+			_, err := process.SerializeOCIArtifact(oci.Artifact{}, nil)
+			Expect(err).To(MatchError("cache must not be nil"))
 		})
 
 	})
 
 	Context("deserialize oci artifact", func() {
 
-		It("should raise error if ....", func() {
+		It("should raise error if reader is nil", func() {
+			_, err := process.DeserializeOCIArtifact(nil, cache.NewInMemoryCache())
+			Expect(err).To(MatchError("reader must not be nil"))
+		})
 
+		It("should raise error if cache is nil", func() {
+			buf := bytes.NewBuffer([]byte{})
+			_, err := process.DeserializeOCIArtifact(buf, nil)
+			Expect(err).To(MatchError("cache must not be nil"))
+		})
+
+		It("should raise error if tar archive contains unknown file", func() {
+			fileName := "invalid-filename"
+			fileContent := []byte("file-content")
+
+			buf := bytes.NewBuffer([]byte{})
+			tw := tar.NewWriter(buf)
+			fileHeader := tar.Header{
+				Name:    fileName,
+				Size:    int64(len(fileContent)),
+				Mode:    int64(os.ModePerm),
+				ModTime: time.Now(),
+			}
+
+			Expect(tw.WriteHeader(&fileHeader)).To(Succeed())
+
+			_, err := io.Copy(tw, bytes.NewReader(fileContent))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tw.Close()).To(Succeed())
+
+			_, err = process.DeserializeOCIArtifact(buf, cache.NewInMemoryCache())
+			Expect(err).To(MatchError("unknown file " + fileName))
 		})
 
 	})
 
 })
-
-func createManifest(configData []byte, layerData []byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
-	configDesc := ocispecv1.Descriptor{
-		MediaType: "text/plain",
-		Digest:    digest.FromBytes(configData),
-		Size:      int64(len(configData)),
-	}
-
-	layerDesc := ocispecv1.Descriptor{
-		MediaType: "text/plain",
-		Digest:    digest.FromBytes(layerData),
-		Size:      int64(len(layerData)),
-	}
-
-	m := ocispecv1.Manifest{
-		Config: configDesc,
-		Layers: []ocispecv1.Descriptor{
-			layerDesc,
-		},
-	}
-
-	mBytes, err := json.Marshal(m)
-	if err != nil {
-		return nil, ocispecv1.Descriptor{}, err
-	}
-
-	d := ocispecv1.Descriptor{
-		Digest: digest.FromBytes(mBytes),
-	}
-
-	return &m, d, nil
-}

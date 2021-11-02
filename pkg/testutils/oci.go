@@ -149,3 +149,35 @@ func CompareImageIndices(actualIndex *oci.Index, expectedIndex *oci.Index) {
 		Expect(actualManifest.Data).To(Equal(expectedManifest.Data))
 	}
 }
+
+func CreateManifest(configData []byte, layerData []byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
+	configDesc := ocispecv1.Descriptor{
+		MediaType: "text/plain",
+		Digest:    digest.FromBytes(configData),
+		Size:      int64(len(configData)),
+	}
+
+	layerDesc := ocispecv1.Descriptor{
+		MediaType: "text/plain",
+		Digest:    digest.FromBytes(layerData),
+		Size:      int64(len(layerData)),
+	}
+
+	m := ocispecv1.Manifest{
+		Config: configDesc,
+		Layers: []ocispecv1.Descriptor{
+			layerDesc,
+		},
+	}
+
+	mBytes, err := json.Marshal(m)
+	if err != nil {
+		return nil, ocispecv1.Descriptor{}, err
+	}
+
+	d := ocispecv1.Descriptor{
+		Digest: digest.FromBytes(mBytes),
+	}
+
+	return &m, d, nil
+}
