@@ -14,11 +14,10 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/serialize"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
-type ociImageUploader struct {
+type ociArtifactUploader struct {
 	client         ociclient.Client
 	cache          cache.Cache
 	baseUrl        string
@@ -38,7 +37,7 @@ func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, baseUrl str
 		return nil, errors.New("baseUrl must not be empty")
 	}
 
-	obj := ociImageUploader{
+	obj := ociArtifactUploader{
 		client:         client,
 		cache:          cache,
 		baseUrl:        baseUrl,
@@ -47,14 +46,14 @@ func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, baseUrl str
 	return &obj, nil
 }
 
-func (u *ociImageUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
+func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
 	cd, res, resBlobReader, err := process.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
 	defer resBlobReader.Close()
 
-	ociArtifact, err := serialize.DeserializeOCIArtifact(resBlobReader, u.cache)
+	ociArtifact, err := process.DeserializeOCIArtifact(resBlobReader, u.cache)
 	if err != nil {
 		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
 	}
@@ -81,7 +80,7 @@ func (u *ociImageUploader) Process(ctx context.Context, r io.Reader, w io.Writer
 		return fmt.Errorf("unable to push oci artifact: %w", err)
 	}
 
-	blobReader, err := serialize.SerializeOCIArtifact(*ociArtifact, u.cache)
+	blobReader, err := process.SerializeOCIArtifact(*ociArtifact, u.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialize oci artifact: %w", err)
 	}
