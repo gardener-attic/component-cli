@@ -13,6 +13,7 @@ import (
 	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 var _ = Describe("ociArtifact", func() {
@@ -23,7 +24,7 @@ var _ = Describe("ociArtifact", func() {
 			ociImageRes := testComponent.Resources[imageResIndex]
 
 			inProcessorMsg := bytes.NewBuffer([]byte{})
-			err := process.WriteProcessorMessage(testComponent, ociImageRes, nil, inProcessorMsg)
+			err := utils.WriteProcessorMessage(testComponent, ociImageRes, nil, inProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
 			d, err := downloaders.NewOCIArtifactDownloader(ociClient, ociCache)
@@ -33,7 +34,7 @@ var _ = Describe("ociArtifact", func() {
 			err = d.Process(context.TODO(), inProcessorMsg, outProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
-			actualCd, actualRes, resBlobReader, err := process.ReadProcessorMessage(outProcessorMsg)
+			actualCd, actualRes, resBlobReader, err := utils.ReadProcessorMessage(outProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 			defer resBlobReader.Close()
 
@@ -50,7 +51,7 @@ var _ = Describe("ociArtifact", func() {
 			ociImageIndexRes := testComponent.Resources[imageIndexResIndex]
 
 			inProcessorMsg := bytes.NewBuffer([]byte{})
-			err := process.WriteProcessorMessage(testComponent, ociImageIndexRes, nil, inProcessorMsg)
+			err := utils.WriteProcessorMessage(testComponent, ociImageIndexRes, nil, inProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
 			d, err := downloaders.NewOCIArtifactDownloader(ociClient, ociCache)
@@ -60,7 +61,7 @@ var _ = Describe("ociArtifact", func() {
 			err = d.Process(context.TODO(), inProcessorMsg, outProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
-			actualCd, actualRes, resBlobReader, err := process.ReadProcessorMessage(outProcessorMsg)
+			actualCd, actualRes, resBlobReader, err := utils.ReadProcessorMessage(outProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 			defer resBlobReader.Close()
 
@@ -79,7 +80,7 @@ var _ = Describe("ociArtifact", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			b1 := bytes.NewBuffer([]byte{})
-			err = process.WriteProcessorMessage(testComponent, localOciBlobRes, nil, b1)
+			err = utils.WriteProcessorMessage(testComponent, localOciBlobRes, nil, b1)
 			Expect(err).ToNot(HaveOccurred())
 
 			b2 := bytes.NewBuffer([]byte{})

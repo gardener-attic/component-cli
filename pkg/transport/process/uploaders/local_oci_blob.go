@@ -16,6 +16,7 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 type localOCIBlobUploader struct {
@@ -36,7 +37,7 @@ func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistry
 }
 
 func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, blobreader, err := process.ReadProcessorMessage(r)
+	cd, res, blobreader, err := utils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
@@ -93,7 +94,7 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 		return err
 	}
 
-	err = process.WriteProcessorMessage(*cd, res, tmpfile, w)
+	err = utils.WriteProcessorMessage(*cd, res, tmpfile, w)
 	if err != nil {
 		return fmt.Errorf("unable to write processor message: %w", err)
 	}

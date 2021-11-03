@@ -303,6 +303,7 @@ func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest,
 		if err := cache.Add(dummyDesc, ioutil.NopCloser(bytes.NewBuffer(dummyConfig))); err != nil {
 			return ocispecv1.Descriptor{}, fmt.Errorf("unable to add dummy config to cache: %w", err)
 		}
+		if err := c.pushContent(ctx, cache, pusher, dummyDesc); err != nil {
 			return ocispecv1.Descriptor{}, fmt.Errorf("unable to push dummy config: %w", err)
 		}
 	} else {

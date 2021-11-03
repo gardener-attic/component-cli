@@ -21,7 +21,7 @@ func createExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor
 	type executableSpec struct {
 		Bin  string
 		Args []string
-		Env  []string
+		Env  map[string]string
 	}
 
 	var spec executableSpec

@@ -11,8 +11,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 var _ = Describe("localOciBlob", func() {
@@ -23,7 +23,7 @@ var _ = Describe("localOciBlob", func() {
 			localOciBlobRes := testComponent.Resources[localOciBlobResIndex]
 
 			inProcessorMsg := bytes.NewBuffer([]byte{})
-			err := process.WriteProcessorMessage(testComponent, localOciBlobRes, nil, inProcessorMsg)
+			err := utils.WriteProcessorMessage(testComponent, localOciBlobRes, nil, inProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
 			d, err := downloaders.NewLocalOCIBlobDownloader(ociClient)
@@ -33,7 +33,7 @@ var _ = Describe("localOciBlob", func() {
 			err = d.Process(context.TODO(), inProcessorMsg, outProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 
-			actualCd, actualRes, resBlobReader, err := process.ReadProcessorMessage(outProcessorMsg)
+			actualCd, actualRes, resBlobReader, err := utils.ReadProcessorMessage(outProcessorMsg)
 			Expect(err).ToNot(HaveOccurred())
 			defer resBlobReader.Close()
 
@@ -53,7 +53,7 @@ var _ = Describe("localOciBlob", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			b1 := bytes.NewBuffer([]byte{})
-			err = process.WriteProcessorMessage(testComponent, ociArtifactRes, nil, b1)
+			err = utils.WriteProcessorMessage(testComponent, ociArtifactRes, nil, b1)
 			Expect(err).ToNot(HaveOccurred())
 
 			b2 := bytes.NewBuffer([]byte{})

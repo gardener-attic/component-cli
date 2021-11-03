@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	processutils "github.com/gardener/component-cli/pkg/transport/process/utils"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -47,7 +48,7 @@ func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, baseUrl str
 }
 
 func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, resBlobReader, err := process.ReadProcessorMessage(r)
+	cd, res, resBlobReader, err := processutils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
@@ -86,7 +87,7 @@ func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Wri
 	}
 	defer blobReader.Close()
 
-	if err := process.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
+	if err := processutils.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
 		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 

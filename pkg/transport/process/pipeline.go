@@ -12,6 +12,8 @@ import (
 	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 const processorTimeout = 60 * time.Second
@@ -26,12 +28,12 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	if err := WriteProcessorMessage(cd, res, nil, infile); err != nil {
+	if err := utils.WriteProcessorMessage(cd, res, nil, infile); err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
 
 	for _, proc := range p.processors {
-		outfile, err := p.process(ctx, infile, proc)
+		outfile, err := p.runProcessor(ctx, infile, proc)
 		if err != nil {
 			return nil, cdv2.Resource{}, err
 		}
@@ -44,7 +46,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to seek to beginning of file: %w", err)
 	}
 
-	processedCD, processedRes, blobreader, err := ReadProcessorMessage(infile)
+	processedCD, processedRes, blobreader, err := utils.ReadProcessorMessage(infile)
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}
@@ -55,7 +57,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 	return processedCD, processedRes, nil
 }
 
-func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
+func (p *resourceProcessingPipelineImpl) runProcessor(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
 	defer infile.Close()
 
 	if _, err := infile.Seek(0, io.SeekStart); err != nil {

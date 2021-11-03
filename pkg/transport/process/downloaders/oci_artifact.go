@@ -16,6 +16,7 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 type ociArtifactDownloader struct {
@@ -41,7 +42,7 @@ func NewOCIArtifactDownloader(client ociclient.Client, cache cache.Cache) (proce
 }
 
 func (d *ociArtifactDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, _, err := process.ReadProcessorMessage(r)
+	cd, res, _, err := utils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
@@ -78,7 +79,7 @@ func (d *ociArtifactDownloader) Process(ctx context.Context, r io.Reader, w io.W
 	}
 	defer blobReader.Close()
 
-	if err := process.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
+	if err := utils.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
 		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 

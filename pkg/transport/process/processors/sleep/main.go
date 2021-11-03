@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/gardener/component-cli/pkg/transport/process/extensions"
-	"github.com/gardener/component-cli/pkg/transport/process/processors"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 const sleepTimeEnv = "SLEEP_TIME"
 
-// a test processor which sleeps for a configurable duration and then exists with an error.
+// a test processor which sleeps for a configurable duration and then exits with an error.
 func main() {
 	sleepTime, err := time.ParseDuration(os.Getenv(sleepTimeEnv))
 	if err != nil {
@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("finished sleeping -> exit with error")
 	}
 
-	srv, err := processors.NewUDSServer(addr, h)
+	srv, err := utils.NewUDSServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}

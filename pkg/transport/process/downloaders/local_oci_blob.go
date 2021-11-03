@@ -15,6 +15,7 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 type localOCIBlobDownloader struct {
@@ -34,7 +35,7 @@ func NewLocalOCIBlobDownloader(client ociclient.Client) (process.ResourceStreamP
 }
 
 func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, _, err := process.ReadProcessorMessage(r)
+	cd, res, _, err := utils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
@@ -57,7 +58,7 @@ func (d *localOCIBlobDownloader) Process(ctx context.Context, r io.Reader, w io.
 		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
 	}
 
-	if err := process.WriteProcessorMessage(*cd, res, tmpfile, w); err != nil {
+	if err := utils.WriteProcessorMessage(*cd, res, tmpfile, w); err != nil {
 		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 

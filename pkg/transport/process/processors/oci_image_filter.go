@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	processutils "github.com/gardener/component-cli/pkg/transport/process/utils"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -30,7 +31,7 @@ type ociImageFilter struct {
 }
 
 func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, blobreader, err := process.ReadProcessorMessage(r)
+	cd, res, blobreader, err := processutils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read archive: %w", err)
 	}
@@ -82,7 +83,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 		return fmt.Errorf("unable to serialice oci artifact: %w", err)
 	}
 
-	if err = process.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
+	if err = processutils.WriteProcessorMessage(*cd, res, blobReader, w); err != nil {
 		return fmt.Errorf("unable to write archive: %w", err)
 	}
 

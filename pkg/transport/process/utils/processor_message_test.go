@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package process_test
+package utils_test
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 var _ = Describe("util", func() {
@@ -38,10 +38,10 @@ var _ = Describe("util", func() {
 			}
 
 			processMsgBuf := bytes.NewBuffer([]byte{})
-			err := process.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), processMsgBuf)
+			err := utils.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), processMsgBuf)
 			Expect(err).ToNot(HaveOccurred())
 
-			actualCD, actualRes, resourceBlobReader, err := process.ReadProcessorMessage(processMsgBuf)
+			actualCD, actualRes, resourceBlobReader, err := utils.ReadProcessorMessage(processMsgBuf)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*actualCD).To(Equal(cd))
@@ -54,4 +54,5 @@ var _ = Describe("util", func() {
 		})
 
 	})
+
 })
