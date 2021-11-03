@@ -13,6 +13,8 @@ import (
 	"io/ioutil"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 const processorTimeout = 30 * time.Second
@@ -27,7 +29,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to create temporary infile: %w", err)
 	}
 
-	if err := WriteProcessorMessage(cd, res, nil, infile); err != nil {
+	if err := utils.WriteProcessorMessage(cd, res, nil, infile); err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to write: %w", err)
 	}
 
@@ -45,7 +47,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 		return nil, cdv2.Resource{}, err
 	}
 
-	processedCD, processedRes, blobreader, err := ReadProcessorMessage(infile)
+	processedCD, processedRes, blobreader, err := utils.ReadProcessorMessage(infile)
 	if err != nil {
 		return nil, cdv2.Resource{}, fmt.Errorf("unable to read output data: %w", err)
 	}

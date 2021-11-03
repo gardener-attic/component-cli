@@ -20,6 +20,7 @@ import (
 
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/extensions"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 const (
@@ -140,14 +141,14 @@ func runExampleResourceTest(processor process.ResourceStreamProcessor) {
 	}
 
 	inputBuf := bytes.NewBuffer([]byte{})
-	err := process.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), inputBuf)
+	err := utils.WriteProcessorMessage(cd, res, strings.NewReader(resourceData), inputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
 	outputBuf := bytes.NewBuffer([]byte{})
 	err = processor.Process(context.TODO(), inputBuf, outputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
-	processedCD, processedRes, processedBlobReader, err := process.ReadProcessorMessage(outputBuf)
+	processedCD, processedRes, processedBlobReader, err := utils.ReadProcessorMessage(outputBuf)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(*processedCD).To(Equal(cd))

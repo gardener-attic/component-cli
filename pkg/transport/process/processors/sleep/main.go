@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/extensions"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 const sleepTimeEnv = "SLEEP_TIME"
@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("finished sleeping -> exit with error")
 	}
 
-	srv, err := process.NewUDSServer(addr, h)
+	srv, err := utils.NewUDSServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}

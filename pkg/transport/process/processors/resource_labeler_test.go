@@ -9,11 +9,12 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/processors"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/gardener/component-cli/pkg/transport/process/processors"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 var _ = Describe("resourceLabeler", func() {
@@ -53,21 +54,21 @@ var _ = Describe("resourceLabeler", func() {
 			}
 
 			inBuf := bytes.NewBuffer([]byte{})
-			Expect(process.WriteProcessorMessage(cd, res, bytes.NewReader(resBytes), inBuf)).To(Succeed())
+			Expect(utils.WriteProcessorMessage(cd, res, bytes.NewReader(resBytes), inBuf)).To(Succeed())
 
 			outbuf := bytes.NewBuffer([]byte{})
 
 			p1 := processors.NewResourceLabeler(l1, l2)
 			Expect(p1.Process(context.TODO(), inBuf, outbuf)).To(Succeed())
 
-			actualCD, actualRes, actualResBlobReader, err := process.ReadProcessorMessage(outbuf)
+			actualCD, actualRes, actualResBlobReader, err := utils.ReadProcessorMessage(outbuf)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*actualCD).To(Equal(cd))
 			Expect(actualRes).To(Equal(expectedRes))
 
 			actualResBlobBuf := bytes.NewBuffer([]byte{})
-			_, err =io.Copy(actualResBlobBuf, actualResBlobReader)
+			_, err = io.Copy(actualResBlobBuf, actualResBlobReader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualResBlobBuf.Bytes()).To(Equal(resBytes))
 		})

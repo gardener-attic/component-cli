@@ -17,8 +17,8 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 
-	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/extensions"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 const processorName = "example-processor"
@@ -42,7 +42,7 @@ func main() {
 		}
 	}
 
-	srv, err := process.NewUDSServer(addr, h)
+	srv, err := utils.NewUDSServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 		return err
 	}
 
-	cd, res, resourceBlobReader, err := process.ReadProcessorMessage(tmpfile)
+	cd, res, resourceBlobReader, err := utils.ReadProcessorMessage(tmpfile)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 	}
 	res.Labels = append(res.Labels, l)
 
-	if err := process.WriteProcessorMessage(*cd, res, strings.NewReader(outputData), outputStream); err != nil {
+	if err := utils.WriteProcessorMessage(*cd, res, strings.NewReader(outputData), outputStream); err != nil {
 		return err
 	}
 
