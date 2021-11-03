@@ -21,11 +21,16 @@ type stdIOExecutable struct {
 
 // NewStdIOExecutable returns a resource processor extension which runs an executable.
 // in the background. It communicates with this processor via stdin/stdout pipes.
-func NewStdIOExecutable(bin string, args []string, env []string) (process.ResourceStreamProcessor, error) {
+func NewStdIOExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
+	parsedEnv := []string{}
+	for k, v := range env {
+		parsedEnv = append(parsedEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+
 	e := stdIOExecutable{
 		bin:  bin,
 		args: args,
-		env:  env,
+		env:  parsedEnv,
 	}
 
 	return &e, nil

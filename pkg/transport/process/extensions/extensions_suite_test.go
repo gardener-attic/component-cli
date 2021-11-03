@@ -46,9 +46,15 @@ var _ = BeforeSuite(func() {
 var _ = Describe("transport extensions", func() {
 
 	Context("stdio executable", func() {
+		It("should create processor successfully if env is nil", func() {
+			args := []string{}
+			_, err := extensions.NewStdIOExecutable(exampleProcessorBinaryPath, args, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should modify the processed resource correctly", func() {
 			args := []string{}
-			env := []string{}
+			env := map[string]string{}
 			processor, err := extensions.NewStdIOExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -57,8 +63,8 @@ var _ = Describe("transport extensions", func() {
 
 		It("should exit with error when timeout is reached", func() {
 			args := []string{}
-			env := []string{
-				fmt.Sprintf("%s=%s", sleepTimeEnv, sleepTime.String()),
+			env := map[string]string{
+				sleepTimeEnv: sleepTime.String(),
 			}
 			processor, err := extensions.NewStdIOExecutable(sleepProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
@@ -68,9 +74,15 @@ var _ = Describe("transport extensions", func() {
 	})
 
 	Context("uds executable", func() {
+		It("should create processor successfully if env is nil", func() {
+			args := []string{}
+			_, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should modify the processed resource correctly", func() {
 			args := []string{}
-			env := []string{}
+			env := map[string]string{}
 			processor, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -79,8 +91,8 @@ var _ = Describe("transport extensions", func() {
 
 		It("should raise an error when trying to set the server address env variable manually", func() {
 			args := []string{}
-			env := []string{
-				extensions.ServerAddressEnv + "=/tmp/my-processor.sock",
+			env := map[string]string{
+				extensions.ServerAddressEnv: "/tmp/my-processor.sock",
 			}
 			_, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).To(MatchError(fmt.Sprintf("the env variable %s is not allowed to be set manually", extensions.ServerAddressEnv)))
@@ -88,8 +100,8 @@ var _ = Describe("transport extensions", func() {
 
 		It("should exit with error when timeout is reached", func() {
 			args := []string{}
-			env := []string{
-				fmt.Sprintf("%s=%s", sleepTimeEnv, sleepTime.String()),
+			env := map[string]string{
+				sleepTimeEnv: sleepTime.String(),
 			}
 			processor, err := extensions.NewUDSExecutable(sleepProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())

@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 
@@ -31,11 +30,14 @@ type udsExecutable struct {
 
 // NewUDSExecutable runs a resource processor extension executable in the background.
 // It communicates with this processor via Unix Domain Sockets.
-func NewUDSExecutable(bin string, args []string, env []string) (process.ResourceStreamProcessor, error) {
-	for _, e := range env {
-		if strings.HasPrefix(e, ServerAddressEnv+"=") {
-			return nil, fmt.Errorf("the env variable %s is not allowed to be set manually", ServerAddressEnv)
-		}
+func NewUDSExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
+	if _, ok := env[ServerAddressEnv]; ok {
+		return nil, fmt.Errorf("the env variable %s is not allowed to be set manually", ServerAddressEnv)
+	}
+
+	parsedEnv := []string{}
+	for k, v := range env {
+		parsedEnv = append(parsedEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	wd, err := os.Getwd()
@@ -43,12 +45,12 @@ func NewUDSExecutable(bin string, args []string, env []string) (process.Resource
 		return nil, err
 	}
 	addr := fmt.Sprintf("%s/%s.sock", wd, utils.RandomString(8))
-	env = append(env, fmt.Sprintf("%s=%s", ServerAddressEnv, addr))
+	parsedEnv = append(parsedEnv, fmt.Sprintf("%s=%s", ServerAddressEnv, addr))
 
 	e := udsExecutable{
 		bin:  bin,
 		args: args,
-		env:  env,
+		env:  parsedEnv,
 		addr: addr,
 	}
 
