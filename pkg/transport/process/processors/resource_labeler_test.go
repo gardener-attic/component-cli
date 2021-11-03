@@ -1,25 +1,26 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package process_test
+package processors_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-
-	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"io"
 
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/processors"
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("pipeline", func() {
+var _ = Describe("resourceLabeler", func() {
 
 	Context("Process", func() {
 
-		It("should correctly process resource", func() {
+		It("should correctly add labels", func() {
 			res := cdv2.Resource{
 				IdentityObjectMeta: cdv2.IdentityObjectMeta{
 					Name:    "my-res",
@@ -29,13 +30,16 @@ var _ = Describe("pipeline", func() {
 			}
 
 			l1 := cdv2.Label{
-				Name:  "processor-0",
+				Name:  "first-label",
 				Value: json.RawMessage(`"true"`),
 			}
 			l2 := cdv2.Label{
-				Name:  "processor-1",
+				Name:  "second-label",
 				Value: json.RawMessage(`"true"`),
 			}
+
+			resBytes := []byte("resource-blob")
+
 			expectedRes := res
 			expectedRes.Labels = append(expectedRes.Labels, l1)
 			expectedRes.Labels = append(expectedRes.Labels, l2)
@@ -48,15 +52,24 @@ var _ = Describe("pipeline", func() {
 				},
 			}
 
-			p1 := processors.NewResourceLabeler(l1)
-			p2 := processors.NewResourceLabeler(l2)
-			pipeline := process.NewResourceProcessingPipeline(p1, p2)
+			inBuf := bytes.NewBuffer([]byte{})
+			Expect(process.WriteProcessorMessage(cd, res, bytes.NewReader(resBytes), inBuf)).To(Succeed())
 
-			actualCD, actualRes, err := pipeline.Process(context.TODO(), cd, res)
+			outbuf := bytes.NewBuffer([]byte{})
+
+			p1 := processors.NewResourceLabeler(l1, l2)
+			Expect(p1.Process(context.TODO(), inBuf, outbuf)).To(Succeed())
+
+			actualCD, actualRes, actualResBlobReader, err := process.ReadProcessorMessage(outbuf)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*actualCD).To(Equal(cd))
 			Expect(actualRes).To(Equal(expectedRes))
+
+			actualResBlobBuf := bytes.NewBuffer([]byte{})
+			_, err =io.Copy(actualResBlobBuf, actualResBlobReader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actualResBlobBuf.Bytes()).To(Equal(resBytes))
 		})
 
 	})
