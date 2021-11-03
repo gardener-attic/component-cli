@@ -34,7 +34,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 	}
 
 	for _, proc := range p.processors {
-		outfile, err := p.process(ctx, infile, proc)
+		outfile, err := p.runProcessor(ctx, infile, proc)
 		if err != nil {
 			return nil, cdv2.Resource{}, err
 		}
@@ -58,7 +58,7 @@ func (p *resourceProcessingPipelineImpl) Process(ctx context.Context, cd cdv2.Co
 	return processedCD, processedRes, nil
 }
 
-func (p *resourceProcessingPipelineImpl) process(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
+func (p *resourceProcessingPipelineImpl) runProcessor(ctx context.Context, infile *os.File, proc ResourceStreamProcessor) (*os.File, error) {
 	defer infile.Close()
 
 	if _, err := infile.Seek(0, io.SeekStart); err != nil {
