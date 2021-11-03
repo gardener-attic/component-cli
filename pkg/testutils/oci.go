@@ -20,7 +20,7 @@ import (
 )
 
 func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
-	configData := []byte("test")
+	configData := []byte("config-data")
 	layerData := []byte("layer-data")
 	manifest := &ocispecv1.Manifest{
 		Config: ocispecv1.Descriptor{
@@ -68,7 +68,7 @@ func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string
 func CompareManifestToTestManifest(ctx context.Context, client ociclient.Client, ref string, manifest *ocispecv1.Manifest) {
 	var configBlob bytes.Buffer
 	Expect(client.Fetch(ctx, ref, manifest.Config, &configBlob)).To(Succeed())
-	Expect(configBlob.String()).To(Equal("test"))
+	Expect(configBlob.String()).To(Equal("config-data"))
 
 	var layerBlob bytes.Buffer
 	Expect(client.Fetch(ctx, ref, manifest.Layers[0], &layerBlob)).To(Succeed())
