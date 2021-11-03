@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/gardener/component-cli/pkg/testutils"
-	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
 	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
@@ -41,7 +40,7 @@ var _ = Describe("ociArtifact", func() {
 			Expect(*actualCd).To(Equal(testComponent))
 			Expect(actualRes).To(Equal(ociImageRes))
 
-			actualOciArtifact, err := process.DeserializeOCIArtifact(resBlobReader, ociCache)
+			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*actualOciArtifact.GetManifest()).To(Equal(expectedImageManifest))
 			testutils.CompareManifestToTestManifest(context.TODO(), ociClient, imageRef, expectedImageManifest.Data)
@@ -68,7 +67,7 @@ var _ = Describe("ociArtifact", func() {
 			Expect(*actualCd).To(Equal(testComponent))
 			Expect(actualRes).To(Equal(ociImageIndexRes))
 
-			actualOciArtifact, err := process.DeserializeOCIArtifact(resBlobReader, ociCache)
+			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			testutils.CompareImageIndices(actualOciArtifact.GetIndex(), &expectedImageIndex)
 		})

@@ -37,7 +37,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	}
 	defer blobreader.Close()
 
-	ociArtifact, err := process.DeserializeOCIArtifact(blobreader, f.cache)
+	ociArtifact, err := processutils.DeserializeOCIArtifact(blobreader, f.cache)
 	if err != nil {
 		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
 	}
@@ -78,7 +78,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 		}
 	}
 
-	blobReader, err := process.SerializeOCIArtifact(*ociArtifact, f.cache)
+	blobReader, err := processutils.SerializeOCIArtifact(*ociArtifact, f.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialice oci artifact: %w", err)
 	}

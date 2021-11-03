@@ -73,7 +73,7 @@ func (d *ociArtifactDownloader) Process(ctx context.Context, r io.Reader, w io.W
 		}
 	}
 
-	blobReader, err := process.SerializeOCIArtifact(*ociArtifact, d.cache)
+	blobReader, err := utils.SerializeOCIArtifact(*ociArtifact, d.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialize oci artifact: %w", err)
 	}

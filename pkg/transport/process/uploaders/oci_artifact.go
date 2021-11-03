@@ -54,7 +54,7 @@ func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Wri
 	}
 	defer resBlobReader.Close()
 
-	ociArtifact, err := process.DeserializeOCIArtifact(resBlobReader, u.cache)
+	ociArtifact, err := processutils.DeserializeOCIArtifact(resBlobReader, u.cache)
 	if err != nil {
 		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
 	}
@@ -81,7 +81,7 @@ func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Wri
 		return fmt.Errorf("unable to push oci artifact: %w", err)
 	}
 
-	blobReader, err := process.SerializeOCIArtifact(*ociArtifact, u.cache)
+	blobReader, err := processutils.SerializeOCIArtifact(*ociArtifact, u.cache)
 	if err != nil {
 		return fmt.Errorf("unable to serialize oci artifact: %w", err)
 	}

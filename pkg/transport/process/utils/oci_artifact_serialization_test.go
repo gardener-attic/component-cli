@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package process_test
+package utils_test
 
 import (
 	"archive/tar"
@@ -17,7 +17,7 @@ import (
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/testutils"
-	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
 var _ = Describe("oci artifact serialization", func() {
@@ -41,11 +41,11 @@ var _ = Describe("oci artifact serialization", func() {
 			Expect(serializeCache.Add(m.Config, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
 			Expect(serializeCache.Add(m.Layers[0], io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
 
-			serializedReader, err := process.SerializeOCIArtifact(*expectedOciArtifact, serializeCache)
+			serializedReader, err := utils.SerializeOCIArtifact(*expectedOciArtifact, serializeCache)
 			Expect(err).ToNot(HaveOccurred())
 
 			deserializeCache := cache.NewInMemoryCache()
-			actualOciArtifact, err := process.DeserializeOCIArtifact(serializedReader, deserializeCache)
+			actualOciArtifact, err := utils.DeserializeOCIArtifact(serializedReader, deserializeCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualOciArtifact.GetManifest().Data).To(Equal(expectedOciArtifact.GetManifest().Data))
 
@@ -106,11 +106,11 @@ var _ = Describe("oci artifact serialization", func() {
 			Expect(serializeCache.Add(m2.Config, io.NopCloser(bytes.NewReader(configData2)))).To(Succeed())
 			Expect(serializeCache.Add(m2.Layers[0], io.NopCloser(bytes.NewReader(layerData2)))).To(Succeed())
 
-			serializedReader, err := process.SerializeOCIArtifact(*expectedOciArtifact, serializeCache)
+			serializedReader, err := utils.SerializeOCIArtifact(*expectedOciArtifact, serializeCache)
 			Expect(err).ToNot(HaveOccurred())
 
 			deserializeCache := cache.NewInMemoryCache()
-			actualOciArtifact, err := process.DeserializeOCIArtifact(serializedReader, deserializeCache)
+			actualOciArtifact, err := utils.DeserializeOCIArtifact(serializedReader, deserializeCache)
 			Expect(err).ToNot(HaveOccurred())
 
 			// check image index and manifests
@@ -154,7 +154,7 @@ var _ = Describe("oci artifact serialization", func() {
 	Context("serialize oci artifact", func() {
 
 		It("should raise error if cache is nil", func() {
-			_, err := process.SerializeOCIArtifact(oci.Artifact{}, nil)
+			_, err := utils.SerializeOCIArtifact(oci.Artifact{}, nil)
 			Expect(err).To(MatchError("cache must not be nil"))
 		})
 
@@ -163,13 +163,13 @@ var _ = Describe("oci artifact serialization", func() {
 	Context("deserialize oci artifact", func() {
 
 		It("should raise error if reader is nil", func() {
-			_, err := process.DeserializeOCIArtifact(nil, cache.NewInMemoryCache())
+			_, err := utils.DeserializeOCIArtifact(nil, cache.NewInMemoryCache())
 			Expect(err).To(MatchError("reader must not be nil"))
 		})
 
 		It("should raise error if cache is nil", func() {
 			buf := bytes.NewBuffer([]byte{})
-			_, err := process.DeserializeOCIArtifact(buf, nil)
+			_, err := utils.DeserializeOCIArtifact(buf, nil)
 			Expect(err).To(MatchError("cache must not be nil"))
 		})
 
@@ -193,7 +193,7 @@ var _ = Describe("oci artifact serialization", func() {
 
 			Expect(tw.Close()).To(Succeed())
 
-			_, err = process.DeserializeOCIArtifact(buf, cache.NewInMemoryCache())
+			_, err = utils.DeserializeOCIArtifact(buf, cache.NewInMemoryCache())
 			Expect(err).To(MatchError("unknown file " + fileName))
 		})
 
