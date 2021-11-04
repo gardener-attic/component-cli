@@ -177,9 +177,17 @@ func BytesString(bytes uint64, accuracy int) string {
 	return fmt.Sprintf("%s %s", stringValue, unit)
 }
 
-func FilterTARArchive(r io.Reader, w io.Writer, removePatterns []string) error {
-	tr := tar.NewReader(r)
-	tw := tar.NewWriter(w)
+func FilterTARArchive(inputReader io.Reader, outputWriter io.Writer, removePatterns []string) error {
+	if inputReader == nil {
+		return errors.New("inputReader must not be nil")
+	}
+
+	if outputWriter == nil {
+		return errors.New("outputWriter must not be nil")
+	}
+
+	tr := tar.NewReader(inputReader)
+	tw := tar.NewWriter(outputWriter)
 	defer tw.Close()
 
 NEXT_FILE:
@@ -215,18 +223,18 @@ NEXT_FILE:
 	return nil
 }
 
-// WriteFileToTARArchive writes a new file with name=filename and content=contentReader to archiveWriter
-func WriteFileToTARArchive(filename string, contentReader io.Reader, archiveWriter *tar.Writer) error {
+// WriteFileToTARArchive writes a new file with name=filename and content=inputReader to outputWriter
+func WriteFileToTARArchive(filename string, inputReader io.Reader, outputWriter *tar.Writer) error {
 	if filename == "" {
 		return errors.New("filename must not be empty")
 	}
 
-	if contentReader == nil {
-		return errors.New("contentReader must not be nil")
+	if inputReader == nil {
+		return errors.New("inputReader must not be nil")
 	}
 
-	if archiveWriter == nil {
-		return errors.New("archiveWriter must not be nil")
+	if outputWriter == nil {
+		return errors.New("outputWriter must not be nil")
 	}
 
 	tempfile, err := ioutil.TempFile("", "")
@@ -235,7 +243,7 @@ func WriteFileToTARArchive(filename string, contentReader io.Reader, archiveWrit
 	}
 	defer tempfile.Close()
 
-	fsize, err := io.Copy(tempfile, contentReader)
+	fsize, err := io.Copy(tempfile, inputReader)
 	if err != nil {
 		return fmt.Errorf("unable to copy content to tempfile: %w", err)
 	}
@@ -251,11 +259,11 @@ func WriteFileToTARArchive(filename string, contentReader io.Reader, archiveWrit
 		ModTime: time.Now(),
 	}
 
-	if err := archiveWriter.WriteHeader(&header); err != nil {
+	if err := outputWriter.WriteHeader(&header); err != nil {
 		return fmt.Errorf("unable to write tar header: %w", err)
 	}
 
-	if _, err := io.Copy(archiveWriter, tempfile); err != nil {
+	if _, err := io.Copy(outputWriter, tempfile); err != nil {
 		return fmt.Errorf("unable to write file to tar archive: %w", err)
 	}
 
