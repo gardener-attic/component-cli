@@ -7,11 +7,11 @@ import (
 	"archive/tar"
 	"bytes"
 	"io"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -101,26 +101,12 @@ var _ = Describe("utils", func() {
 				"first/testfile": []byte("some-content"),
 			}
 
-			inBuf := bytes.NewBuffer([]byte{})
-			tw := tar.NewWriter(inBuf)
-
-			for filename, content := range inputFiles {
-				h := tar.Header{
-					Name:    filename,
-					Size:    int64(len(content)),
-					Mode:    0600,
-					ModTime: time.Now(),
-				}
-
-				Expect(tw.WriteHeader(&h)).To(Succeed())
-				_, err := tw.Write(content)
-				Expect(err).ToNot(HaveOccurred())
-			}
+			archive := testutils.CreateTARArchive(inputFiles)
 
 			outBuf := bytes.NewBuffer([]byte{})
-			Expect(utils.FilterTARArchive(inBuf, outBuf, removePatterns)).To(Succeed())
+			Expect(utils.FilterTARArchive(archive, outBuf, removePatterns)).To(Succeed())
 
-			CheckTarArchive(outBuf, expectedFiles)
+			testutils.CheckTARArchive(outBuf, expectedFiles)
 		})
 
 		It("should return error if inputReader is nil", func() {
@@ -136,29 +122,3 @@ var _ = Describe("utils", func() {
 	})
 
 })
-
-func CheckTarArchive(r io.Reader, expectedFiles map[string][]byte) {
-	tr := tar.NewReader(r)
-
-	for {
-		header, err := tr.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		actualContentBuf := bytes.NewBuffer([]byte{})
-		_, err = io.Copy(actualContentBuf, tr)
-		Expect(err).ToNot(HaveOccurred())
-
-		expectedContent, ok := expectedFiles[header.Name]
-		Expect(ok).To(BeTrue())
-		Expect(actualContentBuf.Bytes()).To(Equal(expectedContent))
-
-		delete(expectedFiles, header.Name)
-	}
-
-	Expect(expectedFiles).To(BeEmpty())
-}

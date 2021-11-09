@@ -45,7 +45,7 @@ var _ = Describe("resourceLabeler", func() {
 			expectedRes.Labels = append(expectedRes.Labels, l1)
 			expectedRes.Labels = append(expectedRes.Labels, l2)
 
-			cd := cdv2.ComponentDescriptor{
+			expectedCd := cdv2.ComponentDescriptor{
 				ComponentSpec: cdv2.ComponentSpec{
 					Resources: []cdv2.Resource{
 						res,
@@ -54,17 +54,16 @@ var _ = Describe("resourceLabeler", func() {
 			}
 
 			inBuf := bytes.NewBuffer([]byte{})
-			Expect(utils.WriteProcessorMessage(cd, res, bytes.NewReader(resBytes), inBuf)).To(Succeed())
+			Expect(utils.WriteProcessorMessage(expectedCd, res, bytes.NewReader(resBytes), inBuf)).To(Succeed())
 
 			outbuf := bytes.NewBuffer([]byte{})
-
-			p1 := processors.NewResourceLabeler(l1, l2)
-			Expect(p1.Process(context.TODO(), inBuf, outbuf)).To(Succeed())
+			proc := processors.NewResourceLabeler(l1, l2)
+			Expect(proc.Process(context.TODO(), inBuf, outbuf)).To(Succeed())
 
 			actualCD, actualRes, actualResBlobReader, err := utils.ReadProcessorMessage(outbuf)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*actualCD).To(Equal(cd))
+			Expect(*actualCD).To(Equal(expectedCd))
 			Expect(actualRes).To(Equal(expectedRes))
 
 			actualResBlobBuf := bytes.NewBuffer([]byte{})

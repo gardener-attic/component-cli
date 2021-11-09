@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -43,33 +44,15 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	}
 
 	if ociArtifact.IsIndex() {
-		filteredImgs := []*oci.Manifest{}
-		for _, m := range ociArtifact.GetIndex().Manifests {
-			filteredManifest, err := f.filterImage(*m)
-			if err != nil {
-				return fmt.Errorf("unable to filter image %+v: %w", m, err)
-			}
-
-			manifestBytes, err := json.Marshal(filteredManifest.Data)
-			if err != nil {
-				return fmt.Errorf("unable to marshal manifest: ")
-			}
-
-			if err := f.cache.Add(filteredManifest.Descriptor, io.NopCloser(bytes.NewReader(manifestBytes))); err != nil {
-				return fmt.Errorf("unable to add filtered manifest to cache: %w", err)
-			}
-
-			filteredImgs = append(filteredImgs, filteredManifest)
-		}
-		filteredIndex := &oci.Index{
-			Manifests:   filteredImgs,
-			Annotations: ociArtifact.GetIndex().Annotations,
+		filteredIndex, err := f.FilterImageIndex(*ociArtifact.GetIndex())
+		if err != nil {
+			return fmt.Errorf("unable to filter image index: %w", err)
 		}
 		if err := ociArtifact.SetIndex(filteredIndex); err != nil {
 			return fmt.Errorf("unable to set index: %w", err)
 		}
 	} else {
-		filteredImg, err := f.filterImage(*ociArtifact.GetManifest())
+		filteredImg, err := f.FilterImage(*ociArtifact.GetManifest())
 		if err != nil {
 			return fmt.Errorf("unable to filter image: %w", err)
 		}
@@ -90,10 +73,39 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	return nil
 }
 
-func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, error) {
+func (f *ociImageFilter) FilterImageIndex(inputIndex oci.Index) (*oci.Index, error) {
+	filteredImgs := []*oci.Manifest{}
+	for _, m := range inputIndex.Manifests {
+		filteredManifest, err := f.FilterImage(*m)
+		if err != nil {
+			return nil, fmt.Errorf("unable to filter image %+v: %w", m, err)
+		}
+
+		manifestBytes, err := json.Marshal(filteredManifest.Data)
+		if err != nil {
+			return nil, fmt.Errorf("unable to marshal manifest: ")
+		}
+
+		if err := f.cache.Add(filteredManifest.Descriptor, io.NopCloser(bytes.NewReader(manifestBytes))); err != nil {
+			return nil, fmt.Errorf("unable to add filtered manifest to cache: %w", err)
+		}
+
+		filteredImgs = append(filteredImgs, filteredManifest)
+	}
+
+	filteredIndex := oci.Index{
+		Manifests:   filteredImgs,
+		Annotations: inputIndex.Annotations,
+	}
+
+	return &filteredIndex, nil
+}
+
+func (f *ociImageFilter) FilterImage(manifest oci.Manifest) (*oci.Manifest, error) {
 	diffIDs := []digest.Digest{}
-	digestMappings := map[digest.Digest]digest.Digest{}
+	unfilteredToFilteredDigestMappings := map[digest.Digest]digest.Digest{}
 	filteredLayers := []ocispecv1.Descriptor{}
+
 	for _, layer := range manifest.Data.Layers {
 		layerBlobReader, err := f.cache.Get(layer)
 		if err != nil {
@@ -108,8 +120,8 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 		var layerBlobWriter io.WriteCloser = tmpfile
 
 		isGzipCompressedLayer := layer.MediaType == ocispecv1.MediaTypeImageLayerGzip || layer.MediaType == images.MediaTypeDockerSchema2LayerGzip
-
 		if isGzipCompressedLayer {
+			// TODO: detect correct compression and apply to reader and writer
 			layerBlobReader, err = gzip.NewReader(layerBlobReader)
 			if err != nil {
 				return nil, fmt.Errorf("unable to create gzip reader for layer: %w", err)
@@ -123,7 +135,7 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 		mw := io.MultiWriter(layerBlobWriter, uncompressedHasher)
 
 		if err = utils.FilterTARArchive(layerBlobReader, mw, f.removePatterns); err != nil {
-			return nil, fmt.Errorf("unable to filter blob: %w", err)
+			return nil, fmt.Errorf("unable to filter layer blob: %w", err)
 		}
 
 		if isGzipCompressedLayer {
@@ -142,7 +154,7 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			return nil, fmt.Errorf("unable to calculate digest for layer %+v: %w", layer, err)
 		}
 
-		digestMappings[layer.Digest] = filteredDigest
+		unfilteredToFilteredDigestMappings[layer.Digest] = filteredDigest
 		diffIDs = append(diffIDs, digest.NewDigestFromEncoded(digest.SHA256, hex.EncodeToString(uncompressedHasher.Sum(nil))))
 
 		fstat, err := tmpfile.Stat()
@@ -167,6 +179,7 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			return nil, fmt.Errorf("unable to add filtered layer blob to cache: %w", err)
 		}
 	}
+
 	manifest.Data.Layers = filteredLayers
 
 	cfgBlob, err := f.cache.Get(manifest.Data.Config)
@@ -174,39 +187,37 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 		return nil, fmt.Errorf("unable to get config blob from cache: %w", err)
 	}
 
-	data, err := io.ReadAll(cfgBlob)
+	cfgData, err := io.ReadAll(cfgBlob)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read config blob: %w", err)
 	}
 
-	var config map[string]*json.RawMessage
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal config: %w", err)
-	}
+	// TODO: check which modifications on config should be performed
+	// var config map[string]*json.RawMessage
+	// if err := json.Unmarshal(data, &config); err != nil {
+	// 	return nil, fmt.Errorf("unable to unmarshal config: %w", err)
+	// }
+	// rootfs := ocispecv1.RootFS{
+	// 	Type:    "layers",
+	// 	DiffIDs: diffIDs,
+	// }
+	// rootfsRaw, err := utils.RawJSON(rootfs)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to convert rootfs to JSON: %w", err)
+	// }
+	// config["rootfs"] = rootfsRaw
+	// marshaledConfig, err := json.Marshal(cfgData)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to marshal config: %w", err)
+	// }
+	// configDesc := ocispecv1.Descriptor{
+	// 	MediaType: ocispecv1.MediaTypeImageConfig,
+	// 	Digest:    digest.FromBytes(marshaledConfig),
+	// 	Size:      int64(len(marshaledConfig)),
+	// }
+	// manifest.Data.Config = configDesc
 
-	rootfs := ocispecv1.RootFS{
-		Type:    "layers",
-		DiffIDs: diffIDs,
-	}
-	rootfsRaw, err := utils.RawJSON(rootfs)
-	if err != nil {
-		return nil, fmt.Errorf("unable to convert rootfs to JSON: %w", err)
-	}
-	config["rootfs"] = rootfsRaw
-
-	marshaledConfig, err := json.Marshal(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to marshal config: %w", err)
-	}
-
-	configDesc := ocispecv1.Descriptor{
-		MediaType: ocispecv1.MediaTypeImageConfig,
-		Digest:    digest.FromBytes(marshaledConfig),
-		Size:      int64(len(marshaledConfig)),
-	}
-	manifest.Data.Config = configDesc
-
-	if err := f.cache.Add(configDesc, io.NopCloser(bytes.NewReader(marshaledConfig))); err != nil {
+	if err := f.cache.Add(manifest.Data.Config, io.NopCloser(bytes.NewReader(cfgData))); err != nil {
 		return nil, fmt.Errorf("unable to add filtered layer blob to cache: %w", err)
 	}
 
@@ -221,10 +232,14 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 	return &manifest, nil
 }
 
-func NewOCIImageFilter(cache cache.Cache, removePatterns []string) process.ResourceStreamProcessor {
+func NewOCIImageFilter(cache cache.Cache, removePatterns []string) (process.ResourceStreamProcessor, error) {
+	if cache == nil {
+		return nil, errors.New("cache must not be nil")
+	}
+
 	obj := ociImageFilter{
 		cache:          cache,
 		removePatterns: removePatterns,
 	}
-	return &obj
+	return &obj, nil
 }

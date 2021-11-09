@@ -68,5 +68,5 @@ func (f *ProcessorFactory) createOCIImageFilter(rawSpec *json.RawMessage) (proce
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return processors.NewOCIImageFilter(f.cache, spec.RemovePatterns), nil
+	return processors.NewOCIImageFilter(f.cache, spec.RemovePatterns)
 }

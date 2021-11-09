@@ -16,6 +16,7 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 )
 
@@ -150,34 +151,39 @@ func CompareImageIndices(actualIndex *oci.Index, expectedIndex *oci.Index) {
 	}
 }
 
-func CreateManifest(configData []byte, layerData []byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
+func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache) (*ocispecv1.Manifest, ocispecv1.Descriptor) {
 	configDesc := ocispecv1.Descriptor{
 		MediaType: "text/plain",
 		Digest:    digest.FromBytes(configData),
 		Size:      int64(len(configData)),
 	}
+	Expect(ocicache.Add(configDesc, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
 
-	layerDesc := ocispecv1.Descriptor{
-		MediaType: "text/plain",
-		Digest:    digest.FromBytes(layerData),
-		Size:      int64(len(layerData)),
+	layerDescs := []ocispecv1.Descriptor{}
+	for _, layerData := range layersData {
+		layerDesc := ocispecv1.Descriptor{
+			MediaType: "text/plain",
+			Digest:    digest.FromBytes(layerData),
+			Size:      int64(len(layerData)),
+		}
+		layerDescs = append(layerDescs, layerDesc)
+		Expect(ocicache.Add(layerDesc, io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
 	}
 
-	m := ocispecv1.Manifest{
+	manifest := ocispecv1.Manifest{
 		Config: configDesc,
-		Layers: []ocispecv1.Descriptor{
-			layerDesc,
-		},
+		Layers: layerDescs,
 	}
 
-	mBytes, err := json.Marshal(m)
-	if err != nil {
-		return nil, ocispecv1.Descriptor{}, err
-	}
+	manifestBytes, err := json.Marshal(manifest)
+	Expect(err).ToNot(HaveOccurred())
 
-	d := ocispecv1.Descriptor{
-		Digest: digest.FromBytes(mBytes),
+	manifestDesc := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageManifest,
+		Digest:    digest.FromBytes(manifestBytes),
+		Size:      int64(len(manifestBytes)),
 	}
+	Expect(ocicache.Add(manifestDesc, io.NopCloser(bytes.NewReader(manifestBytes)))).To(Succeed())
 
-	return &m, d, nil
+	return &manifest, manifestDesc
 }
