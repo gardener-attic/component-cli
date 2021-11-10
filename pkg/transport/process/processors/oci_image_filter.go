@@ -44,7 +44,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	}
 
 	if ociArtifact.IsIndex() {
-		filteredIndex, err := f.FilterImageIndex(*ociArtifact.GetIndex())
+		filteredIndex, err := f.filterImageIndex(*ociArtifact.GetIndex())
 		if err != nil {
 			return fmt.Errorf("unable to filter image index: %w", err)
 		}
@@ -52,7 +52,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 			return fmt.Errorf("unable to set index: %w", err)
 		}
 	} else {
-		filteredImg, err := f.FilterImage(*ociArtifact.GetManifest())
+		filteredImg, err := f.filterImage(*ociArtifact.GetManifest())
 		if err != nil {
 			return fmt.Errorf("unable to filter image: %w", err)
 		}
@@ -73,10 +73,10 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	return nil
 }
 
-func (f *ociImageFilter) FilterImageIndex(inputIndex oci.Index) (*oci.Index, error) {
+func (f *ociImageFilter) filterImageIndex(inputIndex oci.Index) (*oci.Index, error) {
 	filteredImgs := []*oci.Manifest{}
 	for _, m := range inputIndex.Manifests {
-		filteredManifest, err := f.FilterImage(*m)
+		filteredManifest, err := f.filterImage(*m)
 		if err != nil {
 			return nil, fmt.Errorf("unable to filter image %+v: %w", m, err)
 		}
@@ -101,7 +101,7 @@ func (f *ociImageFilter) FilterImageIndex(inputIndex oci.Index) (*oci.Index, err
 	return &filteredIndex, nil
 }
 
-func (f *ociImageFilter) FilterImage(manifest oci.Manifest) (*oci.Manifest, error) {
+func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, error) {
 	diffIDs := []digest.Digest{}
 	unfilteredToFilteredDigestMappings := map[digest.Digest]digest.Digest{}
 	filteredLayers := []ocispecv1.Descriptor{}

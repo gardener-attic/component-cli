@@ -6,6 +6,7 @@ package testutils
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 
@@ -50,11 +51,11 @@ func CheckTARArchive(r io.Reader, expectedFiles map[string][]byte) {
 		Expect(err).ToNot(HaveOccurred())
 
 		expectedContent, ok := expectedFiles[header.Name]
-		Expect(ok).To(BeTrue())
+		Expect(ok).To(BeTrue(), fmt.Sprintf("file \"%s\" is not included in expected files", header.Name))
 		Expect(actualContentBuf.Bytes()).To(Equal(expectedContent))
 
 		delete(expectedFiles, header.Name)
 	}
 
-	Expect(expectedFiles).To(BeEmpty())
+	Expect(expectedFiles).To(BeEmpty(), fmt.Sprintf("unable to find all expected files in TAR archive. missing files = %+v", expectedFiles))
 }

@@ -30,18 +30,7 @@ var _ = Describe("ociImageFilter", func() {
 					Type:    "ociImage",
 				},
 			}
-
-			l1Files := map[string][]byte{
-				"test": []byte("test-content"),
-			}
-
-			config := []byte("{}")
-
-			layers := [][]byte{
-				testutils.CreateTARArchive(l1Files).Bytes(),
-			}
-
-			cd := cdv2.ComponentDescriptor{
+			expectedCd := cdv2.ComponentDescriptor{
 				ComponentSpec: cdv2.ComponentSpec{
 					Resources: []cdv2.Resource{
 						expectedRes,
@@ -50,13 +39,41 @@ var _ = Describe("ociImageFilter", func() {
 			}
 
 			removePatterns := []string{
-				"",
+				"filter-this/*",
 			}
+
+			l1Files := map[string][]byte{
+				"test":              []byte("test-content"),
+				"filter-this/file1": []byte("file1-content"),
+				"filter-this/file2": []byte("file2-content"),
+			}
+
+			// TODO: add gzipped layer
+			layers := [][]byte{
+				testutils.CreateTARArchive(l1Files).Bytes(),
+			}
+
+			expectedL1Files := map[string][]byte{
+				"test": []byte("test-content"),
+			}
+
+			expectedLayers := [][]byte{
+				testutils.CreateTARArchive(expectedL1Files).Bytes(),
+			}
+
+			configData := []byte("{}")
+
+			expectedManifestData, expectedManifestDesc := testutils.CreateManifest(configData, expectedLayers, nil)
+			em := oci.Manifest{
+				Descriptor: expectedManifestDesc,
+				Data:       expectedManifestData,
+			}
+			expectedOciArtifact, err := oci.NewManifestArtifact(&em)
+			Expect(err).ToNot(HaveOccurred())
 
 			ociCache := cache.NewInMemoryCache()
 
-			manifestData, manifestDesc := testutils.CreateManifest(config, layers, ociCache)
-
+			manifestData, manifestDesc := testutils.CreateManifest(configData, layers, ociCache)
 			m := oci.Manifest{
 				Descriptor: manifestDesc,
 				Data:       manifestData,
@@ -70,7 +87,7 @@ var _ = Describe("ociImageFilter", func() {
 			defer r1.Close()
 
 			inBuf := bytes.NewBuffer([]byte{})
-			Expect(processutils.WriteProcessorMessage(cd, expectedRes, r1, inBuf)).To(Succeed())
+			Expect(processutils.WriteProcessorMessage(expectedCd, expectedRes, r1, inBuf)).To(Succeed())
 
 			outbuf := bytes.NewBuffer([]byte{})
 			proc, err := processors.NewOCIImageFilter(ociCache, removePatterns)
@@ -80,16 +97,20 @@ var _ = Describe("ociImageFilter", func() {
 			actualCD, actualRes, actualResBlobReader, err := processutils.ReadProcessorMessage(outbuf)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(*actualCD).To(Equal(cd))
+			Expect(*actualCD).To(Equal(expectedCd))
 			Expect(actualRes).To(Equal(expectedRes))
 
-			newCache := cache.NewInMemoryCache()
-			actualOciArtifact, err := processutils.DeserializeOCIArtifact(actualResBlobReader, newCache)
+			deserializeCache := cache.NewInMemoryCache()
+			actualOciArtifact, err := processutils.DeserializeOCIArtifact(actualResBlobReader, deserializeCache)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(actualOciArtifact).To(Equal(ociArtifact))
+			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
+
+			r, err := deserializeCache.Get(actualOciArtifact.GetManifest().Data.Layers[0])
+			Expect(err).ToNot(HaveOccurred())
+			testutils.CheckTARArchive(r, expectedL1Files)
 		})
 
-		It("should filter files from oci image index", func() {
+		It("should filter files from all images of an oci image index", func() {
 
 		})
 

@@ -157,7 +157,10 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 		Digest:    digest.FromBytes(configData),
 		Size:      int64(len(configData)),
 	}
-	Expect(ocicache.Add(configDesc, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
+
+	if ocicache != nil {
+		Expect(ocicache.Add(configDesc, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
+	}
 
 	layerDescs := []ocispecv1.Descriptor{}
 	for _, layerData := range layersData {
@@ -167,7 +170,10 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 			Size:      int64(len(layerData)),
 		}
 		layerDescs = append(layerDescs, layerDesc)
-		Expect(ocicache.Add(layerDesc, io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
+
+		if ocicache != nil {
+			Expect(ocicache.Add(layerDesc, io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
+		}
 	}
 
 	manifest := ocispecv1.Manifest{
@@ -183,7 +189,9 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 		Digest:    digest.FromBytes(manifestBytes),
 		Size:      int64(len(manifestBytes)),
 	}
-	Expect(ocicache.Add(manifestDesc, io.NopCloser(bytes.NewReader(manifestBytes)))).To(Succeed())
+	if ocicache != nil {
+		Expect(ocicache.Add(manifestDesc, io.NopCloser(bytes.NewReader(manifestBytes)))).To(Succeed())
+	}
 
 	return &manifest, manifestDesc
 }
