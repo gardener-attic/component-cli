@@ -8,7 +8,6 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,8 +101,8 @@ func (f *ociImageFilter) filterImageIndex(inputIndex oci.Index) (*oci.Index, err
 }
 
 func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, error) {
-	diffIDs := []digest.Digest{}
-	unfilteredToFilteredDigestMappings := map[digest.Digest]digest.Digest{}
+	// diffIDs := []digest.Digest{}
+	// unfilteredToFilteredDigestMappings := map[digest.Digest]digest.Digest{}
 	filteredLayers := []ocispecv1.Descriptor{}
 
 	for _, layer := range manifest.Data.Layers {
@@ -154,8 +153,8 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 			return nil, fmt.Errorf("unable to calculate digest for layer %+v: %w", layer, err)
 		}
 
-		unfilteredToFilteredDigestMappings[layer.Digest] = filteredDigest
-		diffIDs = append(diffIDs, digest.NewDigestFromEncoded(digest.SHA256, hex.EncodeToString(uncompressedHasher.Sum(nil))))
+		// unfilteredToFilteredDigestMappings[layer.Digest] = filteredDigest
+		// diffIDs = append(diffIDs, digest.NewDigestFromEncoded(digest.SHA256, hex.EncodeToString(uncompressedHasher.Sum(nil))))
 
 		fstat, err := tmpfile.Stat()
 		if err != nil {
