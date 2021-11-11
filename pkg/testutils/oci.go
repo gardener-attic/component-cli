@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient"
@@ -177,6 +178,9 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 	}
 
 	manifest := ocispecv1.Manifest{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2,
+		},
 		Config: configDesc,
 		Layers: layerDescs,
 	}

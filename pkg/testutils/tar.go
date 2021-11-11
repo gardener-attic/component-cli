@@ -37,6 +37,11 @@ func CreateTARArchive(files map[string][]byte) *bytes.Buffer {
 func CheckTARArchive(r io.Reader, expectedFiles map[string][]byte) {
 	tr := tar.NewReader(r)
 
+	expectedFilesCopy := map[string][]byte{}
+	for key, value := range expectedFiles {
+		expectedFilesCopy[key] = value
+	}
+
 	for {
 		header, err := tr.Next()
 		if err != nil {
@@ -54,8 +59,8 @@ func CheckTARArchive(r io.Reader, expectedFiles map[string][]byte) {
 		Expect(ok).To(BeTrue(), fmt.Sprintf("file \"%s\" is not included in expected files", header.Name))
 		Expect(actualContentBuf.Bytes()).To(Equal(expectedContent))
 
-		delete(expectedFiles, header.Name)
+		delete(expectedFilesCopy, header.Name)
 	}
 
-	Expect(expectedFiles).To(BeEmpty(), fmt.Sprintf("unable to find all expected files in TAR archive. missing files = %+v", expectedFiles))
+	Expect(expectedFilesCopy).To(BeEmpty(), fmt.Sprintf("unable to find all expected files in TAR archive. missing files = %+v", expectedFiles))
 }
