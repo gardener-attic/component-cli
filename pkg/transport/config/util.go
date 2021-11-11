@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	ExecutableType = "executable"
+	ExecutableType = "Executable"
 )
 
 func createExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {

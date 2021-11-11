@@ -64,7 +64,7 @@ type parsedTransportConfig struct {
 func NewProcessingJobFactory(transportCfg TransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
 	parsedTransportConfig, err := parseTransportConfig(&transportCfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed creating lookup table %w", err)
+		return nil, fmt.Errorf("unable to parse transport config: %w", err)
 	}
 
 	c := ProcessingJobFactory{
