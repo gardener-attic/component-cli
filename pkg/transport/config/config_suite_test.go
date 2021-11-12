@@ -37,7 +37,7 @@ var _ = BeforeSuite(func() {
 	client, err := ociclient.NewClient(logr.Discard())
 	Expect(err).ToNot(HaveOccurred())
 	ocicache := cache.NewInMemoryCache()
-	targetCtx := cdv2.NewOCIRegistryRepository("", "")
+	targetCtx := cdv2.NewOCIRegistryRepository("my-target-registry.com/test", "")
 
 	df := config.NewDownloaderFactory(client, ocicache)
 	pf := config.NewProcessorFactory(ocicache)

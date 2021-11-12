@@ -17,10 +17,14 @@ import (
 )
 
 const (
+	// LocalOCIBlobUploaderType defines the type of a local oci blob uploader
 	LocalOCIBlobUploaderType = "LocalOciBlobUploader"
-	OCIImageUploaderType     = "OciArtifactUploader"
+
+	// OCIArtifactUploaderType defines the type of an oci artifact uploader
+	OCIArtifactUploaderType = "OciArtifactUploader"
 )
 
+// NewUploaderFactory creates a new uploader factory
 func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository) *UploaderFactory {
 	return &UploaderFactory{
 		client:    client,
@@ -29,22 +33,24 @@ func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx
 	}
 }
 
+// UploaderFactory defines a helper struct for creating uploaders
 type UploaderFactory struct {
 	client    ociclient.Client
 	cache     cache.Cache
 	targetCtx cdv2.OCIRegistryRepository
 }
 
-func (f *UploaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
-	switch typ {
+// Create creates a new uploader defined by a type and a spec
+func (f *UploaderFactory) Create(uploaderType string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+	switch uploaderType {
 	case LocalOCIBlobUploaderType:
 		return uploaders.NewLocalOCIBlobUploader(f.client, f.targetCtx)
-	case OCIImageUploaderType:
+	case OCIArtifactUploaderType:
 		return f.createOCIArtifactUploader(spec)
 	case ExecutableType:
 		return createExecutable(spec)
 	default:
-		return nil, fmt.Errorf("unknown uploader type %s", typ)
+		return nil, fmt.Errorf("unknown uploader type %s", uploaderType)
 	}
 }
 
@@ -60,5 +66,5 @@ func (f *UploaderFactory) createOCIArtifactUploader(rawSpec *json.RawMessage) (p
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return uploaders.NewOCIImageUploader(f.client, f.cache, spec.BaseUrl, spec.KeepSourceRepo)
+	return uploaders.NewOCIArtifactUploader(f.client, f.cache, spec.BaseUrl, spec.KeepSourceRepo)
 }

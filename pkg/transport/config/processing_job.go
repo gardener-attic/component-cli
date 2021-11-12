@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
+// ProcessingJob defines a type which contains all data for processing a single resource
 type ProcessingJob struct {
 	ComponentDescriptor *cdv2.ComponentDescriptor
 	Resource            *cdv2.Resource
@@ -61,6 +62,7 @@ type parsedTransportConfig struct {
 	Rules       []parsedRuleDefinition
 }
 
+// NewProcessingJobFactory creates a new processing job factory
 func NewProcessingJobFactory(transportCfg TransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
 	parsedTransportConfig, err := parseTransportConfig(&transportCfg)
 	if err != nil {
@@ -77,6 +79,7 @@ func NewProcessingJobFactory(transportCfg TransportConfig, df *DownloaderFactory
 	return &c, nil
 }
 
+// ProcessingJobFactory defines a helper struct for creating processing jobs
 type ProcessingJobFactory struct {
 	parsedConfig      *parsedTransportConfig
 	uploaderFactory   *UploaderFactory
@@ -84,7 +87,6 @@ type ProcessingJobFactory struct {
 	processorFactory  *ProcessorFactory
 }
 
-// Create a ProcessorsLookup on the base of a config
 func parseTransportConfig(config *TransportConfig) (*parsedTransportConfig, error) {
 	var parsedConfig parsedTransportConfig
 	ff := NewFilterFactory()
@@ -147,6 +149,7 @@ func parseTransportConfig(config *TransportConfig) (*parsedTransportConfig, erro
 	return &parsedConfig, nil
 }
 
+// Create creates a new processing job for a resource
 func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Resource) (*ProcessingJob, error) {
 	job := ProcessingJob{
 		ComponentDescriptor: &cd,
@@ -234,6 +237,7 @@ func findProcessorByName(name string, lookup *parsedTransportConfig) (*parsedPro
 	return nil, fmt.Errorf("unable to find processor %s", name)
 }
 
+// Process processes the resource
 func (j *ProcessingJob) Process(ctx context.Context) error {
 	processors := []process.ResourceStreamProcessor{}
 

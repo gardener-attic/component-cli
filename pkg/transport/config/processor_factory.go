@@ -16,30 +16,36 @@ import (
 )
 
 const (
+	// ResourceLabelerProcessorType defines the type of a resource labeler
 	ResourceLabelerProcessorType = "ResourceLabeler"
-	OCIImageFilterProcessorType  = "OciImageFilter"
+
+	// OCIArtifactFilterProcessorType defines the type of an oci artifact filter
+	OCIArtifactFilterProcessorType = "OciArtifactFilter"
 )
 
+// NewProcessorFactory creates a new processor factory
 func NewProcessorFactory(ociCache cache.Cache) *ProcessorFactory {
 	return &ProcessorFactory{
 		cache: ociCache,
 	}
 }
 
+// ProcessorFactory defines a helper struct for creating processors
 type ProcessorFactory struct {
 	cache cache.Cache
 }
 
-func (f *ProcessorFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
-	switch typ {
+// Create creates a new processor defined by a type and a spec
+func (f *ProcessorFactory) Create(processorType string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+	switch processorType {
 	case ResourceLabelerProcessorType:
 		return f.createResourceLabeler(spec)
-	case OCIImageFilterProcessorType:
-		return f.createOCIImageFilter(spec)
+	case OCIArtifactFilterProcessorType:
+		return f.createOCIArtifactFilter(spec)
 	case ExecutableType:
 		return createExecutable(spec)
 	default:
-		return nil, fmt.Errorf("unknown processor type %s", typ)
+		return nil, fmt.Errorf("unknown processor type %s", processorType)
 	}
 }
 
@@ -57,7 +63,7 @@ func (f *ProcessorFactory) createResourceLabeler(rawSpec *json.RawMessage) (proc
 	return processors.NewResourceLabeler(spec.Labels...), nil
 }
 
-func (f *ProcessorFactory) createOCIImageFilter(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+func (f *ProcessorFactory) createOCIArtifactFilter(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	type processorSpec struct {
 		RemovePatterns []string `json:"removePatterns"`
 	}
@@ -68,5 +74,5 @@ func (f *ProcessorFactory) createOCIImageFilter(rawSpec *json.RawMessage) (proce
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return processors.NewOCIImageFilter(f.cache, spec.RemovePatterns)
+	return processors.NewOCIArtifactFilter(f.cache, spec.RemovePatterns)
 }

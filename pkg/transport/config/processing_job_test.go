@@ -43,7 +43,7 @@ var _ = Describe("processing job", func() {
 			Expect(job.Downloaders[0].Name).To(Equal("oci-artifact-dl"))
 
 			Expect(len(job.Processors)).To(Equal(3))
-			Expect(job.Processors[0].Name).To(Equal("my-filter"))
+			Expect(job.Processors[0].Name).To(Equal("my-oci-filter"))
 			Expect(job.Processors[1].Name).To(Equal("my-labeler"))
 			Expect(job.Processors[2].Name).To(Equal("my-extension"))
 

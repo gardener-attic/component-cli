@@ -25,12 +25,12 @@ import (
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
-type ociImageFilter struct {
+type ociArtifactFilter struct {
 	cache          cache.Cache
 	removePatterns []string
 }
 
-func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) error {
+func (f *ociArtifactFilter) Process(ctx context.Context, r io.Reader, w io.Writer) error {
 	cd, res, blobreader, err := processutils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read archive: %w", err)
@@ -72,7 +72,7 @@ func (f *ociImageFilter) Process(ctx context.Context, r io.Reader, w io.Writer) 
 	return nil
 }
 
-func (f *ociImageFilter) filterImageIndex(inputIndex oci.Index) (*oci.Index, error) {
+func (f *ociArtifactFilter) filterImageIndex(inputIndex oci.Index) (*oci.Index, error) {
 	filteredImgs := []*oci.Manifest{}
 	for _, m := range inputIndex.Manifests {
 		filteredManifest, err := f.filterImage(*m)
@@ -100,7 +100,7 @@ func (f *ociImageFilter) filterImageIndex(inputIndex oci.Index) (*oci.Index, err
 	return &filteredIndex, nil
 }
 
-func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, error) {
+func (f *ociArtifactFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, error) {
 	// diffIDs := []digest.Digest{}
 	// unfilteredToFilteredDigestMappings := map[digest.Digest]digest.Digest{}
 	filteredLayers := []ocispecv1.Descriptor{}
@@ -231,12 +231,13 @@ func (f *ociImageFilter) filterImage(manifest oci.Manifest) (*oci.Manifest, erro
 	return &manifest, nil
 }
 
-func NewOCIImageFilter(cache cache.Cache, removePatterns []string) (process.ResourceStreamProcessor, error) {
+// NewOCIArtifactFilter returns a processor that filters files from oci artifact layers
+func NewOCIArtifactFilter(cache cache.Cache, removePatterns []string) (process.ResourceStreamProcessor, error) {
 	if cache == nil {
 		return nil, errors.New("cache must not be nil")
 	}
 
-	obj := ociImageFilter{
+	obj := ociArtifactFilter{
 		cache:          cache,
 		removePatterns: removePatterns,
 	}

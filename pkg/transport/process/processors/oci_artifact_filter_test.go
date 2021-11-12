@@ -19,7 +19,7 @@ import (
 	processutils "github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
-var _ = Describe("ociImageFilter", func() {
+var _ = Describe("ociArtifactFilter", func() {
 
 	Context("Process", func() {
 
@@ -91,7 +91,7 @@ var _ = Describe("ociImageFilter", func() {
 			Expect(processutils.WriteProcessorMessage(expectedCd, expectedRes, r1, inBuf)).To(Succeed())
 
 			outbuf := bytes.NewBuffer([]byte{})
-			proc, err := processors.NewOCIImageFilter(ociCache, removePatterns)
+			proc, err := processors.NewOCIArtifactFilter(ociCache, removePatterns)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(proc.Process(context.TODO(), inBuf, outbuf)).To(Succeed())
 
@@ -234,7 +234,7 @@ var _ = Describe("ociImageFilter", func() {
 			Expect(processutils.WriteProcessorMessage(expectedCd, expectedRes, r1, inBuf)).To(Succeed())
 
 			outbuf := bytes.NewBuffer([]byte{})
-			proc, err := processors.NewOCIImageFilter(ociCache, removePatterns)
+			proc, err := processors.NewOCIArtifactFilter(ociCache, removePatterns)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(proc.Process(context.TODO(), inBuf, outbuf)).To(Succeed())
 
@@ -261,7 +261,7 @@ var _ = Describe("ociImageFilter", func() {
 		})
 
 		It("should return error if cache is nil", func() {
-			_, err := processors.NewOCIImageFilter(nil, []string{})
+			_, err := processors.NewOCIArtifactFilter(nil, []string{})
 			Expect(err).To(MatchError("cache must not be nil"))
 		})
 

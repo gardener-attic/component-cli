@@ -13,27 +13,35 @@ import (
 )
 
 const (
+	// ComponentNameFilterType defines the type of a component name filter
 	ComponentNameFilterType = "ComponentNameFilter"
-	ResourceTypeFilterType  = "ResourceTypeFilter"
-	AccessTypeFilterType    = "ResourceAccessTypeFilter"
+
+	// ResourceTypeFilterType defines the type of a resource type filter
+	ResourceTypeFilterType = "ResourceTypeFilter"
+
+	// ResourceAccessTypeFilterType defines the type of a resource access filter
+	ResourceAccessTypeFilterType = "ResourceAccessTypeFilter"
 )
 
+// NewFilterFactory creates a new filter factory
 func NewFilterFactory() *FilterFactory {
 	return &FilterFactory{}
 }
 
+// FilterFactory defines a helper struct for creating filters
 type FilterFactory struct{}
 
-func (f *FilterFactory) Create(typ string, spec *json.RawMessage) (filters.Filter, error) {
-	switch typ {
+// Create creates a new filter defined by a type and a spec
+func (f *FilterFactory) Create(filterType string, spec *json.RawMessage) (filters.Filter, error) {
+	switch filterType {
 	case ComponentNameFilterType:
 		return f.createComponentNameFilter(spec)
 	case ResourceTypeFilterType:
 		return f.createResourceTypeFilter(spec)
-	case AccessTypeFilterType:
+	case ResourceAccessTypeFilterType:
 		return f.createAccessTypeFilter(spec)
 	default:
-		return nil, fmt.Errorf("unknown filter type %s", typ)
+		return nil, fmt.Errorf("unknown filter type %s", filterType)
 	}
 }
 

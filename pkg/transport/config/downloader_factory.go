@@ -14,10 +14,14 @@ import (
 )
 
 const (
+	// LocalOCIBlobDownloaderType defines the type of a local oci blob downloader
 	LocalOCIBlobDownloaderType = "LocalOciBlobDownloader"
-	OCIArtifactDownloaderType  = "OciArtifactDownloader"
+
+	// OCIArtifactDownloaderType defines the type of an oci artifact downloader
+	OCIArtifactDownloaderType = "OciArtifactDownloader"
 )
 
+// NewDownloaderFactory creates a new downloader factory
 func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *DownloaderFactory {
 	return &DownloaderFactory{
 		client: client,
@@ -25,13 +29,15 @@ func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *Downlo
 	}
 }
 
+// DownloaderFactory defines a helper struct for creating downloaders
 type DownloaderFactory struct {
 	client ociclient.Client
 	cache  cache.Cache
 }
 
-func (f *DownloaderFactory) Create(typ string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
-	switch typ {
+// Create creates a new downloader defined by a type and a spec
+func (f *DownloaderFactory) Create(downloaderType string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+	switch downloaderType {
 	case LocalOCIBlobDownloaderType:
 		return downloaders.NewLocalOCIBlobDownloader(f.client)
 	case OCIArtifactDownloaderType:
@@ -39,6 +45,6 @@ func (f *DownloaderFactory) Create(typ string, spec *json.RawMessage) (process.R
 	case ExecutableType:
 		return createExecutable(spec)
 	default:
-		return nil, fmt.Errorf("unknown downloader type %s", typ)
+		return nil, fmt.Errorf("unknown downloader type %s", downloaderType)
 	}
 }

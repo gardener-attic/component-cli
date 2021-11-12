@@ -25,7 +25,7 @@ type ociArtifactUploader struct {
 	keepSourceRepo bool
 }
 
-func NewOCIImageUploader(client ociclient.Client, cache cache.Cache, baseUrl string, keepSourceRepo bool) (process.ResourceStreamProcessor, error) {
+func NewOCIArtifactUploader(client ociclient.Client, cache cache.Cache, baseUrl string, keepSourceRepo bool) (process.ResourceStreamProcessor, error) {
 	if client == nil {
 		return nil, errors.New("client must not be nil")
 	}
