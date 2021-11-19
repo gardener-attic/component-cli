@@ -35,6 +35,9 @@ func (f *ociArtifactFilter) Process(ctx context.Context, r io.Reader, w io.Write
 	if err != nil {
 		return fmt.Errorf("unable to read archive: %w", err)
 	}
+	if blobreader == nil {
+		return errors.New("resource blob must not be nil")
+	}
 	defer blobreader.Close()
 
 	ociArtifact, err := processutils.DeserializeOCIArtifact(blobreader, f.cache)

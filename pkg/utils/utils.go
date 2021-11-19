@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
@@ -294,4 +295,15 @@ func TargetOCIArtifactRef(targetRepo, ref string, keepOrigHost bool) (string, er
 	parsedRef.Repository = path.Join(t.Path, replacedRef)
 	parsedRef.Host = t.Host
 	return parsedRef.String(), nil
+}
+
+// CalculateBlobUploadRef calculates the OCI reference where blobs for a component should be uploaded
+func CalculateBlobUploadRef(repoCtx cdv2.OCIRegistryRepository, componentName string, componentVersion string) string {
+	uploadTag := componentVersion
+	if strings.Contains(componentVersion, ":") {
+		// if componentVersion is a digest, use "latest" tag for upload ref
+		uploadTag = "latest"
+	}
+
+	return fmt.Sprintf("%s/component-descriptors/%s:%s", repoCtx.BaseURL, componentName, uploadTag)
 }

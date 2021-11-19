@@ -16,7 +16,8 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/utils"
+	processutils "github.com/gardener/component-cli/pkg/transport/process/utils"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type localOCIBlobUploader struct {
@@ -37,65 +38,60 @@ func NewLocalOCIBlobUploader(client ociclient.Client, targetCtx cdv2.OCIRegistry
 }
 
 func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Writer) error {
-	cd, res, blobreader, err := utils.ReadProcessorMessage(r)
+	cd, res, blobreader, err := processutils.ReadProcessorMessage(r)
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
-	defer blobreader.Close()
-
-	if res.Access.GetType() != cdv2.LocalOCIBlobType {
-		return fmt.Errorf("unsupported access type: %s", res.Access.Type)
+	if blobreader == nil {
+		return errors.New("resource blob must not be nil")
 	}
+	defer blobreader.Close()
 
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create tempfile: %w", err)
 	}
 	defer tmpfile.Close()
 
-	_, err = io.Copy(tmpfile, blobreader)
+	size, err := io.Copy(tmpfile, blobreader)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to copy resource blob: %w", err)
 	}
 
-	_, err = tmpfile.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-
-	fstat, err := tmpfile.Stat()
-	if err != nil {
-		return err
+	if _, err := tmpfile.Seek(0, 0); err != nil {
+		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
 	}
 
 	dgst, err := digest.FromReader(tmpfile)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to calculate digest: %w", err)
 	}
 
-	_, err = tmpfile.Seek(0, 0)
-	if err != nil {
-		return err
+	if _, err := tmpfile.Seek(0, 0); err != nil {
+		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
 	}
 
 	desc := ocispecv1.Descriptor{
 		Digest:    dgst,
-		Size:      fstat.Size(),
+		Size:      int64(size),
 		MediaType: res.Type,
 	}
 
-	err = d.uploadLocalOCIBlob(ctx, cd, res, tmpfile, desc)
-	if err != nil {
+	if err := d.uploadLocalOCIBlob(ctx, cd, res, tmpfile, desc); err != nil {
 		return fmt.Errorf("unable to upload blob: %w", err)
 	}
 
-	_, err = tmpfile.Seek(0, 0)
+	acc, err := cdv2.NewUnstructured(cdv2.NewLocalOCIBlobAccess(dgst.String()))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create access object: %w", err)
+	}
+	res.Access = &acc
+
+	if _, err := tmpfile.Seek(0, 0); err != nil {
+		return fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
 	}
 
-	err = utils.WriteProcessorMessage(*cd, res, tmpfile, w)
-	if err != nil {
+	if err := processutils.WriteProcessorMessage(*cd, res, tmpfile, w); err != nil {
 		return fmt.Errorf("unable to write processor message: %w", err)
 	}
 
@@ -103,15 +99,14 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 }
 
 func (d *localOCIBlobUploader) uploadLocalOCIBlob(ctx context.Context, cd *cdv2.ComponentDescriptor, res cdv2.Resource, r io.Reader, desc ocispecv1.Descriptor) error {
-	targetRef := createUploadRef(d.targetCtx, cd.Name, cd.Version)
+	targetRef := utils.CalculateBlobUploadRef(d.targetCtx, cd.Name, cd.Version)
 
 	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
 		_, err := io.Copy(writer, r)
 		return err
 	})
 
-	err := d.client.PushBlob(ctx, targetRef, desc, ociclient.WithStore(store))
-	if err != nil {
+	if err := d.client.PushBlob(ctx, targetRef, desc, ociclient.WithStore(store)); err != nil {
 		return fmt.Errorf("unable to push blob: %w", err)
 	}
 

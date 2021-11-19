@@ -265,5 +265,10 @@ var _ = Describe("ociArtifactFilter", func() {
 			Expect(err).To(MatchError("cache must not be nil"))
 		})
 
+		It("should return error if resource blob reader is nil", func() {
+			_, err := processors.NewOCIArtifactFilter(nil, []string{})
+			Expect(err).To(MatchError("cache must not be nil"))
+		})
+
 	})
 })

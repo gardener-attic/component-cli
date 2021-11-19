@@ -52,6 +52,9 @@ func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Wri
 	if err != nil {
 		return fmt.Errorf("unable to read processor message: %w", err)
 	}
+	if resBlobReader == nil {
+		return errors.New("resource blob must not be nil")
+	}
 	defer resBlobReader.Close()
 
 	ociArtifact, err := processutils.DeserializeOCIArtifact(resBlobReader, u.cache)

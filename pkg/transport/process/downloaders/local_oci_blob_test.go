@@ -46,7 +46,7 @@ var _ = Describe("localOciBlob", func() {
 			Expect(resBlob.Bytes()).To(Equal(localOciBlobData))
 		})
 
-		It("should return error if called with resource of invalid type", func() {
+		It("should return error if called with resource of invalid access type", func() {
 			ociArtifactRes := testComponent.Resources[imageResIndex]
 
 			d, err := downloaders.NewLocalOCIBlobDownloader(ociClient)
