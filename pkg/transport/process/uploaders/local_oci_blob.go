@@ -83,7 +83,7 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 
 	acc, err := cdv2.NewUnstructured(cdv2.NewLocalOCIBlobAccess(dgst.String()))
 	if err != nil {
-		return fmt.Errorf("unable to create access object: %w", err)
+		return fmt.Errorf("unable to create resource access object: %w", err)
 	}
 	res.Access = &acc
 

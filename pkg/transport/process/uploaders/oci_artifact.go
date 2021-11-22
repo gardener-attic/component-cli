@@ -57,17 +57,8 @@ func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Wri
 	}
 	defer resBlobReader.Close()
 
-	ociArtifact, err := processutils.DeserializeOCIArtifact(resBlobReader, u.cache)
-	if err != nil {
-		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
-	}
-
 	if res.Access.GetType() != cdv2.OCIRegistryType {
 		return fmt.Errorf("unsupported access type: %s", res.Access.Type)
-	}
-
-	if res.Type != cdv2.OCIImageType {
-		return fmt.Errorf("unsupported resource type: %s", res.Type)
 	}
 
 	ociAccess := &cdv2.OCIRegistryAccess{}
@@ -75,10 +66,21 @@ func (u *ociArtifactUploader) Process(ctx context.Context, r io.Reader, w io.Wri
 		return fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
+	ociArtifact, err := processutils.DeserializeOCIArtifact(resBlobReader, u.cache)
+	if err != nil {
+		return fmt.Errorf("unable to deserialize oci artifact: %w", err)
+	}
+
 	target, err := utils.TargetOCIArtifactRef(u.baseUrl, ociAccess.ImageReference, u.keepSourceRepo)
 	if err != nil {
 		return fmt.Errorf("unable to create target oci artifact reference: %w", err)
 	}
+
+	acc, err := cdv2.NewUnstructured(cdv2.NewOCIRegistryAccess(target))
+	if err != nil {
+		return fmt.Errorf("unable to create resource access object: %w", err)
+	}
+	res.Access = &acc
 
 	if err := u.client.PushOCIArtifact(ctx, target, ociArtifact, ociclient.WithStore(u.cache)); err != nil {
 		return fmt.Errorf("unable to push oci artifact: %w", err)

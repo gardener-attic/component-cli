@@ -46,8 +46,7 @@ var _ = Describe("localOciBlob", func() {
 			}
 
 			inProcessorMsg := bytes.NewBuffer([]byte{})
-			err := processutils.WriteProcessorMessage(cd, res, bytes.NewReader(resBytes), inProcessorMsg)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(processutils.WriteProcessorMessage(cd, res, bytes.NewReader(resBytes), inProcessorMsg)).To(Succeed())
 
 			u, err := uploaders.NewLocalOCIBlobUploader(ociClient, *targetCtx)
 			Expect(err).ToNot(HaveOccurred())
