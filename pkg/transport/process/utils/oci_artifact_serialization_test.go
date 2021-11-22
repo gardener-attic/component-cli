@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
@@ -76,7 +77,16 @@ var _ = Describe("oci artifact serialization", func() {
 			}
 
 			m1, m1Desc := testutils.CreateManifest(configData1, layers1, nil)
+			m1Desc.Platform = &ocispecv1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			}
+
 			m2, m2Desc := testutils.CreateManifest(configData2, layers2, nil)
+			m2Desc.Platform = &ocispecv1.Platform{
+				Architecture: "amd64",
+				OS:           "windows",
+			}
 
 			m1Bytes, err := json.Marshal(m1)
 			Expect(err).ToNot(HaveOccurred())
