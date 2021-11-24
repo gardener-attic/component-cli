@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// CreateTARArchive creates a TAR archive which contains the defined set of files
 func CreateTARArchive(files map[string][]byte) *bytes.Buffer {
 	buf := bytes.NewBuffer([]byte{})
 	tw := tar.NewWriter(buf)
@@ -34,8 +35,9 @@ func CreateTARArchive(files map[string][]byte) *bytes.Buffer {
 	return buf
 }
 
-func CheckTARArchive(r io.Reader, expectedFiles map[string][]byte) {
-	tr := tar.NewReader(r)
+// CheckTARArchive checks that a TAR archive contains exactly a defined set of files
+func CheckTARArchive(archiveReader io.Reader, expectedFiles map[string][]byte) {
+	tr := tar.NewReader(archiveReader)
 
 	expectedFilesCopy := map[string][]byte{}
 	for key, value := range expectedFiles {
@@ -55,12 +57,12 @@ func CheckTARArchive(r io.Reader, expectedFiles map[string][]byte) {
 		_, err = io.Copy(actualContentBuf, tr)
 		Expect(err).ToNot(HaveOccurred())
 
-		expectedContent, ok := expectedFiles[header.Name]
+		expectedContent, ok := expectedFilesCopy[header.Name]
 		Expect(ok).To(BeTrue(), fmt.Sprintf("file \"%s\" is not included in expected files", header.Name))
 		Expect(actualContentBuf.Bytes()).To(Equal(expectedContent))
 
 		delete(expectedFilesCopy, header.Name)
 	}
 
-	Expect(expectedFilesCopy).To(BeEmpty(), fmt.Sprintf("unable to find all expected files in TAR archive. missing files = %+v", expectedFiles))
+	Expect(expectedFilesCopy).To(BeEmpty(), fmt.Sprintf("unable to find all expected files in TAR archive. missing files = %+v", expectedFilesCopy))
 }

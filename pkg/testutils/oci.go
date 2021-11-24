@@ -85,35 +85,33 @@ func UploadTestIndex(ctx context.Context, client ociclient.Client, indexRef stri
 	manifest1Ref := fmt.Sprintf("%s-platform-1:%s", indexRepo, tag)
 	manifest2Ref := fmt.Sprintf("%s-platform-2:%s", indexRepo, tag)
 
-	manifest1, _, err := UploadTestManifest(ctx, client, manifest1Ref)
+	manifest1, mdesc1, err := UploadTestManifest(ctx, client, manifest1Ref)
 	if err != nil {
 		return nil, err
 	}
+	mdesc1.Platform = &ocispecv1.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
+	}
 
-	manifest2, _, err := UploadTestManifest(ctx, client, manifest2Ref)
+	manifest2, mdesc2, err := UploadTestManifest(ctx, client, manifest2Ref)
 	if err != nil {
 		return nil, err
+	}
+	mdesc2.Platform = &ocispecv1.Platform{
+		Architecture: "amd64",
+		OS:           "windows",
 	}
 
 	index := oci.Index{
 		Manifests: []*oci.Manifest{
 			{
-				Descriptor: ocispecv1.Descriptor{
-					Platform: &ocispecv1.Platform{
-						Architecture: "amd64",
-						OS:           "linux",
-					},
-				},
-				Data: manifest1,
+				Descriptor: mdesc1,
+				Data:       manifest1,
 			},
 			{
-				Descriptor: ocispecv1.Descriptor{
-					Platform: &ocispecv1.Platform{
-						Architecture: "amd64",
-						OS:           "windows",
-					},
-				},
-				Data: manifest2,
+				Descriptor: mdesc2,
+				Data:       manifest2,
 			},
 		},
 		Annotations: map[string]string{
@@ -133,32 +131,13 @@ func UploadTestIndex(ctx context.Context, client ociclient.Client, indexRef stri
 	return &index, nil
 }
 
-func CompareImageIndices(actualIndex *oci.Index, expectedIndex *oci.Index) {
-	Expect(actualIndex.Annotations).To(Equal(expectedIndex.Annotations))
-	Expect(len(actualIndex.Manifests)).To(Equal(len(expectedIndex.Manifests)))
-
-	for i := 0; i < len(actualIndex.Manifests); i++ {
-		actualManifest := actualIndex.Manifests[i]
-		expectedManifest := expectedIndex.Manifests[i]
-
-		expectedManifestBytes, err := json.Marshal(expectedManifest.Data)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(actualManifest.Descriptor.MediaType).To(Equal(ocispecv1.MediaTypeImageManifest))
-		Expect(actualManifest.Descriptor.Digest).To(Equal(digest.FromBytes(expectedManifestBytes)))
-		Expect(actualManifest.Descriptor.Size).To(Equal(int64(len(expectedManifestBytes))))
-		Expect(actualManifest.Descriptor.Platform).To(Equal(expectedManifest.Descriptor.Platform))
-		Expect(actualManifest.Data).To(Equal(expectedManifest.Data))
-	}
-}
-
+// CreateManifest creates an oci manifest. if ocicache is set, all blobs are added to cache
 func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache) (*ocispecv1.Manifest, ocispecv1.Descriptor) {
 	configDesc := ocispecv1.Descriptor{
 		MediaType: "text/plain",
 		Digest:    digest.FromBytes(configData),
 		Size:      int64(len(configData)),
 	}
-
 	if ocicache != nil {
 		Expect(ocicache.Add(configDesc, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
 	}
@@ -171,7 +150,6 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 			Size:      int64(len(layerData)),
 		}
 		layerDescs = append(layerDescs, layerDesc)
-
 		if ocicache != nil {
 			Expect(ocicache.Add(layerDesc, io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
 		}

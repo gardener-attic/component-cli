@@ -69,7 +69,7 @@ var _ = Describe("ociArtifact", func() {
 
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
-			testutils.CompareImageIndices(actualOciArtifact.GetIndex(), &expectedImageIndex)
+			Expect(actualOciArtifact.GetIndex()).To(Equal(&expectedImageIndex))
 		})
 
 		It("should return error if called with resource of invalid type", func() {
