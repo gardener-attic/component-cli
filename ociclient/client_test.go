@@ -32,7 +32,7 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest, _, err := testutils.UploadTestManifest(ctx, client, ref)
+			manifest, mdesc, err := testutils.UploadTestManifest(ctx, client, ref)
 			Expect(err).ToNot(HaveOccurred())
 
 			res, err := client.GetManifest(ctx, ref)
@@ -41,7 +41,19 @@ var _ = Describe("client", func() {
 			Expect(res.Layers).To(Equal(manifest.Layers))
 
 			// TODO: oci image index test only working because cache is filled in this function with config/layer blobs. should be fixed
-			testutils.CompareManifestToTestManifest(ctx, client, ref, res)
+			expectedManifest := oci.Manifest{
+				Descriptor: mdesc,
+				Data:       manifest,
+			}
+			testutils.CompareRemoteManifest(
+				client,
+				ref,
+				expectedManifest,
+				[]byte("config-data"),
+				[][]byte{
+					[]byte("layer-data"),
+				},
+			)
 		}, 20)
 
 		It("should push and pull an oci image index", func() {
@@ -139,7 +151,7 @@ var _ = Describe("client", func() {
 
 			var configBlob bytes.Buffer
 			Expect(client.Fetch(ctx, ref, res.Config, &configBlob)).To(Succeed())
-			Expect(configBlob.String()).To(Equal("test"))
+			Expect(configBlob.String()).To(Equal("config-data"))
 
 			var layerBlob bytes.Buffer
 			Expect(client.Fetch(ctx, ref, res.Layers[0], &layerBlob)).To(Succeed())
@@ -164,8 +176,16 @@ var _ = Describe("client", func() {
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
 			Expect(actualArtifact.GetIndex()).To(Equal(index))
 
-			for _, manifest := range actualArtifact.GetIndex().Manifests {
-				testutils.CompareManifestToTestManifest(ctx, client, newRef, manifest.Data)
+			for i := range actualArtifact.GetIndex().Manifests {
+				testutils.CompareRemoteManifest(
+					client,
+					ref,
+					*index.Manifests[i],
+					[]byte("config-data"),
+					[][]byte{
+						[]byte("layer-data"),
+					},
+				)
 			}
 		}, 20)
 

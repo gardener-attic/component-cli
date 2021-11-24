@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// CreateTARArchive creates a TAR archive which contains the defined set of files
+// CreateTARArchive creates a TAR archive which contains a defined set of files
 func CreateTARArchive(files map[string][]byte) *bytes.Buffer {
 	buf := bytes.NewBuffer([]byte{})
 	tw := tar.NewWriter(buf)
@@ -35,7 +35,7 @@ func CreateTARArchive(files map[string][]byte) *bytes.Buffer {
 	return buf
 }
 
-// CheckTARArchive checks that a TAR archive contains exactly a defined set of files
+// CheckTARArchive checks that a TAR archive contains a defined set of files
 func CheckTARArchive(archiveReader io.Reader, expectedFiles map[string][]byte) {
 	tr := tar.NewReader(archiveReader)
 

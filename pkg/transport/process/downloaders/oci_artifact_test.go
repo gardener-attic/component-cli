@@ -43,7 +43,15 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*actualOciArtifact.GetManifest()).To(Equal(expectedImageManifest))
-			testutils.CompareManifestToTestManifest(context.TODO(), ociClient, imageRef, expectedImageManifest.Data)
+			testutils.CompareRemoteManifest(
+				ociClient,
+				imageRef,
+				expectedImageManifest,
+				[]byte("config-data"),
+				[][]byte{
+					[]byte("layer-data"),
+				},
+			)
 		})
 
 		It("should download and stream oci image index", func() {

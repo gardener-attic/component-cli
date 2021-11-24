@@ -21,8 +21,9 @@ import (
 	"github.com/gardener/component-cli/ociclient/oci"
 )
 
+// UploadTestManifest uploads an oci image manifest to a registry
 func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
-	configData := []byte("test")
+	configData := []byte("config-data")
 	layerData := []byte("layer-data")
 	manifest := &ocispecv1.Manifest{
 		Config: ocispecv1.Descriptor{
@@ -67,16 +68,7 @@ func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string
 	return manifest, desc, nil
 }
 
-func CompareManifestToTestManifest(ctx context.Context, client ociclient.Client, ref string, manifest *ocispecv1.Manifest) {
-	var configBlob bytes.Buffer
-	Expect(client.Fetch(ctx, ref, manifest.Config, &configBlob)).To(Succeed())
-	Expect(configBlob.String()).To(Equal("test"))
-
-	var layerBlob bytes.Buffer
-	Expect(client.Fetch(ctx, ref, manifest.Layers[0], &layerBlob)).To(Succeed())
-	Expect(layerBlob.String()).To(Equal("layer-data"))
-}
-
+// UploadTestIndex uploads an oci image index to a registry
 func UploadTestIndex(ctx context.Context, client ociclient.Client, indexRef string) (*oci.Index, error) {
 	splitted := strings.Split(indexRef, ":")
 	indexRepo := strings.Join(splitted[0:len(splitted)-1], ":")
