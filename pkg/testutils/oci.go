@@ -199,3 +199,21 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 
 	return &manifest, manifestDesc
 }
+
+func CompareRemoteManifest(client ociclient.Client, ref string, expectedManifest oci.Manifest, expectedCfgBytes []byte, expectedLayers [][]byte) {
+	buf := bytes.NewBuffer([]byte{})
+	Expect(client.Fetch(context.TODO(), ref, expectedManifest.Descriptor, buf)).To(Succeed())
+	manifestFromRemote := ocispecv1.Manifest{}
+	Expect(json.Unmarshal(buf.Bytes(), &manifestFromRemote)).To(Succeed())
+	Expect(manifestFromRemote).To(Equal(*expectedManifest.Data))
+
+	buf = bytes.NewBuffer([]byte{})
+	Expect(client.Fetch(context.TODO(), ref, manifestFromRemote.Config, buf)).To(Succeed())
+	Expect(buf.Bytes()).To(Equal(expectedCfgBytes))
+
+	for i, layerDesc := range manifestFromRemote.Layers {
+		buf = bytes.NewBuffer([]byte{})
+		Expect(client.Fetch(context.TODO(), ref, layerDesc, buf)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal(expectedLayers[i]))
+	}
+}

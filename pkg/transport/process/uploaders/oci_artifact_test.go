@@ -53,11 +53,12 @@ var _ = Describe("ociArtifact", func() {
 			layers := [][]byte{
 				[]byte("layer-data"),
 			}
-			m, _ := testutils.CreateManifest(configData, layers, nil)
+			m, mdesc := testutils.CreateManifest(configData, layers, nil)
 
 			expectedOciArtifact, err := oci.NewManifestArtifact(
 				&oci.Manifest{
-					Data: m,
+					Descriptor: mdesc,
+					Data:       m,
 				},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -95,21 +96,14 @@ var _ = Describe("ociArtifact", func() {
 
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, cache.NewInMemoryCache())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(actualOciArtifact.GetManifest().Data).To(Equal(m))
-
-			buf := bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, actualOciArtifact.GetManifest().Descriptor, buf)).To(Succeed())
-			am := ocispecv1.Manifest{}
-			Expect(json.Unmarshal(buf.Bytes(), &am)).To(Succeed())
-			Expect(am).To(Equal(*m))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, am.Config, buf)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal(configData))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, am.Layers[0], buf)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal(layers[0]))
+			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
+			testutils.CompareRemoteManifest(
+				ociClient,
+				expectedImageRef,
+				*expectedOciArtifact.GetManifest(),
+				configData,
+				layers,
+			)
 		})
 
 		It("should upload and stream oci image index", func() {
@@ -167,10 +161,12 @@ var _ = Describe("ociArtifact", func() {
 				&oci.Index{
 					Manifests: []*oci.Manifest{
 						{
-							Data: m1,
+							Descriptor: m1Desc,
+							Data:       m1,
 						},
 						{
-							Data: m2,
+							Descriptor: m2Desc,
+							Data:       m2,
 						},
 					},
 					Annotations: map[string]string{
@@ -217,39 +213,21 @@ var _ = Describe("ociArtifact", func() {
 
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, cache.NewInMemoryCache())
 			Expect(err).ToNot(HaveOccurred())
-
-			// check image index and manifests
-			Expect(actualOciArtifact.GetIndex().Annotations).To(Equal(expectedOciArtifact.GetIndex().Annotations))
-			Expect(actualOciArtifact.GetIndex().Manifests[0].Data).To(Equal(m1))
-			Expect(actualOciArtifact.GetIndex().Manifests[1].Data).To(Equal(m2))
-
-			buf := bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, actualOciArtifact.GetIndex().Manifests[0].Descriptor, buf)).To(Succeed())
-			am := ocispecv1.Manifest{}
-			Expect(json.Unmarshal(buf.Bytes(), &am)).To(Succeed())
-			Expect(am).To(Equal(*m1))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, am.Config, buf)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal(configData1))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, am.Layers[0], buf)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal(layers1[0]))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, actualOciArtifact.GetIndex().Manifests[1].Descriptor, buf)).To(Succeed())
-			am = ocispecv1.Manifest{}
-			Expect(json.Unmarshal(buf.Bytes(), &am)).To(Succeed())
-			Expect(am).To(Equal(*m2))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, am.Config, buf)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal(configData2))
-
-			buf = bytes.NewBuffer([]byte{})
-			Expect(ociClient.Fetch(context.TODO(), expectedImageRef, am.Layers[0], buf)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal(layers2[0]))
+			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
+			testutils.CompareRemoteManifest(
+				ociClient,
+				expectedImageRef,
+				*expectedOciArtifact.GetIndex().Manifests[0],
+				configData1,
+				layers1,
+			)
+			testutils.CompareRemoteManifest(
+				ociClient,
+				expectedImageRef,
+				*expectedOciArtifact.GetIndex().Manifests[1],
+				configData2,
+				layers2,
+			)
 		})
 
 		It("should return error for invalid access type", func() {
