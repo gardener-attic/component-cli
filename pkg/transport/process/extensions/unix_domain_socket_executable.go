@@ -94,6 +94,15 @@ func (e *unixDomainSocketExecutable) Process(ctx context.Context, r io.Reader, w
 		return fmt.Errorf("unable to wait for processor: %w", err)
 	}
 
+	// remove socket file if server hasn't already cleaned up
+	if _, err := os.Stat(e.addr); err == nil {
+		if err := os.Remove(e.addr); err != nil {
+			return fmt.Errorf("unable to remove %s: %w", e.addr, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("unable to get file stats for %s: %w", e.addr, err)
+	}
+
 	return nil
 }
 
