@@ -24,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	addr := os.Getenv(extensions.ServerAddressEnv)
+	addr := os.Getenv(extensions.ProcessorServerAddressEnv)
 
 	if addr == "" {
 		time.Sleep(sleepTime)

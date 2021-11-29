@@ -92,10 +92,10 @@ var _ = Describe("transport extensions", func() {
 		It("should raise an error when trying to set the server address env variable manually", func() {
 			args := []string{}
 			env := map[string]string{
-				extensions.ServerAddressEnv: "/tmp/my-processor.sock",
+				extensions.ProcessorServerAddressEnv: "/tmp/my-processor.sock",
 			}
 			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env)
-			Expect(err).To(MatchError(fmt.Sprintf("the env variable %s is not allowed to be set manually", extensions.ServerAddressEnv)))
+			Expect(err).To(MatchError(fmt.Sprintf("the env variable %s is not allowed to be set manually", extensions.ProcessorServerAddressEnv)))
 		})
 
 		It("should exit with error when timeout is reached", func() {

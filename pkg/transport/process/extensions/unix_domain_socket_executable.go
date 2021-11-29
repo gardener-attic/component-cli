@@ -17,9 +17,9 @@ import (
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
-// ServerAddressEnv is the environment variable key which is used to store the
+// ProcessorServerAddressEnv is the environment variable key which is used to store the
 // address under which a resource processor server should start.
-const ServerAddressEnv = "SERVER_ADDRESS"
+const ProcessorServerAddressEnv = "PROCESSOR_SERVER_ADDRESS"
 
 type unixDomainSocketExecutable struct {
 	bin  string
@@ -28,11 +28,11 @@ type unixDomainSocketExecutable struct {
 	addr string
 }
 
-// NewUnixDomainSocketExecutable runs a resource processor extension executable in the background.
-// It communicates with this processor via Unix Domain Sockets.
+// NewUnixDomainSocketExecutable returns a resource processor extension which runs an executable in the
+// background when calling Process(). It communicates with this processor via Unix Domain Sockets.
 func NewUnixDomainSocketExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
-	if _, ok := env[ServerAddressEnv]; ok {
-		return nil, fmt.Errorf("the env variable %s is not allowed to be set manually", ServerAddressEnv)
+	if _, ok := env[ProcessorServerAddressEnv]; ok {
+		return nil, fmt.Errorf("the env variable %s is not allowed to be set manually", ProcessorServerAddressEnv)
 	}
 
 	parsedEnv := []string{}
@@ -45,7 +45,7 @@ func NewUnixDomainSocketExecutable(bin string, args []string, env map[string]str
 		return nil, err
 	}
 	addr := fmt.Sprintf("%s/%s.sock", wd, utils.RandomString(8))
-	parsedEnv = append(parsedEnv, fmt.Sprintf("%s=%s", ServerAddressEnv, addr))
+	parsedEnv = append(parsedEnv, fmt.Sprintf("%s=%s", ProcessorServerAddressEnv, addr))
 
 	e := unixDomainSocketExecutable{
 		bin:  bin,

@@ -26,7 +26,8 @@ const processorName = "example-processor"
 // a test processor which adds its name to the resource labels and the resource blob.
 // the resource blob is expected to be plain text data.
 func main() {
-	addr := os.Getenv(extensions.ServerAddressEnv)
+	// read the address under which the unix domain socket server should start
+	addr := os.Getenv(extensions.ProcessorServerAddressEnv)
 
 	if addr == "" {
 		// if addr is not set, use stdin/stdout for communication
@@ -35,6 +36,7 @@ func main() {
 		}
 		return
 	}
+	// if addr is set, use unix domain sockets for communication
 
 	h := func(r io.Reader, w io.WriteCloser) {
 		if err := processorRoutine(r, w); err != nil {
@@ -65,6 +67,7 @@ func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 	}
 	defer tmpfile.Close()
 
+	// read the input stream
 	if _, err := io.Copy(tmpfile, inputStream); err != nil {
 		return err
 	}
@@ -73,6 +76,7 @@ func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 		return err
 	}
 
+	// split up the input stream into component descriptor, resource, and resource blob
 	cd, res, resourceBlobReader, err := utils.ReadProcessorMessage(tmpfile)
 	if err != nil {
 		return err
@@ -81,18 +85,21 @@ func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error 
 		defer resourceBlobReader.Close()
 	}
 
+	// modify resource blob
 	buf := bytes.NewBuffer([]byte{})
 	if _, err := io.Copy(buf, resourceBlobReader); err != nil {
 		return err
 	}
 	outputData := fmt.Sprintf("%s\n%s", buf.String(), processorName)
 
+	// modify resource yaml
 	l := cdv2.Label{
 		Name:  "processor-name",
 		Value: json.RawMessage(`"` + processorName + `"`),
 	}
 	res.Labels = append(res.Labels, l)
 
+	// write modified output to output stream
 	if err := utils.WriteProcessorMessage(*cd, res, strings.NewReader(outputData), outputStream); err != nil {
 		return err
 	}
