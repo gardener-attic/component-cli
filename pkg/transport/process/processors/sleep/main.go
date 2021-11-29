@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("finished sleeping -> exit with error")
 	}
 
-	srv, err := utils.NewUDSServer(addr, h)
+	srv, err := utils.NewUnixDomainSocketServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}

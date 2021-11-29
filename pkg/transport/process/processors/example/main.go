@@ -42,7 +42,7 @@ func main() {
 		}
 	}
 
-	srv, err := utils.NewUDSServer(addr, h)
+	srv, err := utils.NewUnixDomainSocketServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}

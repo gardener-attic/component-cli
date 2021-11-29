@@ -21,16 +21,16 @@ import (
 // address under which a resource processor server should start.
 const ServerAddressEnv = "SERVER_ADDRESS"
 
-type udsExecutable struct {
+type unixDomainSocketExecutable struct {
 	bin  string
 	args []string
 	env  []string
 	addr string
 }
 
-// NewUDSExecutable runs a resource processor extension executable in the background.
+// NewUnixDomainSocketExecutable runs a resource processor extension executable in the background.
 // It communicates with this processor via Unix Domain Sockets.
-func NewUDSExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
+func NewUnixDomainSocketExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
 	if _, ok := env[ServerAddressEnv]; ok {
 		return nil, fmt.Errorf("the env variable %s is not allowed to be set manually", ServerAddressEnv)
 	}
@@ -47,7 +47,7 @@ func NewUDSExecutable(bin string, args []string, env map[string]string) (process
 	addr := fmt.Sprintf("%s/%s.sock", wd, utils.RandomString(8))
 	parsedEnv = append(parsedEnv, fmt.Sprintf("%s=%s", ServerAddressEnv, addr))
 
-	e := udsExecutable{
+	e := unixDomainSocketExecutable{
 		bin:  bin,
 		args: args,
 		env:  parsedEnv,
@@ -57,7 +57,7 @@ func NewUDSExecutable(bin string, args []string, env map[string]string) (process
 	return &e, nil
 }
 
-func (e *udsExecutable) Process(ctx context.Context, r io.Reader, w io.Writer) error {
+func (e *unixDomainSocketExecutable) Process(ctx context.Context, r io.Reader, w io.Writer) error {
 	cmd := exec.CommandContext(ctx, e.bin, e.args...)
 	cmd.Env = e.env
 	cmd.Stdout = os.Stdout

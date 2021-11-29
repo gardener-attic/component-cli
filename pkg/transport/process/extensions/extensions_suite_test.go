@@ -73,17 +73,17 @@ var _ = Describe("transport extensions", func() {
 		})
 	})
 
-	Context("uds executable", func() {
+	Context("unix domain socket executable", func() {
 		It("should create processor successfully if env is nil", func() {
 			args := []string{}
-			_, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, nil)
+			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, nil)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should modify the processed resource correctly", func() {
 			args := []string{}
 			env := map[string]string{}
-			processor, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, env)
+			processor, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
 
 			runExampleResourceTest(processor)
@@ -94,7 +94,7 @@ var _ = Describe("transport extensions", func() {
 			env := map[string]string{
 				extensions.ServerAddressEnv: "/tmp/my-processor.sock",
 			}
-			_, err := extensions.NewUDSExecutable(exampleProcessorBinaryPath, args, env)
+			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env)
 			Expect(err).To(MatchError(fmt.Sprintf("the env variable %s is not allowed to be set manually", extensions.ServerAddressEnv)))
 		})
 
@@ -103,7 +103,7 @@ var _ = Describe("transport extensions", func() {
 			env := map[string]string{
 				sleepTimeEnv: sleepTime.String(),
 			}
-			processor, err := extensions.NewUDSExecutable(sleepProcessorBinaryPath, args, env)
+			processor, err := extensions.NewUnixDomainSocketExecutable(sleepProcessorBinaryPath, args, env)
 			Expect(err).ToNot(HaveOccurred())
 
 			runTimeoutTest(processor)
