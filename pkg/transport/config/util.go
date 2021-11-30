@@ -29,5 +29,5 @@ func createExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return extensions.NewUDSExecutable(spec.Bin, spec.Args, spec.Env)
+	return extensions.NewUnixDomainSocketExecutable(spec.Bin, spec.Args, spec.Env)
 }
