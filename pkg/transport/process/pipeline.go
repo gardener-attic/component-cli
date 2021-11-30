@@ -16,7 +16,7 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
-const processorTimeout = 60 * time.Second
+const processorTimeout = 600 * time.Second
 
 type resourceProcessingPipelineImpl struct {
 	processors []ResourceStreamProcessor
