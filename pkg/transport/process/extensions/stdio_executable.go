@@ -19,8 +19,8 @@ type stdIOExecutable struct {
 	env  []string
 }
 
-// NewStdIOExecutable returns a resource processor extension which runs an executable.
-// in the background. It communicates with this processor via stdin/stdout pipes.
+// NewStdIOExecutable returns a resource processor extension which runs an executable in the
+// background when calling Process(). It communicates with this processor via stdin/stdout pipes.
 func NewStdIOExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
 	parsedEnv := []string{}
 	for k, v := range env {

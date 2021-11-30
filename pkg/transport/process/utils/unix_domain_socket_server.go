@@ -10,25 +10,25 @@ import (
 	"sync"
 )
 
-// HandlerFunc defines the interface of a function that should be served by a UDS server
+// HandlerFunc defines the interface of a function that should be served by a Unix Domain Socket server
 type HandlerFunc func(io.Reader, io.WriteCloser)
 
-// UDSServer implements a Unix Domain Socket server
-type UDSServer struct {
+// UnixDomainSocketServer implements a Unix Domain Socket server
+type UnixDomainSocketServer struct {
 	listener net.Listener
 	quit     chan interface{}
 	wg       sync.WaitGroup
 	handler  HandlerFunc
 }
 
-// NewUDSServer returns a new UDS server.
+// NewUnixDomainSocketServer returns a new Unix Domain Socket server.
 // The parameters define the server address and the handler func it serves
-func NewUDSServer(addr string, handler HandlerFunc) (*UDSServer, error) {
+func NewUnixDomainSocketServer(addr string, handler HandlerFunc) (*UnixDomainSocketServer, error) {
 	l, err := net.Listen("unix", addr)
 	if err != nil {
 		return nil, err
 	}
-	s := &UDSServer{
+	s := &UnixDomainSocketServer{
 		quit:     make(chan interface{}),
 		listener: l,
 		handler:  handler,
@@ -37,12 +37,12 @@ func NewUDSServer(addr string, handler HandlerFunc) (*UDSServer, error) {
 }
 
 // Start starts the server goroutine
-func (s *UDSServer) Start() {
+func (s *UnixDomainSocketServer) Start() {
 	s.wg.Add(1)
 	go s.serve()
 }
 
-func (s *UDSServer) serve() {
+func (s *UnixDomainSocketServer) serve() {
 	defer s.wg.Done()
 
 	for {
@@ -65,7 +65,7 @@ func (s *UDSServer) serve() {
 }
 
 // Stop stops the server goroutine
-func (s *UDSServer) Stop() {
+func (s *UnixDomainSocketServer) Stop() {
 	close(s.quit)
 	if err := s.listener.Close(); err != nil {
 		println(err)

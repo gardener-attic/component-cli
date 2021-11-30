@@ -24,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	addr := os.Getenv(extensions.ServerAddressEnv)
+	addr := os.Getenv(extensions.ProcessorServerAddressEnv)
 
 	if addr == "" {
 		time.Sleep(sleepTime)
@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("finished sleeping -> exit with error")
 	}
 
-	srv, err := utils.NewUDSServer(addr, h)
+	srv, err := utils.NewUnixDomainSocketServer(addr, h)
 	if err != nil {
 		log.Fatal(err)
 	}

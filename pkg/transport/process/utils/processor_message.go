@@ -106,7 +106,7 @@ func ReadProcessorMessage(r io.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource
 	}
 
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of file: %w", err)
+		return nil, cdv2.Resource{}, nil, fmt.Errorf("unable to seek to beginning of resource blob file: %w", err)
 	}
 
 	return cd, res, f, nil
