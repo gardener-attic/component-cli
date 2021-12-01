@@ -9,11 +9,15 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
-type resourceAccessTypeFilter struct {
+type AccessTypeFilterSpec struct {
+	IncludeAccessTypes []string `json:"includeAccessTypes"`
+}
+
+type accessTypeFilter struct {
 	includeAccessTypes []string
 }
 
-func (f resourceAccessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
+func (f accessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
 	for _, accessType := range f.includeAccessTypes {
 		if r.Access.Type == accessType {
 			return true
@@ -22,14 +26,14 @@ func (f resourceAccessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Re
 	return false
 }
 
-// NewResourceAccessTypeFilter creates a new resourceAccessTypeFilter
-func NewResourceAccessTypeFilter(includeAccessTypes ...string) (Filter, error) {
-	if len(includeAccessTypes) == 0 {
+// NewAccessTypeFilter creates a new accessTypeFilter
+func NewAccessTypeFilter(spec AccessTypeFilterSpec) (Filter, error) {
+	if len(spec.IncludeAccessTypes) == 0 {
 		return nil, fmt.Errorf("includeAccessTypes must not be empty")
 	}
 
-	filter := resourceAccessTypeFilter{
-		includeAccessTypes: includeAccessTypes,
+	filter := accessTypeFilter{
+		includeAccessTypes: spec.IncludeAccessTypes,
 	}
 
 	return &filter, nil

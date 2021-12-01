@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/pkg/transport/filters"
 	"github.com/gardener/component-cli/pkg/transport/process"
@@ -55,7 +57,7 @@ type parsedRuleDefinition struct {
 	Filters    []filters.Filter
 }
 
-type parsedTransportConfig struct {
+type ParsedTransportConfig struct {
 	Downloaders []parsedDownloaderDefinition
 	Processors  []parsedProcessorDefinition
 	Uploaders   []parsedUploaderDefinition
@@ -63,14 +65,9 @@ type parsedTransportConfig struct {
 }
 
 // NewProcessingJobFactory creates a new processing job factory
-func NewProcessingJobFactory(transportCfg TransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
-	parsedTransportConfig, err := parseTransportConfig(&transportCfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse transport config: %w", err)
-	}
-
+func NewProcessingJobFactory(transportCfg ParsedTransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
 	c := ProcessingJobFactory{
-		parsedConfig:      parsedTransportConfig,
+		parsedConfig:      &transportCfg,
 		downloaderFactory: df,
 		processorFactory:  pf,
 		uploaderFactory:   uf,
@@ -81,14 +78,24 @@ func NewProcessingJobFactory(transportCfg TransportConfig, df *DownloaderFactory
 
 // ProcessingJobFactory defines a helper struct for creating processing jobs
 type ProcessingJobFactory struct {
-	parsedConfig      *parsedTransportConfig
+	parsedConfig      *ParsedTransportConfig
 	uploaderFactory   *UploaderFactory
 	downloaderFactory *DownloaderFactory
 	processorFactory  *ProcessorFactory
 }
 
-func parseTransportConfig(config *TransportConfig) (*parsedTransportConfig, error) {
-	var parsedConfig parsedTransportConfig
+func ParseConfig(configFilePath string) (*ParsedTransportConfig, error) {
+	transportCfgYaml, err := os.ReadFile(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read transport config file: %w", err)
+	}
+
+	var config TransportConfig
+	if err := yaml.Unmarshal(transportCfgYaml, &config); err != nil {
+		return nil, fmt.Errorf("unable to parse transport config file: %w", err)
+	}
+
+	var parsedConfig ParsedTransportConfig
 	ff := NewFilterFactory()
 
 	// downloaders
@@ -228,7 +235,7 @@ func createFilterList(filterDefinitions []FilterDefinition, ff *FilterFactory) (
 	return filters, nil
 }
 
-func findProcessorByName(name string, lookup *parsedTransportConfig) (*parsedProcessorDefinition, error) {
+func findProcessorByName(name string, lookup *ParsedTransportConfig) (*parsedProcessorDefinition, error) {
 	for _, processor := range lookup.Processors {
 		if processor.Name == name {
 			return &processor, nil

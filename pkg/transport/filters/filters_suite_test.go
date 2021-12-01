@@ -20,15 +20,20 @@ func TestConfig(t *testing.T) {
 
 var _ = Describe("filters", func() {
 
-	Context("resourceAccessTypeFilter", func() {
+	Context("accessTypeFilter", func() {
 
 		It("should match if access type is in include list", func() {
 			cd := cdv2.ComponentDescriptor{}
 			res := cdv2.Resource{
 				Access: cdv2.NewEmptyUnstructured(cdv2.OCIRegistryType),
 			}
+			spec := filter.AccessTypeFilterSpec{
+				IncludeAccessTypes: []string{
+					cdv2.OCIRegistryType,
+				},
+			}
 
-			f, err := filter.NewResourceAccessTypeFilter(cdv2.OCIRegistryType)
+			f, err := filter.NewAccessTypeFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			actualMatch := f.Matches(cd, res)
@@ -40,8 +45,13 @@ var _ = Describe("filters", func() {
 			res := cdv2.Resource{
 				Access: cdv2.NewEmptyUnstructured(cdv2.OCIRegistryType),
 			}
+			spec := filter.AccessTypeFilterSpec{
+				IncludeAccessTypes: []string{
+					cdv2.LocalOCIBlobType,
+				},
+			}
 
-			f, err := filter.NewResourceAccessTypeFilter(cdv2.LocalOCIBlobType)
+			f, err := filter.NewAccessTypeFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			actualMatch := f.Matches(cd, res)
@@ -49,8 +59,10 @@ var _ = Describe("filters", func() {
 		})
 
 		It("should return error upon creation if include list is empty", func() {
-			includeAccessTypes := []string{}
-			_, err := filter.NewResourceAccessTypeFilter(includeAccessTypes...)
+			spec := filter.AccessTypeFilterSpec{
+				IncludeAccessTypes: []string{},
+			}
+			_, err := filter.NewAccessTypeFilter(spec)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("includeAccessTypes must not be empty"))
 		})
@@ -68,8 +80,13 @@ var _ = Describe("filters", func() {
 					Type:    cdv2.OCIImageType,
 				},
 			}
+			spec := filter.ResourceTypeFilterSpec{
+				IncludeResourceTypes: []string{
+					cdv2.OCIImageType,
+				},
+			}
 
-			f, err := filter.NewResourceTypeFilter(cdv2.OCIImageType)
+			f, err := filter.NewResourceTypeFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			actualMatch := f.Matches(cd, res)
@@ -85,8 +102,13 @@ var _ = Describe("filters", func() {
 					Type:    "helm",
 				},
 			}
+			spec := filter.ResourceTypeFilterSpec{
+				IncludeResourceTypes: []string{
+					cdv2.OCIImageType,
+				},
+			}
 
-			f, err := filter.NewResourceTypeFilter(cdv2.OCIImageType)
+			f, err := filter.NewResourceTypeFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			actualMatch := f.Matches(cd, res)
@@ -94,8 +116,10 @@ var _ = Describe("filters", func() {
 		})
 
 		It("should return error upon creation if include list is empty", func() {
-			includeResourceTypes := []string{}
-			_, err := filter.NewResourceTypeFilter(includeResourceTypes...)
+			spec := filter.ResourceTypeFilterSpec{
+				IncludeResourceTypes: []string{},
+			}
+			_, err := filter.NewResourceTypeFilter(spec)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("includeResourceTypes must not be empty"))
 		})
@@ -113,14 +137,24 @@ var _ = Describe("filters", func() {
 				},
 			}
 			res := cdv2.Resource{}
+			spec := filter.ComponentNameFilterSpec{
+				IncludeComponentNames: []string{
+					"github.com/test/my-component",
+				},
+			}
 
-			f1, err := filter.NewComponentNameFilter("github.com/test/my-component")
+			f1, err := filter.NewComponentNameFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			match1 := f1.Matches(cd, res)
 			Expect(match1).To(Equal(true))
 
-			f2, err := filter.NewComponentNameFilter("github.com/test/*")
+			spec = filter.ComponentNameFilterSpec{
+				IncludeComponentNames: []string{
+					"github.com/test/*",
+				},
+			}
+			f2, err := filter.NewComponentNameFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			match2 := f2.Matches(cd, res)
@@ -136,14 +170,24 @@ var _ = Describe("filters", func() {
 				},
 			}
 			res := cdv2.Resource{}
+			spec := filter.ComponentNameFilterSpec{
+				IncludeComponentNames: []string{
+					"github.com/test/my-other-component",
+				},
+			}
 
-			f1, err := filter.NewComponentNameFilter("github.com/test/my-other-component")
+			f1, err := filter.NewComponentNameFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			match1 := f1.Matches(cd, res)
 			Expect(match1).To(Equal(false))
 
-			f2, err := filter.NewComponentNameFilter("github.com/test-2/*")
+			spec = filter.ComponentNameFilterSpec{
+				IncludeComponentNames: []string{
+					"github.com/test-2/*",
+				},
+			}
+			f2, err := filter.NewComponentNameFilter(spec)
 			Expect(err).ToNot(HaveOccurred())
 
 			match2 := f2.Matches(cd, res)
@@ -151,14 +195,21 @@ var _ = Describe("filters", func() {
 		})
 
 		It("should return error upon creation if include list is empty", func() {
-			includeComponentNames := []string{}
-			_, err := filter.NewComponentNameFilter(includeComponentNames...)
+			spec := filter.ComponentNameFilterSpec{
+				IncludeComponentNames: []string{},
+			}
+			_, err := filter.NewComponentNameFilter(spec)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError("includeComponentNames must not be empty"))
 		})
 
 		It("should return error upon creation if regexp is invalid", func() {
-			_, err := filter.NewComponentNameFilter("github.com/\\")
+			spec := filter.ComponentNameFilterSpec{
+				IncludeComponentNames: []string{
+					"github.com/\\",
+				},
+			}
+			_, err := filter.NewComponentNameFilter(spec)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("error parsing regexp"))
 		})

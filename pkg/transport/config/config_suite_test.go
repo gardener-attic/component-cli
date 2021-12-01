@@ -4,14 +4,12 @@
 package config_test
 
 import (
-	"os"
 	"testing"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -28,11 +26,8 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	transportCfgYaml, err := os.ReadFile("./testdata/transport.cfg")
+	transportCfg, err := config.ParseConfig("./testdata/transport.cfg")
 	Expect(err).ToNot(HaveOccurred())
-
-	var transportCfg config.TransportConfig
-	Expect(yaml.Unmarshal(transportCfgYaml, &transportCfg)).To(Succeed())
 
 	client, err := ociclient.NewClient(logr.Discard())
 	Expect(err).ToNot(HaveOccurred())
@@ -43,6 +38,6 @@ var _ = BeforeSuite(func() {
 	pf := config.NewProcessorFactory(ocicache)
 	uf := config.NewUploaderFactory(client, ocicache, *targetCtx)
 
-	factory, err = config.NewProcessingJobFactory(transportCfg, df, pf, uf)
+	factory, err = config.NewProcessingJobFactory(*transportCfg, df, pf, uf)
 	Expect(err).ToNot(HaveOccurred())
 }, 5)

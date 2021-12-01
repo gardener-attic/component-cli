@@ -9,6 +9,10 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 )
 
+type ResourceTypeFilterSpec struct {
+	IncludeResourceTypes []string `json:"includeResourceTypes"`
+}
+
 type resourceTypeFilter struct {
 	includeResourceTypes []string
 }
@@ -23,13 +27,13 @@ func (f resourceTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource
 }
 
 // NewResourceTypeFilter creates a new resourceTypeFilter
-func NewResourceTypeFilter(includeResourceTypes ...string) (Filter, error) {
-	if len(includeResourceTypes) == 0 {
+func NewResourceTypeFilter(spec ResourceTypeFilterSpec) (Filter, error) {
+	if len(spec.IncludeResourceTypes) == 0 {
 		return nil, fmt.Errorf("includeResourceTypes must not be empty")
 	}
 
 	filter := resourceTypeFilter{
-		includeResourceTypes: includeResourceTypes,
+		includeResourceTypes: spec.IncludeResourceTypes,
 	}
 
 	return &filter, nil

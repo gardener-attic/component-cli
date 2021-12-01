@@ -19,14 +19,14 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/transport/config"
+	transport_config "github.com/gardener/component-cli/pkg/transport/config"
+	"github.com/gardener/component-cli/pkg/utils"
 )
 
 type Options struct {
@@ -40,7 +40,7 @@ type Options struct {
 
 	// TransportCfgPath is the path to the transport config file
 	TransportCfgPath string
-	// RepoCtxOverrideCfgPath is the path to the repo context override config file
+	// RepoCtxOverrideCfgPath is the path to the repository context override config file
 	RepoCtxOverrideCfgPath string
 
 	// OCIOptions contains all oci client related options.
@@ -69,10 +69,10 @@ func NewTransportCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.SourceRepository, "from", "", "source repository base url.")
-	fs.StringVar(&o.TargetRepository, "to", "", "target repository where the components are copied to.")
+	fs.StringVar(&o.SourceRepository, "from", "", "source repository base url")
+	fs.StringVar(&o.TargetRepository, "to", "", "target repository where the components are copied to")
 	fs.StringVar(&o.TransportCfgPath, "transport-cfg", "", "path to the transport config file")
-	fs.StringVar(&o.RepoCtxOverrideCfgPath, "repo-ctx-override-cfg", "", "path to the repo context override config file")
+	fs.StringVar(&o.RepoCtxOverrideCfgPath, "repo-ctx-override-cfg", "", "path to the repository context override config file")
 	o.OCIOptions.AddFlags(fs)
 }
 
@@ -121,28 +121,28 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return fmt.Errorf("unable to inject cache into oci client: %w", err)
 	}
 
+	repoCtxOverrideCfg, err := utils.ParseRepositoryContextConfig(o.RepoCtxOverrideCfgPath)
+	if err != nil {
+		return fmt.Errorf("unable to parse repository context override config file: %w", err)
+	}
+
+	transportCfg, err := transport_config.ParseConfig(o.TransportCfgPath)
+	if err != nil {
+		return fmt.Errorf("unable to parse transport config file: %w", err)
+	}
+
 	sourceCtx := cdv2.NewOCIRegistryRepository(o.SourceRepository, "")
-	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version)
+	targetCtx := cdv2.NewOCIRegistryRepository(o.TargetRepository, "")
+
+	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version, *repoCtxOverrideCfg)
 	if err != nil {
 		return fmt.Errorf("unable to resolve component: %w", err)
 	}
 
-	targetCtx := cdv2.NewOCIRegistryRepository(o.TargetRepository, "")
-
-	transportCfgYaml, err := os.ReadFile(o.TransportCfgPath)
-	if err != nil {
-		return fmt.Errorf("unable to read transport config file: %w", err)
-	}
-
-	var transportCfg config.TransportConfig
-	if err := yaml.Unmarshal(transportCfgYaml, &transportCfg); err != nil {
-		return fmt.Errorf("unable to parse transport config file: %w", err)
-	}
-
-	df := config.NewDownloaderFactory(ociClient, ociCache)
-	pf := config.NewProcessorFactory(ociCache)
-	uf := config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
-	pjf, err := config.NewProcessingJobFactory(transportCfg, df, pf, uf)
+	df := transport_config.NewDownloaderFactory(ociClient, ociCache)
+	pf := transport_config.NewProcessorFactory(ociCache)
+	uf := transport_config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
+	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	return nil
 }
 
-func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *config.ProcessingJobFactory) ([]cdv2.Resource, []error) {
+func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *transport_config.ProcessingJobFactory) ([]cdv2.Resource, []error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
 	mux := sync.Mutex{}
@@ -221,14 +221,24 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 	return processedResources, errs
 }
 
-func ResolveRecursive(ctx context.Context, client ociclient.Client, repo cdv2.OCIRegistryRepository, componentName, componentVersion string) ([]*cdv2.ComponentDescriptor, error) {
-	ociRef, err := cdoci.OCIRef(repo, componentName, componentVersion)
+func ResolveRecursive(
+	ctx context.Context,
+	client ociclient.Client,
+	defaultRepo cdv2.OCIRegistryRepository,
+	componentName,
+	componentVersion string,
+	repoCtxOverrideCfg utils.RepositoryContextOverride,
+) ([]*cdv2.ComponentDescriptor, error) {
+
+	repoCtx := repoCtxOverrideCfg.GetRepositoryContext(componentName, defaultRepo)
+
+	ociRef, err := cdoci.OCIRef(*repoCtx, componentName, componentVersion)
 	if err != nil {
 		return nil, fmt.Errorf("invalid component reference: %w", err)
 	}
 
 	cdresolver := cdoci.NewResolver(client)
-	cd, err := cdresolver.Resolve(ctx, &repo, componentName, componentVersion)
+	cd, err := cdresolver.Resolve(ctx, repoCtx, componentName, componentVersion)
 	if err != nil {
 		return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 	}
@@ -237,7 +247,7 @@ func ResolveRecursive(ctx context.Context, client ociclient.Client, repo cdv2.OC
 		cd,
 	}
 	for _, ref := range cd.ComponentReferences {
-		cds2, err := ResolveRecursive(ctx, client, repo, ref.ComponentName, ref.Version)
+		cds2, err := ResolveRecursive(ctx, client, defaultRepo, ref.ComponentName, ref.Version, repoCtxOverrideCfg)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve ref %+v: %w", ref, err)
 		}

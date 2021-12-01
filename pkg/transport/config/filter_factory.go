@@ -19,8 +19,8 @@ const (
 	// ResourceTypeFilterType defines the type of a resource type filter
 	ResourceTypeFilterType = "ResourceTypeFilter"
 
-	// ResourceAccessTypeFilterType defines the type of a resource access filter
-	ResourceAccessTypeFilterType = "ResourceAccessTypeFilter"
+	// AccessTypeFilterType defines the type of a access type filter
+	AccessTypeFilterType = "AccessTypeFilter"
 )
 
 // NewFilterFactory creates a new filter factory
@@ -38,7 +38,7 @@ func (f *FilterFactory) Create(filterType string, spec *json.RawMessage) (filter
 		return f.createComponentNameFilter(spec)
 	case ResourceTypeFilterType:
 		return f.createResourceTypeFilter(spec)
-	case ResourceAccessTypeFilterType:
+	case AccessTypeFilterType:
 		return f.createAccessTypeFilter(spec)
 	default:
 		return nil, fmt.Errorf("unknown filter type %s", filterType)
@@ -46,43 +46,28 @@ func (f *FilterFactory) Create(filterType string, spec *json.RawMessage) (filter
 }
 
 func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
-	type filterSpec struct {
-		IncludeComponentNames []string `json:"includeComponentNames"`
-	}
-
-	var spec filterSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
+	var spec filters.ComponentNameFilterSpec
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewComponentNameFilter(spec.IncludeComponentNames...)
+	return filters.NewComponentNameFilter(spec)
 }
 
 func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
-	type filterSpec struct {
-		IncludeResourceTypes []string `json:"includeResourceTypes"`
-	}
-
-	var spec filterSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
+	var spec filters.ResourceTypeFilterSpec
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewResourceTypeFilter(spec.IncludeResourceTypes...)
+	return filters.NewResourceTypeFilter(spec)
 }
 
 func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
-	type filterSpec struct {
-		IncludeAccessTypes []string `json:"includeAccessTypes"`
-	}
-
-	var spec filterSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
+	var spec filters.AccessTypeFilterSpec
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewResourceAccessTypeFilter(spec.IncludeAccessTypes...)
+	return filters.NewAccessTypeFilter(spec)
 }
