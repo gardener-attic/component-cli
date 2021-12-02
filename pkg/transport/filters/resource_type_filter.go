@@ -14,14 +14,12 @@ type ResourceTypeFilterSpec struct {
 }
 
 type resourceTypeFilter struct {
-	includeResourceTypes []string
+	includeResourceTypes map[string]bool
 }
 
 func (f resourceTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
-	for _, resourceType := range f.includeResourceTypes {
-		if r.Type == resourceType {
-			return true
-		}
+	if _, ok := f.includeResourceTypes[r.Type]; ok {
+		return true
 	}
 	return false
 }
@@ -33,7 +31,11 @@ func NewResourceTypeFilter(spec ResourceTypeFilterSpec) (Filter, error) {
 	}
 
 	filter := resourceTypeFilter{
-		includeResourceTypes: spec.IncludeResourceTypes,
+		includeResourceTypes: map[string]bool{},
+	}
+
+	for _, resourceType := range spec.IncludeResourceTypes {
+		filter.includeResourceTypes[resourceType] = true
 	}
 
 	return &filter, nil
