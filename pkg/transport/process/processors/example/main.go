@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -61,23 +60,8 @@ func main() {
 func processorRoutine(inputStream io.Reader, outputStream io.WriteCloser) error {
 	defer outputStream.Close()
 
-	tmpfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return err
-	}
-	defer tmpfile.Close()
-
-	// read the input stream
-	if _, err := io.Copy(tmpfile, inputStream); err != nil {
-		return err
-	}
-
-	if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
-		return err
-	}
-
 	// split up the input stream into component descriptor, resource, and resource blob
-	cd, res, resourceBlobReader, err := utils.ReadProcessorMessage(tmpfile)
+	cd, res, resourceBlobReader, err := utils.ReadProcessorMessage(inputStream)
 	if err != nil {
 		return err
 	}

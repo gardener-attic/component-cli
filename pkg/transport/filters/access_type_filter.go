@@ -14,14 +14,12 @@ type AccessTypeFilterSpec struct {
 }
 
 type accessTypeFilter struct {
-	includeAccessTypes []string
+	includeAccessTypes map[string]bool
 }
 
 func (f accessTypeFilter) Matches(cd cdv2.ComponentDescriptor, r cdv2.Resource) bool {
-	for _, accessType := range f.includeAccessTypes {
-		if r.Access.Type == accessType {
-			return true
-		}
+	if _, ok := f.includeAccessTypes[r.Access.Type]; ok {
+		return true
 	}
 	return false
 }
@@ -33,7 +31,11 @@ func NewAccessTypeFilter(spec AccessTypeFilterSpec) (Filter, error) {
 	}
 
 	filter := accessTypeFilter{
-		includeAccessTypes: spec.IncludeAccessTypes,
+		includeAccessTypes: map[string]bool{},
+	}
+
+	for _, resourceType := range spec.IncludeAccessTypes {
+		filter.includeAccessTypes[resourceType] = true
 	}
 
 	return &filter, nil

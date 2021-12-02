@@ -7,7 +7,7 @@ component:
     type: ociRegistry
   resources:
   - access:
-      filename: sha256:ab894987c426bf8d660826c6fa52a1f351a4c4c094f913862be9c76386bcc32f
+      filename: sha256-ab894987c426bf8d660826c6fa52a1f351a4c4c094f913862be9c76386bcc32f
       mediaType: text/plain
       type: localFilesystemBlob
     name: myconfig
