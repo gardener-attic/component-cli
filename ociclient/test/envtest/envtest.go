@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/docker/cli/cli/config/configfile"
@@ -45,6 +46,7 @@ type Environment struct {
 
 	cancelCtx context.CancelFunc
 	cmd       *exec.Cmd
+	mu        *sync.RWMutex
 	stopped   bool
 	err       error
 }
@@ -90,6 +92,7 @@ func New(opts Options) *Environment {
 		ReadinessTimeout:      *opts.ReadinessTimeout,
 		Stdout:                opts.Stdout,
 		Stderr:                opts.Stderr,
+		mu:                    &sync.RWMutex{},
 	}
 }
 
@@ -117,14 +120,19 @@ func (e *Environment) Start(ctx context.Context) error {
 }
 
 func (e *Environment) Close() error {
+	e.mu.RLock()
 	if !e.stopped {
 		e.cancelCtx()
 	}
+	e.mu.RUnlock()
 	// wait until the process is stopped.
 	for {
+		e.mu.RLock()
 		if e.stopped {
+			e.mu.RUnlock()
 			break
 		}
+		e.mu.RUnlock()
 		time.Sleep(2 * time.Second)
 	}
 
@@ -235,6 +243,8 @@ func (e *Environment) runRegistry(ctx context.Context) error {
 	e.Addr = e.RegistryConfiguration.HTTPConfig.Addr
 	go func() {
 		defer func() {
+			e.mu.Lock()
+			defer e.mu.Unlock()
 			e.stopped = true
 		}()
 		if err := e.cmd.Wait(); err != nil {
