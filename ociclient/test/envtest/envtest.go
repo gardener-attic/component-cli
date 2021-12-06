@@ -128,11 +128,11 @@ func (e *Environment) Close() error {
 	// wait until the process is stopped.
 	for {
 		e.mu.RLock()
-		if e.stopped {
-			e.mu.RUnlock()
+		stopped := e.stopped
+		e.mu.RUnlock()
+		if stopped {
 			break
 		}
-		e.mu.RUnlock()
 		time.Sleep(2 * time.Second)
 	}
 
@@ -244,8 +244,8 @@ func (e *Environment) runRegistry(ctx context.Context) error {
 	go func() {
 		defer func() {
 			e.mu.Lock()
-			defer e.mu.Unlock()
 			e.stopped = true
+			e.mu.Unlock()
 		}()
 		if err := e.cmd.Wait(); err != nil {
 			if ctx.Err() == context.Canceled {
