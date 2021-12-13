@@ -158,7 +158,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	sourceCtx := cdv2.NewOCIRegistryRepository(o.SourceRepository, "")
 	targetCtx := cdv2.NewOCIRegistryRepository(o.TargetRepository, "")
 
-	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version, repoCtxOverride)
+	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version, repoCtxOverride, log)
 	if err != nil {
 		return fmt.Errorf("unable to resolve component: %w", err)
 	}
@@ -172,26 +172,31 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	}
 
 	wg := sync.WaitGroup{}
-	cdMap := map[string]*cdv2.ComponentDescriptor{}
+	cdLookup := map[string]*cdv2.ComponentDescriptor{}
+	errs := []error{}
+	errsMux := sync.Mutex{}
 
 	for _, cd := range cds {
 		cd := cd
+		componentLog := log.WithValues("component-name", cd.Name, "component-version", cd.Version)
 
 		key := fmt.Sprintf("%s:%s", cd.Name, cd.Version)
-		if _, ok := cdMap[key]; ok {
-			return fmt.Errorf("component descriptor already exists in map: %+v", cd)
+		if _, ok := cdLookup[key]; ok {
+			err := errors.New("component descriptor already exists in map")
+			componentLog.Error(err, "unable to add component descriptor to map")
+			return err
 		}
-		cdMap[key] = cd
+		cdLookup[key] = cd
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			processedResources, errs := handleResources(ctx, cd, *targetCtx, log, pjf)
-			if len(errs) > 0 {
-				for _, err := range errs {
-					log.Error(err, "unable to process resource")
-					return
-				}
+			processedResources, err := processResources(ctx, cd, *targetCtx, componentLog, pjf)
+			if err != nil {
+				errsMux.Lock()
+				errs = append(errs, err)
+				errsMux.Unlock()
+				return
 			}
 
 			cd.Resources = processedResources
@@ -200,66 +205,74 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	wg.Wait()
 
+	if len(errs) > 0 {
+		return fmt.Errorf("%d errors occurred during resource processing", len(errs))
+	}
+
 	if o.GenerateSignature {
+		signer, err := signatures.CreateRsaSignerFromKeyFile(o.PrivateKeyPath)
+		if err != nil {
+			return fmt.Errorf("unable to create signer: %w", err)
+		}
+
+		hasher, err := signatures.HasherForName("SHA256")
+		if err != nil {
+			return fmt.Errorf("unable to create hasher: %w", err)
+		}
+
+		crr := func(ctx context.Context, cd cdv2.ComponentDescriptor, ref cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
+			key := fmt.Sprintf("%s:%s", ref.Name, ref.Version)
+			cd2, ok := cdLookup[key]
+			if !ok {
+				return nil, fmt.Errorf("unable to find component descriptor in map: %w", err)
+			}
+
+			signature, err := signatures.SelectSignatureByName(cd2, o.SignatureName)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get signature: %w", err)
+			}
+
+			return &signature.Digest, nil
+		}
+
 		// iterate backwards -> start with "leave" component descriptors w/o dependencies
 		for i := len(cds) - 1; i >= 0; i-- {
 			cd := cds[i]
-
-			crr := func(context.Context, cdv2.ComponentDescriptor, cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
-				key := fmt.Sprintf("%s:%s", cd.Name, cd.Version)
-				cd, ok := cdMap[key]
-				if !ok {
-					return nil, fmt.Errorf("unable to find component descriptor in map")
-				}
-
-				signature, err := signatures.SelectSignatureByName(cd, o.SignatureName)
-				if err != nil {
-					return nil, fmt.Errorf("unable to get signature from component descriptor: %w", err)
-				}
-
-				return &signature.Digest, nil
-			}
-
-			signer, err := signatures.CreateRsaSignerFromKeyFile(o.PrivateKeyPath)
-			if err != nil {
-				return fmt.Errorf("unable to create signer: %w", err)
-			}
-
-			hasher, err := signatures.HasherForName("SHA256")
-			if err != nil {
-				return fmt.Errorf("unable to create hasher: %w", err)
-			}
+			componentLog := log.WithValues("component-name", cd.Name, "component-version", cd.Version)
 
 			if err := signatures.AddDigestsToComponentDescriptor(ctx, cd, crr, nil); err != nil {
-				return fmt.Errorf("unable to add digests to component descriptor: %w", err)
+				componentLog.Error(err, "unable to add digests to component descriptor")
+				return err
 			}
 
 			if err := signatures.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
-				return fmt.Errorf("unable to sign component descriptor: %w", err)
+				componentLog.Error(err, "unable to sign component descriptor")
+				return err
 			}
 		}
 	}
 
-	for _, cd := range cdMap {
+	for _, cd := range cdLookup {
 		cd := cd
+		componentLog := log.WithValues("component-name", cd.Name, "component-version", cd.Version)
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			manifest, err := cdoci.NewManifestBuilder(ociCache, ctf.NewComponentArchive(cd, nil)).Build(ctx)
 			if err != nil {
-				log.Error(err, "unable to build oci artifact for component archive")
+				componentLog.Error(err, "unable to build oci artifact for component archive")
 				return
 			}
 
 			ociRef, err := cdoci.OCIRef(*targetCtx, o.ComponentName, o.Version)
 			if err != nil {
-				log.Error(err, "unable to build component descriptor oci reference")
+				componentLog.Error(err, "unable to build component descriptor oci reference")
 				return
 			}
 
 			if err := ociClient.PushManifest(ctx, ociRef, manifest); err != nil {
-				log.Error(err, "unable to push component descriptor manifest")
+				componentLog.Error(err, "unable to push component descriptor manifest")
 				return
 			}
 		}()
@@ -267,10 +280,14 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	wg.Wait()
 
+	if len(errs) > 0 {
+		return fmt.Errorf("%d errors occurred during component descriptor uploading", len(errs))
+	}
+
 	return nil
 }
 
-func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *transport_config.ProcessingJobFactory) ([]cdv2.Resource, []error) {
+func processResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *transport_config.ProcessingJobFactory) ([]cdv2.Resource, error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
 	errsMux := sync.Mutex{}
@@ -279,6 +296,7 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 
 	for _, resource := range cd.Resources {
 		resource := resource
+		resourceLog := log.WithValues("resource-name", resource.Name, "resource-version", resource.Version)
 
 		wg.Add(1)
 		go func() {
@@ -286,15 +304,17 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 
 			job, err := processingJobFactory.Create(*cd, resource)
 			if err != nil {
+				resourceLog.Error(err, "unable to create processing job")
 				errsMux.Lock()
-				errs = append(errs, fmt.Errorf("unable to create processing job: %w", err))
+				errs = append(errs, err)
 				errsMux.Unlock()
 				return
 			}
 
 			if err = job.Process(ctx); err != nil {
+				resourceLog.Error(err, "unable to process resource")
 				errsMux.Lock()
-				errs = append(errs, fmt.Errorf("unable to process resource %+v: %w", resource, err))
+				errs = append(errs, err)
 				errsMux.Unlock()
 				return
 			}
@@ -306,7 +326,12 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 	}
 
 	wg.Wait()
-	return processedResources, errs
+
+	if len(errs) > 0 {
+		return nil, errors.New("unable to process resources")
+	}
+
+	return processedResources, nil
 }
 
 func ResolveRecursive(
@@ -316,31 +341,31 @@ func ResolveRecursive(
 	componentName,
 	componentVersion string,
 	repoCtxOverrideCfg *utils.RepositoryContextOverride,
+	log logr.Logger,
 ) ([]*cdv2.ComponentDescriptor, error) {
+	componentLog := log.WithValues("component-name", componentName, "component-version", componentVersion)
 
 	repoCtx := defaultRepo
 	if repoCtxOverrideCfg != nil {
 		repoCtx = *repoCtxOverrideCfg.GetRepositoryContext(componentName, defaultRepo)
-	}
-
-	ociRef, err := cdoci.OCIRef(repoCtx, componentName, componentVersion)
-	if err != nil {
-		return nil, fmt.Errorf("invalid component reference: %w", err)
+		componentLog.V(7).Info("repository context after override", "repository-context", repoCtx)
 	}
 
 	cdresolver := cdoci.NewResolver(client)
 	cd, err := cdresolver.Resolve(ctx, &repoCtx, componentName, componentVersion)
 	if err != nil {
-		return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
+		componentLog.Error(err, "unable to fetch component descriptor")
+		return nil, err
 	}
 
 	cds := []*cdv2.ComponentDescriptor{
 		cd,
 	}
 	for _, ref := range cd.ComponentReferences {
-		cds2, err := ResolveRecursive(ctx, client, defaultRepo, ref.ComponentName, ref.Version, repoCtxOverrideCfg)
+		cds2, err := ResolveRecursive(ctx, client, defaultRepo, ref.ComponentName, ref.Version, repoCtxOverrideCfg, log)
 		if err != nil {
-			return nil, fmt.Errorf("unable to resolve ref %+v: %w", ref, err)
+			componentLog.Error(err, "unable to resolve ref", "ref", ref)
+			return nil, err
 		}
 		cds = append(cds, cds2...)
 	}
