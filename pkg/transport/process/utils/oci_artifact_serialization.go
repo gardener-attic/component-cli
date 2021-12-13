@@ -276,3 +276,45 @@ func DeserializeOCIArtifact(reader io.Reader, cache cache.Cache) (*oci.Artifact,
 
 	return ociArtifact, nil
 }
+
+func GetManifestOrIndexFromSerializedOCIArtifact(reader io.Reader) (*ocispecv1.Manifest, *ocispecv1.Index, error) {
+	if reader == nil {
+		return nil, nil, errors.New("reader must not be nil")
+	}
+
+	tr := tar.NewReader(reader)
+	buf := bytes.NewBuffer([]byte{})
+
+	manifest := &ocispecv1.Manifest{}
+	index := &ocispecv1.Index{}
+
+	for {
+		header, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, nil, fmt.Errorf("unable to read tar header: %w", err)
+		}
+
+		if header.Name == ManifestFile {
+			if _, err := io.Copy(buf, tr); err != nil {
+				return nil, nil, fmt.Errorf("unable to copy %s to buffer: %w", ManifestFile, err)
+			}
+			if err := json.Unmarshal(buf.Bytes(), &manifest); err != nil {
+				return nil, nil, fmt.Errorf("unable to unmarshal manifest: %w", err)
+			}
+		} else if header.Name == IndexFile {
+			if _, err := io.Copy(buf, tr); err != nil {
+				return nil, nil, fmt.Errorf("unable to copy %s to buffer: %w", IndexFile, err)
+			}
+			if err := json.Unmarshal(buf.Bytes(), &index); err != nil {
+				return nil, nil, fmt.Errorf("unable to unmarshal image index: %w", err)
+			}
+		} else {
+			continue
+		}
+	}
+
+	return manifest, index, nil
+}

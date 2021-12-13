@@ -66,7 +66,7 @@ func WriteProcessorMessage(cd cdv2.ComponentDescriptor, res cdv2.Resource, resou
 // (tar archive with fixed filenames for component descriptor, resource, and resource blob) which is
 // produced by processors. The resource blob reader can be nil. If a non-nil value is returned, it must
 // be closed by the caller.
-func ReadProcessorMessage(r io.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.ReadCloser, error) {
+func ReadProcessorMessage(r io.Reader) (*cdv2.ComponentDescriptor, cdv2.Resource, io.ReadSeekCloser, error) {
 	tr := tar.NewReader(r)
 
 	var cd *cdv2.ComponentDescriptor

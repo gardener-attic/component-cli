@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -43,6 +44,10 @@ type Options struct {
 	// RepoCtxOverrideCfgPath is the path to the repository context override config file
 	RepoCtxOverrideCfgPath string
 
+	GenerateSignature bool
+	SignatureName     string
+	PrivateKeyPath    string
+
 	// OCIOptions contains all oci client related options.
 	OCIOptions ociopts.Options
 }
@@ -73,6 +78,9 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.TargetRepository, "to", "", "target repository where the components are copied to")
 	fs.StringVar(&o.TransportCfgPath, "transport-cfg", "", "path to the transport config file")
 	fs.StringVar(&o.RepoCtxOverrideCfgPath, "repo-ctx-override-cfg", "", "path to the repository context override config file")
+	fs.BoolVar(&o.GenerateSignature, "sign", false, "sign the uploaded component descriptors")
+	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the generated signature")
+	fs.StringVar(&o.PrivateKeyPath, "private-key", "", "path to the private key file used for signing")
 	o.OCIOptions.AddFlags(fs)
 }
 
@@ -97,10 +105,23 @@ func (o *Options) Complete(args []string) error {
 	}
 
 	if len(o.SourceRepository) == 0 {
-		return errors.New("the base url must be defined")
+		return errors.New("a source repository must be defined")
 	}
+	if len(o.TargetRepository) == 0 {
+		return errors.New("a target repository must be defined")
+	}
+
 	if len(o.TransportCfgPath) == 0 {
 		return errors.New("a path to a transport config file must be defined")
+	}
+
+	if o.GenerateSignature {
+		if o.SignatureName == "" {
+			return errors.New("a signature name must be defined")
+		}
+		if o.PrivateKeyPath == "" {
+			return errors.New("a path to a private key file must be defined")
+		}
 	}
 
 	return nil
@@ -121,9 +142,12 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return fmt.Errorf("unable to inject cache into oci client: %w", err)
 	}
 
-	repoCtxOverrideCfg, err := utils.ParseRepositoryContextConfig(o.RepoCtxOverrideCfgPath)
-	if err != nil {
-		return fmt.Errorf("unable to parse repository context override config file: %w", err)
+	var repoCtxOverride *utils.RepositoryContextOverride
+	if o.RepoCtxOverrideCfgPath != "" {
+		repoCtxOverride, err = utils.ParseRepositoryContextConfig(o.RepoCtxOverrideCfgPath)
+		if err != nil {
+			return fmt.Errorf("unable to parse repository context override config file: %w", err)
+		}
 	}
 
 	transportCfg, err := transport_config.ParseConfig(o.TransportCfgPath)
@@ -134,7 +158,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	sourceCtx := cdv2.NewOCIRegistryRepository(o.SourceRepository, "")
 	targetCtx := cdv2.NewOCIRegistryRepository(o.TargetRepository, "")
 
-	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version, *repoCtxOverrideCfg)
+	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version, repoCtxOverride)
 	if err != nil {
 		return fmt.Errorf("unable to resolve component: %w", err)
 	}
@@ -148,35 +172,94 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	}
 
 	wg := sync.WaitGroup{}
+	cdMap := map[string]*cdv2.ComponentDescriptor{}
+
 	for _, cd := range cds {
 		cd := cd
+
+		key := fmt.Sprintf("%s:%s", cd.Name, cd.Version)
+		if _, ok := cdMap[key]; ok {
+			return fmt.Errorf("component descriptor already exists in map: %+v", cd)
+		}
+		cdMap[key] = cd
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			processedResources, errs := handleResources(ctx, cd, *targetCtx, log, pjf)
 			if len(errs) > 0 {
 				for _, err := range errs {
-					log.Error(err, "")
+					log.Error(err, "unable to process resource")
 					return
 				}
 			}
 
 			cd.Resources = processedResources
+		}()
+	}
 
+	wg.Wait()
+
+	if o.GenerateSignature {
+		// iterate backwards -> start with "leave" component descriptors w/o dependencies
+		for i := len(cds) - 1; i >= 0; i-- {
+			cd := cds[i]
+
+			crr := func(context.Context, cdv2.ComponentDescriptor, cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
+				key := fmt.Sprintf("%s:%s", cd.Name, cd.Version)
+				cd, ok := cdMap[key]
+				if !ok {
+					return nil, fmt.Errorf("unable to find component descriptor in map")
+				}
+
+				signature, err := signatures.SelectSignatureByName(cd, o.SignatureName)
+				if err != nil {
+					return nil, fmt.Errorf("unable to get signature from component descriptor: %w", err)
+				}
+
+				return &signature.Digest, nil
+			}
+
+			signer, err := signatures.CreateRsaSignerFromKeyFile(o.PrivateKeyPath)
+			if err != nil {
+				return fmt.Errorf("unable to create signer: %w", err)
+			}
+
+			hasher, err := signatures.HasherForName("SHA256")
+			if err != nil {
+				return fmt.Errorf("unable to create hasher: %w", err)
+			}
+
+			if err := signatures.AddDigestsToComponentDescriptor(ctx, cd, crr, nil); err != nil {
+				return fmt.Errorf("unable to add digests to component descriptor: %w", err)
+			}
+
+			if err := signatures.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
+				return fmt.Errorf("unable to sign component descriptor: %w", err)
+			}
+		}
+	}
+
+	for _, cd := range cdMap {
+		cd := cd
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			manifest, err := cdoci.NewManifestBuilder(ociCache, ctf.NewComponentArchive(cd, nil)).Build(ctx)
 			if err != nil {
-				log.Error(err, "unable to build oci artifact for component acrchive")
+				log.Error(err, "unable to build oci artifact for component archive")
 				return
 			}
 
 			ociRef, err := cdoci.OCIRef(*targetCtx, o.ComponentName, o.Version)
 			if err != nil {
-				log.Error(err, "unable to build component reference")
+				log.Error(err, "unable to build component descriptor oci reference")
 				return
 			}
 
 			if err := ociClient.PushManifest(ctx, ociRef, manifest); err != nil {
-				log.Error(err, "unable to push manifest")
+				log.Error(err, "unable to push component descriptor manifest")
 				return
 			}
 		}()
@@ -190,8 +273,9 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *transport_config.ProcessingJobFactory) ([]cdv2.Resource, []error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
-	mux := sync.Mutex{}
+	errsMux := sync.Mutex{}
 	processedResources := []cdv2.Resource{}
+	resMux := sync.Mutex{}
 
 	for _, resource := range cd.Resources {
 		resource := resource
@@ -202,18 +286,22 @@ func handleResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCt
 
 			job, err := processingJobFactory.Create(*cd, resource)
 			if err != nil {
+				errsMux.Lock()
 				errs = append(errs, fmt.Errorf("unable to create processing job: %w", err))
+				errsMux.Unlock()
 				return
 			}
 
 			if err = job.Process(ctx); err != nil {
+				errsMux.Lock()
 				errs = append(errs, fmt.Errorf("unable to process resource %+v: %w", resource, err))
+				errsMux.Unlock()
 				return
 			}
 
-			mux.Lock()
+			resMux.Lock()
 			processedResources = append(processedResources, *job.ProcessedResource)
-			mux.Unlock()
+			resMux.Unlock()
 		}()
 	}
 
@@ -227,18 +315,21 @@ func ResolveRecursive(
 	defaultRepo cdv2.OCIRegistryRepository,
 	componentName,
 	componentVersion string,
-	repoCtxOverrideCfg utils.RepositoryContextOverride,
+	repoCtxOverrideCfg *utils.RepositoryContextOverride,
 ) ([]*cdv2.ComponentDescriptor, error) {
 
-	repoCtx := repoCtxOverrideCfg.GetRepositoryContext(componentName, defaultRepo)
+	repoCtx := defaultRepo
+	if repoCtxOverrideCfg != nil {
+		repoCtx = *repoCtxOverrideCfg.GetRepositoryContext(componentName, defaultRepo)
+	}
 
-	ociRef, err := cdoci.OCIRef(*repoCtx, componentName, componentVersion)
+	ociRef, err := cdoci.OCIRef(repoCtx, componentName, componentVersion)
 	if err != nil {
 		return nil, fmt.Errorf("invalid component reference: %w", err)
 	}
 
 	cdresolver := cdoci.NewResolver(client)
-	cd, err := cdresolver.Resolve(ctx, repoCtx, componentName, componentVersion)
+	cd, err := cdresolver.Resolve(ctx, &repoCtx, componentName, componentVersion)
 	if err != nil {
 		return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 	}
