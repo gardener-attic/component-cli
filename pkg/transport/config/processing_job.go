@@ -18,12 +18,13 @@ import (
 
 // ProcessingJob defines a type which contains all data for processing a single resource
 type ProcessingJob struct {
-	ComponentDescriptor *cdv2.ComponentDescriptor
-	Resource            *cdv2.Resource
-	Downloaders         []NamedResourceStreamProcessor
-	Processors          []NamedResourceStreamProcessor
-	Uploaders           []NamedResourceStreamProcessor
-	ProcessedResource   *cdv2.Resource
+	ComponentDescriptor    *cdv2.ComponentDescriptor
+	Resource               *cdv2.Resource
+	Downloaders            []NamedResourceStreamProcessor
+	Processors             []NamedResourceStreamProcessor
+	Uploaders              []NamedResourceStreamProcessor
+	ProcessedResource      *cdv2.Resource
+	MatchedProcessingRules []string
 }
 
 type NamedResourceStreamProcessor struct {
@@ -51,17 +52,17 @@ type parsedUploaderDefinition struct {
 	Filters []filters.Filter
 }
 
-type parsedRuleDefinition struct {
+type parsedProcessingRuleDefinition struct {
 	Name       string
 	Processors []string
 	Filters    []filters.Filter
 }
 
 type ParsedTransportConfig struct {
-	Downloaders []parsedDownloaderDefinition
-	Processors  []parsedProcessorDefinition
-	Uploaders   []parsedUploaderDefinition
-	Rules       []parsedRuleDefinition
+	Downloaders     []parsedDownloaderDefinition
+	Processors      []parsedProcessorDefinition
+	Uploaders       []parsedUploaderDefinition
+	ProcessingRules []parsedProcessingRuleDefinition
 }
 
 // NewProcessingJobFactory creates a new processing job factory
@@ -136,7 +137,7 @@ func ParseConfig(configFilePath string) (*ParsedTransportConfig, error) {
 	}
 
 	// rules
-	for _, rule := range config.Rules {
+	for _, rule := range config.ProcessingRules {
 		processors := []string{}
 		for _, processor := range rule.Processors {
 			processors = append(processors, processor.Name)
@@ -145,12 +146,12 @@ func ParseConfig(configFilePath string) (*ParsedTransportConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to create rule %s: %w", rule.Name, err)
 		}
-		rule := parsedRuleDefinition{
+		rule := parsedProcessingRuleDefinition{
 			Name:       rule.Name,
 			Processors: processors,
 			Filters:    filters,
 		}
-		parsedConfig.Rules = append(parsedConfig.Rules, rule)
+		parsedConfig.ProcessingRules = append(parsedConfig.ProcessingRules, rule)
 	}
 
 	return &parsedConfig, nil
@@ -192,7 +193,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 	}
 
 	// find matching processing rules
-	for _, rule := range c.parsedConfig.Rules {
+	for _, rule := range c.parsedConfig.ProcessingRules {
 		if areAllFiltersMatching(rule.Filters, cd, res) {
 			for _, processorName := range rule.Processors {
 				processorDefined, err := findProcessorByName(processorName, c.parsedConfig)
@@ -207,6 +208,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 					Name:      processorDefined.Name,
 					Processor: p,
 				})
+				job.MatchedProcessingRules = append(job.MatchedProcessingRules, rule.Name)
 			}
 		}
 	}
@@ -269,4 +271,20 @@ func (j *ProcessingJob) Process(ctx context.Context) error {
 	j.ProcessedResource = &processedResource
 
 	return nil
+}
+
+func (j *ProcessingJob) GetMatching() map[string][]string {
+	matching := map[string][]string{
+		"processingRules": j.MatchedProcessingRules,
+	}
+
+	for _, d := range j.Downloaders {
+		matching["downloaders"] = append(matching["downloaders"], d.Name)
+	}
+
+	for _, u := range j.Uploaders {
+		matching["uploaders"] = append(matching["uploaders"], u.Name)
+	}
+
+	return matching
 }

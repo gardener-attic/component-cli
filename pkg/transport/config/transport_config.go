@@ -10,11 +10,11 @@ type meta struct {
 }
 
 type TransportConfig struct {
-	Meta        meta                   `json:"meta"`
-	Uploaders   []UploaderDefinition   `json:"uploaders"`
-	Processors  []ProcessorDefinition  `json:"processors"`
-	Downloaders []DownloaderDefinition `json:"downloaders"`
-	Rules       []Rule                 `json:"rules"`
+	Meta            meta                   `json:"meta"`
+	Uploaders       []UploaderDefinition   `json:"uploaders"`
+	Processors      []ProcessorDefinition  `json:"processors"`
+	Downloaders     []DownloaderDefinition `json:"downloaders"`
+	ProcessingRules []ProcessingRule       `json:"processingRules"`
 }
 
 type BaseProcessorDefinition struct {
@@ -47,7 +47,7 @@ type ProcessorReference struct {
 	Type string `json:"type"`
 }
 
-type Rule struct {
+type ProcessingRule struct {
 	Name       string
 	Filters    []FilterDefinition   `json:"filters"`
 	Processors []ProcessorReference `json:"processors"`

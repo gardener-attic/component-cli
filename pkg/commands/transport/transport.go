@@ -48,6 +48,8 @@ type Options struct {
 	SignatureName     string
 	PrivateKeyPath    string
 
+	DryRun bool
+
 	// OCIOptions contains all oci client related options.
 	OCIOptions ociopts.Options
 }
@@ -81,6 +83,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.GenerateSignature, "sign", false, "sign the uploaded component descriptors")
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the generated signature")
 	fs.StringVar(&o.PrivateKeyPath, "private-key", "", "path to the private key file used for signing")
+	fs.BoolVar(&o.DryRun, "dry-run", false, "only download component descriptors and perform matching of resources against transport config file. no component descriptors are uploaded, no resources are down/uploaded")
 	o.OCIOptions.AddFlags(fs)
 }
 
@@ -128,6 +131,10 @@ func (o *Options) Complete(args []string) error {
 }
 
 func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+	if o.DryRun {
+		log.Info("dry-run: no component descriptors are uploaded, no resources are down/uploaded")
+	}
+
 	ociClient, _, err := o.OCIOptions.Build(log, fs)
 	if err != nil {
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
@@ -144,7 +151,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	var repoCtxOverride *utils.RepositoryContextOverride
 	if o.RepoCtxOverrideCfgPath != "" {
-		repoCtxOverride, err = utils.ParseRepositoryContextConfig(o.RepoCtxOverrideCfgPath)
+		repoCtxOverride, err = utils.ParseRepositoryContextOverrideConfig(o.RepoCtxOverrideCfgPath)
 		if err != nil {
 			return fmt.Errorf("unable to parse repository context override config file: %w", err)
 		}
@@ -168,7 +175,23 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	uf := transport_config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
 	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create processing job factory: %w", err)
+	}
+
+	if o.DryRun {
+		for _, cd := range cds {
+			componentLog := log.WithValues("component-name", cd.Name, "component-version", cd.Version)
+			for _, res := range cd.Resources {
+				resourceLog := componentLog.WithValues("resource-name", res.Name, "resource-version", res.Version)
+				job, err := pjf.Create(*cd, res)
+				if err != nil {
+					resourceLog.Error(err, "unable to create processing job")
+					return err
+				}
+				resourceLog.Info("matched resource", "matching", job.GetMatching())
+			}
+		}
+		return nil
 	}
 
 	wg := sync.WaitGroup{}
@@ -287,7 +310,13 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	return nil
 }
 
-func processResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processingJobFactory *transport_config.ProcessingJobFactory) ([]cdv2.Resource, error) {
+func processResources(
+	ctx context.Context,
+	cd *cdv2.ComponentDescriptor,
+	targetCtx cdv2.OCIRegistryRepository,
+	log logr.Logger,
+	processingJobFactory *transport_config.ProcessingJobFactory,
+) ([]cdv2.Resource, error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
 	errsMux := sync.Mutex{}
@@ -310,6 +339,8 @@ func processResources(ctx context.Context, cd *cdv2.ComponentDescriptor, targetC
 				errsMux.Unlock()
 				return
 			}
+
+			resourceLog.V(5).Info("matched resource", "matching", job.GetMatching())
 
 			if err = job.Process(ctx); err != nil {
 				resourceLog.Error(err, "unable to process resource")

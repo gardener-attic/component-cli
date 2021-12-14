@@ -22,7 +22,7 @@ type Override struct {
 	RepositoryContext *cdv2.OCIRegistryRepository
 }
 
-func ParseRepositoryContextConfig(configPath string) (*RepositoryContextOverride, error) {
+func ParseRepositoryContextOverrideConfig(configPath string) (*RepositoryContextOverride, error) {
 	type meta struct {
 		Version string `json:"version"`
 	}
