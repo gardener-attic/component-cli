@@ -167,13 +167,13 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	cds, err := ResolveRecursive(ctx, ociClient, *sourceCtx, o.ComponentName, o.Version, repoCtxOverride, log)
 	if err != nil {
-		return fmt.Errorf("unable to resolve component: %w", err)
+		return fmt.Errorf("unable to resolve component descriptors: %w", err)
 	}
 
 	df := transport_config.NewDownloaderFactory(ociClient, ociCache)
 	pf := transport_config.NewProcessorFactory(ociCache)
 	uf := transport_config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
-	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf)
+	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf, log)
 	if err != nil {
 		return fmt.Errorf("unable to create processing job factory: %w", err)
 	}
@@ -333,9 +333,8 @@ func processResources(
 
 			job, err := processingJobFactory.Create(*cd, resource)
 			if err != nil {
-				resourceLog.Error(err, "unable to create processing job")
 				errsMux.Lock()
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("unable to create processing job: %w", err))
 				errsMux.Unlock()
 				return
 			}
@@ -343,9 +342,8 @@ func processResources(
 			resourceLog.V(5).Info("matched resource", "matching", job.GetMatching())
 
 			if err = job.Process(ctx); err != nil {
-				resourceLog.Error(err, "unable to process resource")
 				errsMux.Lock()
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("unable to process resource: %w", err))
 				errsMux.Unlock()
 				return
 			}
@@ -393,12 +391,12 @@ func ResolveRecursive(
 		cd,
 	}
 	for _, ref := range cd.ComponentReferences {
-		cds2, err := ResolveRecursive(ctx, client, defaultRepo, ref.ComponentName, ref.Version, repoCtxOverrideCfg, log)
+		cdDeps, err := ResolveRecursive(ctx, client, defaultRepo, ref.ComponentName, ref.Version, repoCtxOverrideCfg, log)
 		if err != nil {
 			componentLog.Error(err, "unable to resolve ref", "ref", ref)
 			return nil, err
 		}
-		cds = append(cds, cds2...)
+		cds = append(cds, cdDeps...)
 	}
 
 	return cds, nil

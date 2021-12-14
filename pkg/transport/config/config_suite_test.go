@@ -38,6 +38,6 @@ var _ = BeforeSuite(func() {
 	pf := config.NewProcessorFactory(ocicache)
 	uf := config.NewUploaderFactory(client, ocicache, *targetCtx)
 
-	factory, err = config.NewProcessingJobFactory(*transportCfg, df, pf, uf)
+	factory, err = config.NewProcessingJobFactory(*transportCfg, df, pf, uf, logr.Discard())
 	Expect(err).ToNot(HaveOccurred())
 }, 5)

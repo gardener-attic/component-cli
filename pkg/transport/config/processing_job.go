@@ -7,16 +7,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
+	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/pkg/transport/filters"
 	"github.com/gardener/component-cli/pkg/transport/process"
+	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
+const processorTimeout = 600 * time.Second
+
 // ProcessingJob defines a type which contains all data for processing a single resource
+// ProcessingJob describes a chain of multiple processors for processing a resource.
+// Each processor receives its input from the preceding processor and writes the output for the
+// subsequent processor. To work correctly, a pipeline must consist of 1 downloader, 0..n processors,
+// and 1..n uploaders.
 type ProcessingJob struct {
 	ComponentDescriptor    *cdv2.ComponentDescriptor
 	Resource               *cdv2.Resource
@@ -25,6 +36,7 @@ type ProcessingJob struct {
 	Uploaders              []NamedResourceStreamProcessor
 	ProcessedResource      *cdv2.Resource
 	MatchedProcessingRules []string
+	Log                    logr.Logger
 }
 
 type NamedResourceStreamProcessor struct {
@@ -66,12 +78,13 @@ type ParsedTransportConfig struct {
 }
 
 // NewProcessingJobFactory creates a new processing job factory
-func NewProcessingJobFactory(transportCfg ParsedTransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory) (*ProcessingJobFactory, error) {
+func NewProcessingJobFactory(transportCfg ParsedTransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory, log logr.Logger) (*ProcessingJobFactory, error) {
 	c := ProcessingJobFactory{
 		parsedConfig:      &transportCfg,
 		downloaderFactory: df,
 		processorFactory:  pf,
 		uploaderFactory:   uf,
+		log:               log,
 	}
 
 	return &c, nil
@@ -83,6 +96,7 @@ type ProcessingJobFactory struct {
 	uploaderFactory   *UploaderFactory
 	downloaderFactory *DownloaderFactory
 	processorFactory  *ProcessorFactory
+	log               logr.Logger
 }
 
 func ParseConfig(configFilePath string) (*ParsedTransportConfig, error) {
@@ -159,9 +173,11 @@ func ParseConfig(configFilePath string) (*ParsedTransportConfig, error) {
 
 // Create creates a new processing job for a resource
 func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Resource) (*ProcessingJob, error) {
+	jobLog := c.log.WithValues("component-name", cd.Name, "component-version", cd.Version, "resource-name", res.Name, "resource-version", res.Version)
 	job := ProcessingJob{
 		ComponentDescriptor: &cd,
 		Resource:            &res,
+		Log:                 jobLog,
 	}
 
 	// find matching downloader
@@ -178,7 +194,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 		}
 	}
 
-	// find matching uploader
+	// find matching uploaders
 	for _, uploader := range c.parsedConfig.Uploaders {
 		if areAllFiltersMatching(uploader.Filters, cd, res) {
 			ul, err := c.uploaderFactory.Create(string(uploader.Type), uploader.Spec)
@@ -246,33 +262,6 @@ func findProcessorByName(name string, lookup *ParsedTransportConfig) (*parsedPro
 	return nil, fmt.Errorf("unable to find processor %s", name)
 }
 
-// Process processes the resource
-func (j *ProcessingJob) Process(ctx context.Context) error {
-	processors := []process.ResourceStreamProcessor{}
-
-	for _, d := range j.Downloaders {
-		processors = append(processors, d.Processor)
-	}
-
-	for _, p := range j.Processors {
-		processors = append(processors, p.Processor)
-	}
-
-	for _, u := range j.Uploaders {
-		processors = append(processors, u.Processor)
-	}
-
-	p := process.NewResourceProcessingPipeline(processors...)
-	_, processedResource, err := p.Process(ctx, *j.ComponentDescriptor, *j.Resource)
-	if err != nil {
-		return err
-	}
-
-	j.ProcessedResource = &processedResource
-
-	return nil
-}
-
 func (j *ProcessingJob) GetMatching() map[string][]string {
 	matching := map[string][]string{
 		"processingRules": j.MatchedProcessingRules,
@@ -287,4 +276,80 @@ func (j *ProcessingJob) GetMatching() map[string][]string {
 	}
 
 	return matching
+}
+
+// Process processes the resource
+func (p *ProcessingJob) Process(ctx context.Context) error {
+	inputFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		p.Log.Error(err, "unable to create temporary input file")
+		return err
+	}
+
+	if err := utils.WriteProcessorMessage(*p.ComponentDescriptor, *p.Resource, nil, inputFile); err != nil {
+		p.Log.Error(err, "unable to write processor message")
+		return err
+	}
+
+	processors := []NamedResourceStreamProcessor{}
+	processors = append(processors, p.Downloaders...)
+	processors = append(processors, p.Processors...)
+	processors = append(processors, p.Uploaders...)
+
+	for _, proc := range processors {
+		procLog := p.Log.WithValues("processor-name", proc.Name)
+		outputFile, err := p.runProcessor(ctx, inputFile, proc, procLog)
+		if err != nil {
+			procLog.Error(err, "unable to run processor")
+			return err
+		}
+
+		// set the output file of the current processor as the input file for the next processor
+		// if the current processor isn't last in the chain -> close file in runProcessor() in next loop iteration
+		// if the current processor is last in the chain -> explicitely close file after loop
+		inputFile = outputFile
+	}
+	defer inputFile.Close()
+
+	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
+		p.Log.Error(err, "unable to seek to beginning of file")
+		return err
+	}
+
+	_, processedRes, blobreader, err := utils.ReadProcessorMessage(inputFile)
+	if err != nil {
+		p.Log.Error(err, "unable to read processor message")
+		return err
+	}
+	if blobreader != nil {
+		defer blobreader.Close()
+	}
+
+	p.ProcessedResource = &processedRes
+
+	return nil
+}
+
+func (p *ProcessingJob) runProcessor(ctx context.Context, infile *os.File, proc NamedResourceStreamProcessor, log logr.Logger) (*os.File, error) {
+	defer infile.Close()
+
+	if _, err := infile.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("unable to seek to beginning of input file: %w", err)
+	}
+
+	outfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, fmt.Errorf("unable to create temporary output file: %w", err)
+	}
+
+	ctx, cancelfunc := context.WithTimeout(ctx, processorTimeout)
+	defer cancelfunc()
+
+	log.V(7).Info("starting processor")
+	if err := proc.Processor.Process(ctx, infile, outfile); err != nil {
+		return nil, fmt.Errorf("processor returned with error: %w", err)
+	}
+	log.V(7).Info("processor finished successfully")
+
+	return outfile, nil
 }
