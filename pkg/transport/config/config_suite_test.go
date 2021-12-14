@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"testing"
+	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/go-logr/logr"
@@ -38,6 +39,6 @@ var _ = BeforeSuite(func() {
 	pf := config.NewProcessorFactory(ocicache)
 	uf := config.NewUploaderFactory(client, ocicache, *targetCtx)
 
-	factory, err = config.NewProcessingJobFactory(*transportCfg, df, pf, uf, logr.Discard())
+	factory, err = config.NewProcessingJobFactory(*transportCfg, df, pf, uf, logr.Discard(), 30*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }, 5)

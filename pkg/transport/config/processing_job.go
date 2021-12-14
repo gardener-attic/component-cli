@@ -21,8 +21,6 @@ import (
 	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
-const processorTimeout = 600 * time.Second
-
 // ProcessingJob defines a type which contains all data for processing a single resource
 // ProcessingJob describes a chain of multiple processors for processing a resource.
 // Each processor receives its input from the preceding processor and writes the output for the
@@ -37,6 +35,7 @@ type ProcessingJob struct {
 	ProcessedResource      *cdv2.Resource
 	MatchedProcessingRules []string
 	Log                    logr.Logger
+	ProcessorTimeout       time.Duration
 }
 
 type NamedResourceStreamProcessor struct {
@@ -78,13 +77,14 @@ type ParsedTransportConfig struct {
 }
 
 // NewProcessingJobFactory creates a new processing job factory
-func NewProcessingJobFactory(transportCfg ParsedTransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory, log logr.Logger) (*ProcessingJobFactory, error) {
+func NewProcessingJobFactory(transportCfg ParsedTransportConfig, df *DownloaderFactory, pf *ProcessorFactory, uf *UploaderFactory, log logr.Logger, processorTimeout time.Duration) (*ProcessingJobFactory, error) {
 	c := ProcessingJobFactory{
 		parsedConfig:      &transportCfg,
 		downloaderFactory: df,
 		processorFactory:  pf,
 		uploaderFactory:   uf,
 		log:               log,
+		processorTimeout:  processorTimeout,
 	}
 
 	return &c, nil
@@ -97,6 +97,7 @@ type ProcessingJobFactory struct {
 	downloaderFactory *DownloaderFactory
 	processorFactory  *ProcessorFactory
 	log               logr.Logger
+	processorTimeout  time.Duration
 }
 
 func ParseConfig(configFilePath string) (*ParsedTransportConfig, error) {
@@ -178,6 +179,7 @@ func (c *ProcessingJobFactory) Create(cd cdv2.ComponentDescriptor, res cdv2.Reso
 		ComponentDescriptor: &cd,
 		Resource:            &res,
 		Log:                 jobLog,
+		ProcessorTimeout:    c.processorTimeout,
 	}
 
 	// find matching downloader
@@ -342,7 +344,7 @@ func (p *ProcessingJob) runProcessor(ctx context.Context, infile *os.File, proc 
 		return nil, fmt.Errorf("unable to create temporary output file: %w", err)
 	}
 
-	ctx, cancelfunc := context.WithTimeout(ctx, processorTimeout)
+	ctx, cancelfunc := context.WithTimeout(ctx, p.ProcessorTimeout)
 	defer cancelfunc()
 
 	log.V(7).Info("starting processor")

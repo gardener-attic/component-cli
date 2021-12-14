@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
@@ -48,7 +49,8 @@ type Options struct {
 	SignatureName     string
 	PrivateKeyPath    string
 
-	DryRun bool
+	DryRun           bool
+	ProcessorTimeout time.Duration
 
 	// OCIOptions contains all oci client related options.
 	OCIOptions ociopts.Options
@@ -84,6 +86,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the generated signature")
 	fs.StringVar(&o.PrivateKeyPath, "private-key", "", "path to the private key file used for signing")
 	fs.BoolVar(&o.DryRun, "dry-run", false, "only download component descriptors and perform matching of resources against transport config file. no component descriptors are uploaded, no resources are down/uploaded")
+	fs.DurationVar(&o.ProcessorTimeout, "processor-timeout", 30*time.Second, "execution timeout for each individual processor")
 	o.OCIOptions.AddFlags(fs)
 }
 
@@ -173,7 +176,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 	df := transport_config.NewDownloaderFactory(ociClient, ociCache)
 	pf := transport_config.NewProcessorFactory(ociCache)
 	uf := transport_config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
-	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf, log)
+	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf, log, o.ProcessorTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to create processing job factory: %w", err)
 	}
