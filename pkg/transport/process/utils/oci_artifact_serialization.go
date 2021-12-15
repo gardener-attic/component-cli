@@ -39,7 +39,7 @@ const (
 // the manifest.json (if the oci artifact is of type manifest) or index.json (if the oci artifact
 // is a docker image list / oci image index) and a single directory which contains all blobs.
 // The cache instance is used for reading config and layer blobs. returns a reader for the TAR
-// archive which must be closed by the caller.
+// archive which *MUST* be closed by the caller.
 func SerializeOCIArtifact(ociArtifact oci.Artifact, cache cache.Cache) (io.ReadCloser, error) {
 	if cache == nil {
 		return nil, errors.New("cache must not be nil")
