@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package config
+package downloaders
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
+	"github.com/gardener/component-cli/pkg/transport/process/extensions"
 )
 
 const (
@@ -39,11 +39,11 @@ type DownloaderFactory struct {
 func (f *DownloaderFactory) Create(downloaderType string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch downloaderType {
 	case LocalOCIBlobDownloaderType:
-		return downloaders.NewLocalOCIBlobDownloader(f.client)
+		return NewLocalOCIBlobDownloader(f.client)
 	case OCIArtifactDownloaderType:
-		return downloaders.NewOCIArtifactDownloader(f.client, f.cache)
-	case ExecutableType:
-		return createExecutable(spec)
+		return NewOCIArtifactDownloader(f.client, f.cache)
+	case extensions.ExecutableType:
+		return extensions.CreateExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown downloader type %s", downloaderType)
 	}

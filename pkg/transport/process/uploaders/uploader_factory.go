@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package config
+package uploaders
 
 import (
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/uploaders"
+	"github.com/gardener/component-cli/pkg/transport/process/extensions"
 )
 
 const (
@@ -44,11 +44,11 @@ type UploaderFactory struct {
 func (f *UploaderFactory) Create(uploaderType string, spec *json.RawMessage) (process.ResourceStreamProcessor, error) {
 	switch uploaderType {
 	case LocalOCIBlobUploaderType:
-		return uploaders.NewLocalOCIBlobUploader(f.client, f.targetCtx)
+		return NewLocalOCIBlobUploader(f.client, f.targetCtx)
 	case OCIArtifactUploaderType:
 		return f.createOCIArtifactUploader(spec)
-	case ExecutableType:
-		return createExecutable(spec)
+	case extensions.ExecutableType:
+		return extensions.CreateExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown uploader type %s", uploaderType)
 	}
@@ -66,5 +66,5 @@ func (f *UploaderFactory) createOCIArtifactUploader(rawSpec *json.RawMessage) (p
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return uploaders.NewOCIArtifactUploader(f.client, f.cache, spec.BaseUrl, spec.KeepSourceRepo)
+	return NewOCIArtifactUploader(f.client, f.cache, spec.BaseUrl, spec.KeepSourceRepo)
 }

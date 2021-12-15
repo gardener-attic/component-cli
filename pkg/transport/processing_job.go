@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package process
+package transport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,14 +15,44 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"github.com/go-logr/logr"
 
+	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
 
+func NewProcessingJob(
+	cd cdv2.ComponentDescriptor,
+	res cdv2.Resource,
+	downloaders []NamedResourceStreamProcessor,
+	processors []NamedResourceStreamProcessor,
+	uploaders []NamedResourceStreamProcessor,
+	log logr.Logger,
+	processorTimeout time.Duration,
+) (*ProcessingJob, error) {
+	if len(downloaders) != 1 {
+		return nil, fmt.Errorf("a processing job must exactly have 1 downloader, found %d", len(downloaders))
+	}
+
+	if len(uploaders) < 1 {
+		return nil, fmt.Errorf("a processing job must have at least 1 uploader, found %d", len(uploaders))
+	}
+
+	if log == nil {
+		return nil, errors.New("log must not be nil")
+	}
+
+	j := ProcessingJob{
+		ComponentDescriptor: &cd,
+		Resource:            &res,
+		Downloaders:         downloaders,
+		Processors:          processors,
+		Uploaders:           uploaders,
+		Log:                 log,
+		ProcessorTimeout:    processorTimeout,
+	}
+	return &j, nil
+}
+
 // ProcessingJob defines a type which contains all data for processing a single resource
-// ProcessingJob describes a chain of multiple processors for processing a resource.
-// Each processor receives its input from the preceding processor and writes the output for the
-// subsequent processor. To work correctly, a pipeline must consist of 1 downloader, 0..n processors,
-// and 1..n uploaders.
 type ProcessingJob struct {
 	ComponentDescriptor    *cdv2.ComponentDescriptor
 	Resource               *cdv2.Resource
@@ -35,8 +66,12 @@ type ProcessingJob struct {
 }
 
 type NamedResourceStreamProcessor struct {
-	Processor ResourceStreamProcessor
+	Processor process.ResourceStreamProcessor
 	Name      string
+}
+
+func (j *ProcessingJob) GetProcessedResource() *cdv2.Resource {
+	return j.ProcessedResource
 }
 
 func (j *ProcessingJob) GetMatching() map[string][]string {
@@ -55,27 +90,55 @@ func (j *ProcessingJob) GetMatching() map[string][]string {
 	return matching
 }
 
-// Process processes the resource
-func (p *ProcessingJob) Process(ctx context.Context) error {
-	inputFile, err := ioutil.TempFile("", "")
-	if err != nil {
-		p.Log.Error(err, "unable to create temporary input file")
+func (j *ProcessingJob) Validate() error {
+	if j.ComponentDescriptor == nil {
+		return errors.New("component descriptor must not be nil")
+	}
+
+	if j.Resource == nil {
+		return errors.New("resource must not be nil")
+	}
+
+	if len(j.Downloaders) != 1 {
+		return fmt.Errorf("a processing job must exactly have 1 downloader, found %d", len(j.Downloaders))
+	}
+
+	if len(j.Uploaders) < 1 {
+		return fmt.Errorf("a processing job must have at least 1 uploader, found %d", len(j.Uploaders))
+	}
+
+	return nil
+}
+
+// Process runs the processing job, by calling downloader, processors, and uploaders sequentially
+// for the defined component descriptor and resource. Each processor receives its input from the
+// preceding processor and writes the output for the subsequent processor. To work correctly,
+// a processing job must consist of 1 downloader, 0..n processors, and 1..n uploaders.
+func (j *ProcessingJob) Process(ctx context.Context) error {
+	if err := j.Validate(); err != nil {
+		j.Log.Error(err, "invalid processing job")
 		return err
 	}
 
-	if err := utils.WriteProcessorMessage(*p.ComponentDescriptor, *p.Resource, nil, inputFile); err != nil {
-		p.Log.Error(err, "unable to write processor message")
+	inputFile, err := ioutil.TempFile("", "")
+	if err != nil {
+		j.Log.Error(err, "unable to create temporary input file")
+		return err
+	}
+
+	if err := utils.WriteProcessorMessage(*j.ComponentDescriptor, *j.Resource, nil, inputFile); err != nil {
+		j.Log.Error(err, "unable to write processor message")
 		return err
 	}
 
 	processors := []NamedResourceStreamProcessor{}
-	processors = append(processors, p.Downloaders...)
-	processors = append(processors, p.Processors...)
-	processors = append(processors, p.Uploaders...)
+	processors = append(processors, j.Downloaders...)
+	processors = append(processors, j.Processors...)
+	processors = append(processors, j.Uploaders...)
 
 	for _, proc := range processors {
-		procLog := p.Log.WithValues("processor-name", proc.Name)
-		outputFile, err := p.runProcessor(ctx, inputFile, proc, procLog)
+		procLog := j.Log.WithValues("processor-name", proc.Name)
+		outputFile, err := j.runProcessor(ctx, inputFile, proc, procLog)
 		if err != nil {
 			procLog.Error(err, "unable to run processor")
 			return err
@@ -89,20 +152,20 @@ func (p *ProcessingJob) Process(ctx context.Context) error {
 	defer inputFile.Close()
 
 	if _, err := inputFile.Seek(0, io.SeekStart); err != nil {
-		p.Log.Error(err, "unable to seek to beginning of file")
+		j.Log.Error(err, "unable to seek to beginning of file")
 		return err
 	}
 
 	_, processedRes, blobreader, err := utils.ReadProcessorMessage(inputFile)
 	if err != nil {
-		p.Log.Error(err, "unable to read processor message")
+		j.Log.Error(err, "unable to read processor message")
 		return err
 	}
 	if blobreader != nil {
 		defer blobreader.Close()
 	}
 
-	p.ProcessedResource = &processedRes
+	j.ProcessedResource = &processedRes
 
 	return nil
 }

@@ -1,15 +1,13 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package config
+package filters
 
 import (
 	"encoding/json"
 	"fmt"
 
 	"sigs.k8s.io/yaml"
-
-	"github.com/gardener/component-cli/pkg/transport/filters"
 )
 
 const (
@@ -32,7 +30,7 @@ func NewFilterFactory() *FilterFactory {
 type FilterFactory struct{}
 
 // Create creates a new filter defined by a type and a spec
-func (f *FilterFactory) Create(filterType string, spec *json.RawMessage) (filters.Filter, error) {
+func (f *FilterFactory) Create(filterType string, spec *json.RawMessage) (Filter, error) {
 	switch filterType {
 	case ComponentNameFilterType:
 		return f.createComponentNameFilter(spec)
@@ -45,29 +43,29 @@ func (f *FilterFactory) Create(filterType string, spec *json.RawMessage) (filter
 	}
 }
 
-func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
-	var spec filters.ComponentNameFilterSpec
+func (f *FilterFactory) createComponentNameFilter(rawSpec *json.RawMessage) (Filter, error) {
+	var spec ComponentNameFilterSpec
 	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewComponentNameFilter(spec)
+	return NewComponentNameFilter(spec)
 }
 
-func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
-	var spec filters.ResourceTypeFilterSpec
+func (f *FilterFactory) createResourceTypeFilter(rawSpec *json.RawMessage) (Filter, error) {
+	var spec ResourceTypeFilterSpec
 	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewResourceTypeFilter(spec)
+	return NewResourceTypeFilter(spec)
 }
 
-func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (filters.Filter, error) {
-	var spec filters.AccessTypeFilterSpec
+func (f *FilterFactory) createAccessTypeFilter(rawSpec *json.RawMessage) (Filter, error) {
+	var spec AccessTypeFilterSpec
 	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return filters.NewAccessTypeFilter(spec)
+	return NewAccessTypeFilter(spec)
 }

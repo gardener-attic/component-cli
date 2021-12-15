@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package config
+package processors
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
-	"github.com/gardener/component-cli/pkg/transport/process/processors"
+	"github.com/gardener/component-cli/pkg/transport/process/extensions"
 )
 
 const (
@@ -49,11 +49,11 @@ func (f *ProcessorFactory) Create(processorType string, spec *json.RawMessage) (
 	case OCIArtifactFilterProcessorType:
 		return f.createOCIArtifactFilter(spec)
 	case BlobDigesterProcessorType:
-		return processors.NewBlobDigester(), nil
+		return NewBlobDigester(), nil
 	case OCIManifestDigesterProcessorType:
-		return processors.NewOCIManifestDigester(), nil
-	case ExecutableType:
-		return createExecutable(spec)
+		return NewOCIManifestDigester(), nil
+	case extensions.ExecutableType:
+		return extensions.CreateExecutable(spec)
 	default:
 		return nil, fmt.Errorf("unknown processor type %s", processorType)
 	}
@@ -70,7 +70,7 @@ func (f *ProcessorFactory) createResourceLabeler(rawSpec *json.RawMessage) (proc
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return processors.NewResourceLabeler(spec.Labels...), nil
+	return NewResourceLabeler(spec.Labels...), nil
 }
 
 func (f *ProcessorFactory) createOCIArtifactFilter(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
@@ -84,5 +84,5 @@ func (f *ProcessorFactory) createOCIArtifactFilter(rawSpec *json.RawMessage) (pr
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return processors.NewOCIArtifactFilter(f.cache, spec.RemovePatterns)
+	return NewOCIArtifactFilter(f.cache, spec.RemovePatterns)
 }

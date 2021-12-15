@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors.
 //
 // SPDX-License-Identifier: Apache-2.0
-package config_test
+package transport_test
 
 import (
 	"testing"
@@ -14,20 +14,21 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
+	"github.com/gardener/component-cli/pkg/transport"
 	"github.com/gardener/component-cli/pkg/transport/config"
 )
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Config Test Suite")
+	RunSpecs(t, "Transport Test Suite")
 }
 
 var (
-	factory *config.ProcessingJobFactory
+	factory *transport.ProcessingJobFactory
 )
 
 var _ = BeforeSuite(func() {
-	transportCfg, err := config.ParseConfig("./testdata/transport.cfg")
+	transportCfg, err := config.ParseTransportConfig("./testdata/transport.cfg")
 	Expect(err).ToNot(HaveOccurred())
 
 	client, err := ociclient.NewClient(logr.Discard())
@@ -35,10 +36,6 @@ var _ = BeforeSuite(func() {
 	ocicache := cache.NewInMemoryCache()
 	targetCtx := cdv2.NewOCIRegistryRepository("my-target-registry.com/test", "")
 
-	df := config.NewDownloaderFactory(client, ocicache)
-	pf := config.NewProcessorFactory(ocicache)
-	uf := config.NewUploaderFactory(client, ocicache, *targetCtx)
-
-	factory, err = config.NewProcessingJobFactory(*transportCfg, df, pf, uf, logr.Discard(), 30*time.Second)
+	factory, err = transport.NewProcessingJobFactory(*transportCfg, client, ocicache, *targetCtx, logr.Discard(), 30*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }, 5)

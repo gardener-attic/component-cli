@@ -27,7 +27,8 @@ import (
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
-	transport_config "github.com/gardener/component-cli/pkg/transport/config"
+	"github.com/gardener/component-cli/pkg/transport"
+	"github.com/gardener/component-cli/pkg/transport/config"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -160,7 +161,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		}
 	}
 
-	transportCfg, err := transport_config.ParseConfig(o.TransportCfgPath)
+	transportCfg, err := config.ParseTransportConfig(o.TransportCfgPath)
 	if err != nil {
 		return fmt.Errorf("unable to parse transport config file: %w", err)
 	}
@@ -173,10 +174,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		return fmt.Errorf("unable to resolve component descriptors: %w", err)
 	}
 
-	df := transport_config.NewDownloaderFactory(ociClient, ociCache)
-	pf := transport_config.NewProcessorFactory(ociCache)
-	uf := transport_config.NewUploaderFactory(ociClient, ociCache, *targetCtx)
-	pjf, err := transport_config.NewProcessingJobFactory(*transportCfg, df, pf, uf, log, o.ProcessorTimeout)
+	factory, err := transport.NewProcessingJobFactory(*transportCfg, ociClient, ociCache, *targetCtx, log, o.ProcessorTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to create processing job factory: %w", err)
 	}
@@ -186,7 +184,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 			componentLog := log.WithValues("component-name", cd.Name, "component-version", cd.Version)
 			for _, res := range cd.Resources {
 				resourceLog := componentLog.WithValues("resource-name", res.Name, "resource-version", res.Version)
-				job, err := pjf.Create(*cd, res)
+				job, err := factory.Create(*cd, res)
 				if err != nil {
 					resourceLog.Error(err, "unable to create processing job")
 					return err
@@ -217,7 +215,7 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			processedResources, err := processResources(ctx, cd, *targetCtx, componentLog, pjf)
+			processedResources, err := processResources(ctx, cd, *targetCtx, componentLog, factory)
 			if err != nil {
 				errsMux.Lock()
 				errs = append(errs, err)
@@ -318,7 +316,7 @@ func processResources(
 	cd *cdv2.ComponentDescriptor,
 	targetCtx cdv2.OCIRegistryRepository,
 	log logr.Logger,
-	processingJobFactory *transport_config.ProcessingJobFactory,
+	processingJobFactory *transport.ProcessingJobFactory,
 ) ([]cdv2.Resource, error) {
 	wg := sync.WaitGroup{}
 	errs := []error{}
