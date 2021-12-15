@@ -38,7 +38,7 @@ const (
 // SerializeOCIArtifact serializes an oci artifact into a TAR archive. the TAR archive contains
 // the manifest.json (if the oci artifact is of type manifest) or index.json (if the oci artifact
 // is a docker image list / oci image index) and a single directory which contains all blobs.
-// the cache instance is used for reading config and layer blobs. returns a reader for the TAR
+// The cache instance is used for reading config and layer blobs. returns a reader for the TAR
 // archive which must be closed by the caller.
 func SerializeOCIArtifact(ociArtifact oci.Artifact, cache cache.Cache) (io.ReadCloser, error) {
 	if cache == nil {
