@@ -22,6 +22,10 @@ const (
 )
 
 // NewFilterFactory creates a new filter factory
+// How to add a new filter:
+// - Add Go file to filters package which contains the source code of the new filter
+// - Add string constant for new filter type -> will be used in FilterFactory.Create()
+// - Add source code for creating new filter to FilterFactory.Create() method
 func NewFilterFactory() *FilterFactory {
 	return &FilterFactory{}
 }
