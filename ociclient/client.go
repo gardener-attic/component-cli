@@ -329,8 +329,7 @@ func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest,
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to marshal manifest: %w", err)
 	}
 
-	manifestBuf := bytes.NewBuffer(manifestBytes)
-	if err := cache.Add(manifestDesc, ioutil.NopCloser(manifestBuf)); err != nil {
+	if err := cache.Add(manifestDesc, ioutil.NopCloser(bytes.NewBuffer(manifestBytes))); err != nil {
 		return ocispecv1.Descriptor{}, fmt.Errorf("unable to add manifest to cache: %w", err)
 	}
 
