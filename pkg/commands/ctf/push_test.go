@@ -58,8 +58,8 @@ var _ = Describe("Add", func() {
 		Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
 
 		opts := cmd.PushOptions{
-			CTFPath: "/component.ctf",
-			BaseUrl: testenv.Addr + "/test",
+			CTFPaths: []string{"/component.ctf"},
+			BaseUrl:  testenv.Addr + "/test",
 			OciOptions: options.Options{
 				AllowPlainHttp:     false,
 				RegistryConfigPath: "/auth.json",
@@ -117,8 +117,8 @@ var _ = Describe("Add", func() {
 		Expect(vfs.WriteFile(testdataFs, "/auth.json", cf, os.ModePerm))
 
 		opts := cmd.PushOptions{
-			CTFPath: "/component.ctf",
-			BaseUrl: testenv.Addr + "/test",
+			CTFPaths: []string{"/component.ctf"},
+			BaseUrl:  testenv.Addr + "/test",
 			OciOptions: options.Options{
 				AllowPlainHttp:     false,
 				RegistryConfigPath: "/auth.json",

@@ -13,7 +13,7 @@ Note: Currently only component archives are supoprted. Generic OCI Artifacts wil
 
 
 ```
-component-cli ctf push CTF_PATH [flags]
+component-cli ctf push <CTF_PATH> ... [flags]
 ```
 
 ### Options

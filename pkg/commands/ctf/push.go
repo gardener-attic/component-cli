@@ -27,8 +27,8 @@ import (
 )
 
 type PushOptions struct {
-	// CTFPath is the path to the directory containing the ctf archive.
-	CTFPath string
+	// CTFPaths is the path to the directory containing the ctf archive.
+	CTFPaths []string
 	// BaseUrl is the repository context base url for all included component descriptors.
 	BaseUrl string
 	// AdditionalTags defines additional tags that the oci artifact should be tagged with.
@@ -42,8 +42,8 @@ type PushOptions struct {
 func NewPushCommand(ctx context.Context) *cobra.Command {
 	opts := &PushOptions{}
 	cmd := &cobra.Command{
-		Use:   "push CTF_PATH",
-		Args:  cobra.ExactArgs(1),
+		Use:   "push <CTF_PATH> ...",
+		Args:  cobra.MinimumNArgs(1),
 		Short: "Pushes all archives of a ctf to a remote repository",
 		Long: `
 Push pushes all component archives and oci artifacts to the defined oci repository.
@@ -73,69 +73,74 @@ Note: Currently only component archives are supoprted. Generic OCI Artifacts wil
 }
 
 func (o *PushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	info, err := fs.Stat(o.CTFPath)
-	if err != nil {
-		return fmt.Errorf("unable to get info for %s: %w", o.CTFPath, err)
-	}
-	if info.IsDir() {
-		return fmt.Errorf(`%q is a directory. 
-It is expected that the given path points to a CTF Archive`, o.CTFPath)
-	}
+	for _, path := range o.CTFPaths {
+		info, err := fs.Stat(path)
+		if err != nil {
+			return fmt.Errorf("unable to get info for %s: %w", path, err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf(`%q is a directory. 
+It is expected that the given path points to a CTF Archive`, path)
+		}
 
-	ociClient, cache, err := o.OciOptions.Build(log, fs)
-	if err != nil {
-		return fmt.Errorf("unable to build oci client: %s", err.Error())
-	}
+		ociClient, cache, err := o.OciOptions.Build(log, fs)
+		if err != nil {
+			return fmt.Errorf("unable to build oci client: %s", err.Error())
+		}
 
-	ctfArchive, err := ctf.NewCTF(fs, o.CTFPath)
-	if err != nil {
-		return fmt.Errorf("unable to open ctf at %q: %s", o.CTFPath, err.Error())
-	}
+		ctfArchive, err := ctf.NewCTF(fs, path)
+		if err != nil {
+			return fmt.Errorf("unable to open ctf at %q: %s", o.CTFPaths, err.Error())
+		}
 
-	err = ctfArchive.Walk(func(ca *ctf.ComponentArchive) error {
-		// update repository context
-		if len(o.BaseUrl) != 0 {
-			if err := cdv2.InjectRepositoryContext(ca.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
-				return fmt.Errorf("unable to add repository context: %w", err)
+		err = ctfArchive.Walk(func(ca *ctf.ComponentArchive) error {
+			// update repository context
+			if len(o.BaseUrl) != 0 {
+				if err := cdv2.InjectRepositoryContext(ca.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
+					return fmt.Errorf("unable to add repository context: %w", err)
+				}
 			}
-		}
 
-		manifest, err := cdoci.NewManifestBuilder(cache, ca).Build(ctx)
-		if err != nil {
-			return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
-		}
+			manifest, err := cdoci.NewManifestBuilder(cache, ca).Build(ctx)
+			if err != nil {
+				return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
+			}
 
-		ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
-		if err != nil {
-			return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
-		}
-		if err := ociClient.PushManifest(ctx, ref, manifest); err != nil {
-			return fmt.Errorf("unable to upload component archive to %q: %s", ref, err.Error())
-		}
-		log.Info(fmt.Sprintf("Successfully uploaded component archive to %q", ref))
-
-		for _, tag := range o.AdditionalTags {
-			ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), tag)
+			ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
 			if err != nil {
 				return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
 			}
 			if err := ociClient.PushManifest(ctx, ref, manifest); err != nil {
 				return fmt.Errorf("unable to upload component archive to %q: %s", ref, err.Error())
 			}
-			log.Info(fmt.Sprintf("Successfully tagged component archive with %q", ref))
+			log.Info(fmt.Sprintf("Successfully uploaded component archive to %q", ref))
+
+			for _, tag := range o.AdditionalTags {
+				ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), tag)
+				if err != nil {
+					return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
+				}
+				if err := ociClient.PushManifest(ctx, ref, manifest); err != nil {
+					return fmt.Errorf("unable to upload component archive to %q: %s", ref, err.Error())
+				}
+				log.Info(fmt.Sprintf("Successfully tagged component archive with %q", ref))
+			}
+
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("error while reading component archives in ctf: %w", err)
 		}
-
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("error while reading component archives in ctf: %w", err)
+		err = ctfArchive.Close()
+		if err != nil {
+			return fmt.Errorf("error while closing component archives in ctf: %w", err)
+		}
 	}
-
-	return ctfArchive.Close()
+	return nil
 }
 
 func (o *PushOptions) Complete(args []string) error {
-	o.CTFPath = args[0]
+	o.CTFPaths = args
 
 	var err error
 	o.OciOptions.CacheDir, err = utils.CacheDir()
@@ -152,7 +157,7 @@ func (o *PushOptions) Complete(args []string) error {
 
 // Validate validates push options
 func (o *PushOptions) Validate() error {
-	if len(o.CTFPath) == 0 {
+	if len(o.CTFPaths) == 0 {
 		return errors.New("a path to the component descriptor must be defined")
 	}
 	return nil
