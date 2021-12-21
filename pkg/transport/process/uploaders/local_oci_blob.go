@@ -55,7 +55,7 @@ func (d *localOCIBlobUploader) Process(ctx context.Context, r io.Reader, w io.Wr
 
 	size, err := io.Copy(tmpfile, blobreader)
 	if err != nil {
-		return fmt.Errorf("unable to copy resource blob: %w", err)
+		return fmt.Errorf("unable to copy resource blob to tempfile: %w", err)
 	}
 
 	if _, err := tmpfile.Seek(0, 0); err != nil {
