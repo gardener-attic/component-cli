@@ -67,18 +67,18 @@ var _ = Describe("utils", func() {
 
 		It("should return error if filename is empty", func() {
 			tw := tar.NewWriter(bytes.NewBuffer([]byte{}))
-			contentReader := bytes.NewReader([]byte{})
-			Expect(utils.WriteFileToTARArchive("", contentReader, tw)).To(MatchError("filename must not be empty"))
+			inputReader := bytes.NewReader([]byte{})
+			Expect(utils.WriteFileToTARArchive("", inputReader, tw)).To(MatchError("filename must not be empty"))
 		})
 
-		It("should return error if contentReader is nil", func() {
+		It("should return error if inputReader is nil", func() {
 			tw := tar.NewWriter(bytes.NewBuffer([]byte{}))
-			Expect(utils.WriteFileToTARArchive("testfile", nil, tw)).To(MatchError("contentReader must not be nil"))
+			Expect(utils.WriteFileToTARArchive("testfile", nil, tw)).To(MatchError("inputReader must not be nil"))
 		})
 
 		It("should return error if outArchive is nil", func() {
-			contentReader := bytes.NewReader([]byte{})
-			Expect(utils.WriteFileToTARArchive("testfile", contentReader, nil)).To(MatchError("archiveWriter must not be nil"))
+			inputReader := bytes.NewReader([]byte{})
+			Expect(utils.WriteFileToTARArchive("testfile", inputReader, nil)).To(MatchError("outputWriter must not be nil"))
 		})
 
 	})

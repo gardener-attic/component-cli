@@ -160,7 +160,19 @@ func createImageRes(ctx context.Context) cdv2.Resource {
 	Expect(err).ToNot(HaveOccurred())
 
 	// TODO: currently needed to fill the cache. remove from test, also from ociclient unit test
-	testutils.CompareManifestToTestManifest(context.TODO(), ociClient, imageRef, manifest)
+	m := oci.Manifest{
+		Descriptor: desc,
+		Data:       manifest,
+	}
+	testutils.CompareRemoteManifest(
+		ociClient,
+		imageRef,
+		m,
+		[]byte("config-data"),
+		[][]byte{
+			[]byte("layer-data"),
+		},
+	)
 
 	expectedImageManifest = oci.Manifest{
 		Descriptor: desc,

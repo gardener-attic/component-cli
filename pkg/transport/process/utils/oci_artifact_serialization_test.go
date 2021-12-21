@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
@@ -26,9 +27,10 @@ var _ = Describe("oci artifact serialization", func() {
 
 		It("should correctly serialize and deserialize image", func() {
 			configData := []byte("config-data")
-			layerData := []byte("layer-data")
-			m, _, err := testutils.CreateManifest(configData, layerData)
-			Expect(err).ToNot(HaveOccurred())
+			layers := [][]byte{
+				[]byte("layer-data"),
+			}
+			m, _ := testutils.CreateManifest(configData, layers, nil)
 
 			expectedOciArtifact, err := oci.NewManifestArtifact(
 				&oci.Manifest{
@@ -39,7 +41,7 @@ var _ = Describe("oci artifact serialization", func() {
 
 			serializeCache := cache.NewInMemoryCache()
 			Expect(serializeCache.Add(m.Config, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
-			Expect(serializeCache.Add(m.Layers[0], io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
+			Expect(serializeCache.Add(m.Layers[0], io.NopCloser(bytes.NewReader(layers[0])))).To(Succeed())
 
 			serializedReader, err := utils.SerializeOCIArtifact(*expectedOciArtifact, serializeCache)
 			Expect(err).ToNot(HaveOccurred())
@@ -61,19 +63,30 @@ var _ = Describe("oci artifact serialization", func() {
 			actualLayerBuf := bytes.NewBuffer([]byte{})
 			_, err = io.Copy(actualLayerBuf, actualLayerReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(actualLayerBuf.Bytes()).To(Equal(layerData))
+			Expect(actualLayerBuf.Bytes()).To(Equal(layers[0]))
 		})
 
 		It("should correctly serialize and deserialize image index", func() {
 			configData1 := []byte("config-data-1")
-			layerData1 := []byte("layer-data-1")
+			layers1 := [][]byte{
+				[]byte("layer-data-1"),
+			}
 			configData2 := []byte("config-data-2")
-			layerData2 := []byte("layer-data-2")
+			layers2 := [][]byte{
+				[]byte("layer-data-2"),
+			}
 
-			m1, m1Desc, err := testutils.CreateManifest(configData1, layerData1)
-			Expect(err).ToNot(HaveOccurred())
-			m2, m2Desc, err := testutils.CreateManifest(configData2, layerData2)
-			Expect(err).ToNot(HaveOccurred())
+			m1, m1Desc := testutils.CreateManifest(configData1, layers1, nil)
+			m1Desc.Platform = &ocispecv1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			}
+
+			m2, m2Desc := testutils.CreateManifest(configData2, layers2, nil)
+			m2Desc.Platform = &ocispecv1.Platform{
+				Architecture: "amd64",
+				OS:           "windows",
+			}
 
 			m1Bytes, err := json.Marshal(m1)
 			Expect(err).ToNot(HaveOccurred())
@@ -101,10 +114,10 @@ var _ = Describe("oci artifact serialization", func() {
 			serializeCache := cache.NewInMemoryCache()
 			Expect(serializeCache.Add(m1Desc, io.NopCloser(bytes.NewReader(m1Bytes)))).To(Succeed())
 			Expect(serializeCache.Add(m1.Config, io.NopCloser(bytes.NewReader(configData1)))).To(Succeed())
-			Expect(serializeCache.Add(m1.Layers[0], io.NopCloser(bytes.NewReader(layerData1)))).To(Succeed())
+			Expect(serializeCache.Add(m1.Layers[0], io.NopCloser(bytes.NewReader(layers1[0])))).To(Succeed())
 			Expect(serializeCache.Add(m2Desc, io.NopCloser(bytes.NewReader(m2Bytes)))).To(Succeed())
 			Expect(serializeCache.Add(m2.Config, io.NopCloser(bytes.NewReader(configData2)))).To(Succeed())
-			Expect(serializeCache.Add(m2.Layers[0], io.NopCloser(bytes.NewReader(layerData2)))).To(Succeed())
+			Expect(serializeCache.Add(m2.Layers[0], io.NopCloser(bytes.NewReader(layers2[0])))).To(Succeed())
 
 			serializedReader, err := utils.SerializeOCIArtifact(*expectedOciArtifact, serializeCache)
 			Expect(err).ToNot(HaveOccurred())
@@ -131,7 +144,7 @@ var _ = Describe("oci artifact serialization", func() {
 			actualLayerBuf := bytes.NewBuffer([]byte{})
 			_, err = io.Copy(actualLayerBuf, actualLayerReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(actualLayerBuf.Bytes()).To(Equal(layerData1))
+			Expect(actualLayerBuf.Bytes()).To(Equal(layers1[0]))
 
 			// check second manifest config and layer
 			actualConfigReader, err = deserializeCache.Get(actualOciArtifact.GetIndex().Manifests[1].Data.Config)
@@ -146,7 +159,7 @@ var _ = Describe("oci artifact serialization", func() {
 			actualLayerBuf = bytes.NewBuffer([]byte{})
 			_, err = io.Copy(actualLayerBuf, actualLayerReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(actualLayerBuf.Bytes()).To(Equal(layerData2))
+			Expect(actualLayerBuf.Bytes()).To(Equal(layers2[0]))
 		})
 
 	})

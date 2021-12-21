@@ -32,7 +32,7 @@ var _ = Describe("client", func() {
 			defer ctx.Done()
 
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest, _, err := testutils.UploadTestManifest(ctx, client, ref)
+			manifest, mdesc, err := testutils.UploadTestManifest(ctx, client, ref)
 			Expect(err).ToNot(HaveOccurred())
 
 			res, err := client.GetManifest(ctx, ref)
@@ -41,7 +41,19 @@ var _ = Describe("client", func() {
 			Expect(res.Layers).To(Equal(manifest.Layers))
 
 			// TODO: oci image index test only working because cache is filled in this function with config/layer blobs. should be fixed
-			testutils.CompareManifestToTestManifest(ctx, client, ref, res)
+			expectedManifest := oci.Manifest{
+				Descriptor: mdesc,
+				Data:       manifest,
+			}
+			testutils.CompareRemoteManifest(
+				client,
+				ref,
+				expectedManifest,
+				[]byte("config-data"),
+				[][]byte{
+					[]byte("layer-data"),
+				},
+			)
 		}, 20)
 
 		It("should push and pull an oci image index", func() {
@@ -57,7 +69,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			testutils.CompareImageIndices(actualArtifact.GetIndex(), index)
+			Expect(actualArtifact.GetIndex()).To(Equal(index))
 		}, 20)
 
 		It("should push and pull an empty oci image index", func() {
@@ -83,7 +95,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			testutils.CompareImageIndices(actualArtifact.GetIndex(), &index)
+			Expect(actualArtifact.GetIndex()).To(Equal(&index))
 		}, 20)
 
 		It("should push and pull an oci image index with only 1 manifest and no platform information", func() {
@@ -92,13 +104,14 @@ var _ = Describe("client", func() {
 
 			ref := testenv.Addr + "/image-index/3/img:v0.0.1"
 			manifest1Ref := testenv.Addr + "/image-index/1/img-platform-1:v0.0.1"
-			manifest, _, err := testutils.UploadTestManifest(ctx, client, manifest1Ref)
+			manifest, mdesc, err := testutils.UploadTestManifest(ctx, client, manifest1Ref)
 			Expect(err).ToNot(HaveOccurred())
 
 			index := oci.Index{
 				Manifests: []*oci.Manifest{
 					{
-						Data: manifest,
+						Descriptor: mdesc,
+						Data:       manifest,
 					},
 				},
 				Annotations: map[string]string{
@@ -117,7 +130,7 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			testutils.CompareImageIndices(actualArtifact.GetIndex(), &index)
+			Expect(actualArtifact.GetIndex()).To(Equal(&index))
 		}, 20)
 
 		It("should copy an oci artifact", func() {
@@ -161,10 +174,18 @@ var _ = Describe("client", func() {
 
 			Expect(actualArtifact.IsManifest()).To(BeFalse())
 			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			testutils.CompareImageIndices(actualArtifact.GetIndex(), index)
+			Expect(actualArtifact.GetIndex()).To(Equal(index))
 
-			for _, manifest := range actualArtifact.GetIndex().Manifests {
-				testutils.CompareManifestToTestManifest(ctx, client, newRef, manifest.Data)
+			for i := range actualArtifact.GetIndex().Manifests {
+				testutils.CompareRemoteManifest(
+					client,
+					ref,
+					*index.Manifests[i],
+					[]byte("config-data"),
+					[][]byte{
+						[]byte("layer-data"),
+					},
+				)
 			}
 		}, 20)
 
