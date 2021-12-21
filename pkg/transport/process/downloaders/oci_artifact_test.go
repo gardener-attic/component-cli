@@ -43,7 +43,15 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*actualOciArtifact.GetManifest()).To(Equal(expectedImageManifest))
-			testutils.CompareManifestToTestManifest(context.TODO(), ociClient, imageRef, expectedImageManifest.Data)
+			testutils.CompareRemoteManifest(
+				ociClient,
+				imageRef,
+				expectedImageManifest,
+				[]byte("config-data"),
+				[][]byte{
+					[]byte("layer-data"),
+				},
+			)
 		})
 
 		It("should download and stream oci image index", func() {
@@ -69,7 +77,7 @@ var _ = Describe("ociArtifact", func() {
 
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
-			testutils.CompareImageIndices(actualOciArtifact.GetIndex(), &expectedImageIndex)
+			Expect(actualOciArtifact.GetIndex()).To(Equal(&expectedImageIndex))
 		})
 
 		It("should return error if called with resource of invalid type", func() {
