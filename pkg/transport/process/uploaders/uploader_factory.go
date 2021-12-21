@@ -25,6 +25,10 @@ const (
 )
 
 // NewUploaderFactory creates a new uploader factory
+// How to add a new uploader (without using extension mechanism):
+// - Add Go file to uploaders package which contains the source code of the new uploader
+// - Add string constant for new uploader type -> will be used in UploaderFactory.Create()
+// - Add source code for creating new uploader to UploaderFactory.Create() method
 func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository) *UploaderFactory {
 	return &UploaderFactory{
 		client:    client,
