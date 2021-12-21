@@ -22,6 +22,10 @@ const (
 )
 
 // NewDownloaderFactory creates a new downloader factory
+// How to add a new downloader (without using extension mechanism):
+// - Add Go file to downloader package which contains the source code of the new downloader
+// - Add string constant for new downloader type -> will be used in DownloaderFactory.Create()
+// - Add source code for creating new downloader to DownloaderFactory.Create() method
 func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *DownloaderFactory {
 	return &DownloaderFactory{
 		client: client,
