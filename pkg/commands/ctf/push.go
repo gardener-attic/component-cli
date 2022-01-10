@@ -96,6 +96,7 @@ It is expected that the given path points to a CTF Archive`, path)
 		err = ctfArchive.Walk(func(ca *ctf.ComponentArchive) error {
 			// update repository context
 			if len(o.BaseUrl) != 0 {
+				log.Info(fmt.Sprintf("Update repository context in component descriptor %q", o.BaseUrl))
 				if err := cdv2.InjectRepositoryContext(ca.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
 					return fmt.Errorf("unable to add repository context: %w", err)
 				}
@@ -106,10 +107,16 @@ It is expected that the given path points to a CTF Archive`, path)
 				return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 			}
 
-			ref, err := components.OCIRef(ca.ComponentDescriptor.GetEffectiveRepositoryContext(), ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
+			rctx := ca.ComponentDescriptor.GetEffectiveRepositoryContext()
+			if rctx == nil {
+				return fmt.Errorf("no repository context given")
+			}
+
+			ref, err := components.OCIRef(rctx, ca.ComponentDescriptor.GetName(), ca.ComponentDescriptor.GetVersion())
 			if err != nil {
 				return fmt.Errorf("unable to calculate oci ref for %q: %s", ca.ComponentDescriptor.GetName(), err.Error())
 			}
+
 			if err := ociClient.PushManifest(ctx, ref, manifest); err != nil {
 				return fmt.Errorf("unable to upload component archive to %q: %s", ref, err.Error())
 			}
