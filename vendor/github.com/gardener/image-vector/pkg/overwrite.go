@@ -380,7 +380,8 @@ func (io *imageOverwrite) parseGenericImages(ctx context.Context, ca *cdv2.Compo
 			return nil, err
 		}
 		if len(entries) == 0 {
-			return nil, fmt.Errorf("no corresponding resource found for %s", image.Name)
+			io.log.V(1).Info("no image for target version found", "image", image.Name, "targetVersion", image.TargetVersion)
+			continue
 		}
 		images = append(images, entries...)
 	}
