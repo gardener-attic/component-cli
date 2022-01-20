@@ -6,6 +6,7 @@ package componentarchive
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -70,6 +71,11 @@ func (o *CreateOptions) Complete(args []string) error {
 }
 
 func (o *CreateOptions) validate() error {
+	if o.Overwrite && len(o.Name) != 0 {
+		if len(o.Version) == 0 {
+			return errors.New("a version has to be provided for a minimal component descriptor")
+		}
+	}
 	return o.BuilderOptions.Validate()
 }
 

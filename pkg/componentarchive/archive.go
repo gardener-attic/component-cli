@@ -34,6 +34,7 @@ type BuilderOptions struct {
 	ComponentNameMapping string
 
 	Overwrite bool
+	Modify    bool
 }
 
 func (o *BuilderOptions) AddFlags(fs *pflag.FlagSet) {
@@ -58,11 +59,6 @@ func (o *BuilderOptions) Validate() error {
 		return errors.New("a component archive path must be defined")
 	}
 
-	if len(o.Name) != 0 {
-		if len(o.Version) == 0 {
-			return errors.New("a version has to be provided for a minimal component descriptor")
-		}
-	}
 	if len(o.ComponentNameMapping) != 0 {
 		if o.ComponentNameMapping != string(cdv2.OCIRegistryURLPathMapping) &&
 			o.ComponentNameMapping != string(cdv2.OCIRegistryDigestMapping) {
@@ -100,14 +96,14 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 			cd := archive.ComponentDescriptor
 
 			if o.Name != "" {
-				if cd.Name != "" && cd.Name != o.Name {
+				if !o.Modify && cd.Name != "" && cd.Name != o.Name {
 					return nil, errors.New("unable to overwrite the existing component name: forbidden")
 				}
 				cd.Name = o.Name
 			}
 
 			if o.Version != "" {
-				if cd.Version != "" && cd.Version != o.Version {
+				if !o.Modify && cd.Version != "" && cd.Version != o.Version {
 					return nil, errors.New("unable to overwrite the existing component version: forbidden")
 				}
 				cd.Version = o.Version

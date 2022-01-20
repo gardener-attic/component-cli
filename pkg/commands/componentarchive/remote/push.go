@@ -85,6 +85,7 @@ func (o *PushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	}
 	// update repository context
 	if len(o.BaseUrl) != 0 {
+		log.Info(fmt.Sprintf("Update repository context in component descriptor %q", o.BaseUrl))
 		if err := cdv2.InjectRepositoryContext(archive.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.BaseUrl, "")); err != nil {
 			return fmt.Errorf("unable to add repository context to component descriptor: %w", err)
 		}
@@ -95,7 +96,12 @@ func (o *PushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 	}
 
-	ref, err := components.OCIRef(archive.ComponentDescriptor.GetEffectiveRepositoryContext(), archive.ComponentDescriptor.Name, archive.ComponentDescriptor.Version)
+	rctx := archive.ComponentDescriptor.GetEffectiveRepositoryContext()
+	if rctx == nil {
+		return fmt.Errorf("no repository context given")
+	}
+	// attention nil struct pointer passed to interface parameter (non-nil value)
+	ref, err := components.OCIRef(rctx, archive.ComponentDescriptor.Name, archive.ComponentDescriptor.Version)
 	if err != nil {
 		return fmt.Errorf("invalid component reference: %w", err)
 	}
@@ -105,7 +111,8 @@ func (o *PushOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	log.Info(fmt.Sprintf("Successfully uploaded component descriptor at %q", ref))
 
 	for _, tag := range o.AdditionalTags {
-		ref, err := components.OCIRef(archive.ComponentDescriptor.GetEffectiveRepositoryContext(), archive.ComponentDescriptor.Name, tag)
+		log.Info(fmt.Sprintf("Push for additional tag %q", tag))
+		ref, err := components.OCIRef(rctx, archive.ComponentDescriptor.Name, tag)
 		if err != nil {
 			return fmt.Errorf("invalid component reference: %w", err)
 		}

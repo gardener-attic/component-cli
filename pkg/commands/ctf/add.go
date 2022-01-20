@@ -36,8 +36,8 @@ type AddOptions struct {
 func NewAddCommand(ctx context.Context) *cobra.Command {
 	opts := &AddOptions{}
 	cmd := &cobra.Command{
-		Use:   "add CTF_PATH [-f component-archive]...",
-		Args:  cobra.RangeArgs(1, 4),
+		Use:   "add <CTF_PATH> <component-archive> ...",
+		Args:  cobra.MinimumNArgs(1),
 		Short: "Adds component archives to a ctf",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
@@ -117,6 +117,7 @@ It is expected that the given path points to a CTF Archive`, o.CTFPath)
 func (o *AddOptions) Complete(args []string) error {
 	o.CTFPath = args[0]
 
+	o.ComponentArchives = append(o.ComponentArchives, args[1:]...)
 	if err := o.Validate(); err != nil {
 		return err
 	}

@@ -11,14 +11,14 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	"github.com/gardener/component-cli/cmd/component-cli/app"
+	"github.com/gardener/component-cli/cmd/ocm/app"
 )
 
 func main() {
 	fmt.Println("> Generate Docs for ComponentCli")
 
 	if len(os.Args) != 2 { // expect 2 as the first one is the programm name
-		fmt.Printf("Expected exactly one argument, but got %d", len(os.Args) - 1)
+		fmt.Printf("Expected exactly one argument, but got %d", len(os.Args)-1)
 		os.Exit(1)
 	}
 	outputDir := os.Args[1]
