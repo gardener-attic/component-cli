@@ -16,7 +16,6 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/ctf"
 	"github.com/gardener/component-cli/pkg/commands/imagevector"
 	"github.com/gardener/component-cli/pkg/commands/oci"
-	"github.com/gardener/component-cli/pkg/commands/transport"
 	"github.com/gardener/component-cli/pkg/logcontext"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/version"
@@ -49,7 +48,6 @@ func NewComponentsCliCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(imagevector.NewImageVectorCommand(ctx))
 	cmd.AddCommand(oci.NewOCICommand(ctx))
 	cmd.AddCommand(cachecmd.NewCacheCommand(ctx))
-	cmd.AddCommand(transport.NewTransportCommand(ctx))
 
 	return cmd
 }
