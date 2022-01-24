@@ -21,12 +21,6 @@ const (
 
 	// OCIArtifactFilterProcessorType defines the type of an oci artifact filter
 	OCIArtifactFilterProcessorType = "OciArtifactFilter"
-
-	// BlobDigesterProcessorType defines the type of a blob digester
-	BlobDigesterProcessorType = "BlobDigester"
-
-	// OCIManifestDigesterProcessorType the type of an oci manifest digester
-	OCIManifestDigesterProcessorType = "OciManifestDigester"
 )
 
 // NewProcessorFactory creates a new processor factory
@@ -48,10 +42,6 @@ func (f *ProcessorFactory) Create(processorType string, spec *json.RawMessage) (
 		return f.createResourceLabeler(spec)
 	case OCIArtifactFilterProcessorType:
 		return f.createOCIArtifactFilter(spec)
-	case BlobDigesterProcessorType:
-		return NewBlobDigester(), nil
-	case OCIManifestDigesterProcessorType:
-		return NewOCIManifestDigester(), nil
 	case extensions.ExecutableType:
 		return extensions.CreateExecutable(spec)
 	default:

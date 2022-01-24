@@ -13,7 +13,6 @@ import (
 	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	"github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -83,9 +82,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.TargetRepository, "to", "", "target repository where the components are copied to")
 	fs.StringVar(&o.TransportCfgPath, "transport-cfg", "", "path to the transport config file")
 	fs.StringVar(&o.RepoCtxOverrideCfgPath, "repo-ctx-override-cfg", "", "path to the repository context override config file")
-	fs.BoolVar(&o.GenerateSignature, "sign", false, "sign the uploaded component descriptors")
-	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the generated signature")
-	fs.StringVar(&o.PrivateKeyPath, "private-key", "", "path to the private key file used for signing")
 	fs.BoolVar(&o.DryRun, "dry-run", false, "only download component descriptors and perform matching of resources against transport config file. no component descriptors are uploaded, no resources are down/uploaded")
 	fs.DurationVar(&o.ProcessorTimeout, "processor-timeout", 30*time.Second, "execution timeout for each individual processor")
 	o.OCIOptions.AddFlags(fs)
@@ -231,49 +227,6 @@ func (o *Options) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) e
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%d errors occurred during resource processing", len(errs))
-	}
-
-	if o.GenerateSignature {
-		signer, err := signatures.CreateRsaSignerFromKeyFile(o.PrivateKeyPath)
-		if err != nil {
-			return fmt.Errorf("unable to create signer: %w", err)
-		}
-
-		hasher, err := signatures.HasherForName("SHA256")
-		if err != nil {
-			return fmt.Errorf("unable to create hasher: %w", err)
-		}
-
-		crr := func(ctx context.Context, cd cdv2.ComponentDescriptor, ref cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
-			key := fmt.Sprintf("%s:%s", ref.Name, ref.Version)
-			cd2, ok := cdLookup[key]
-			if !ok {
-				return nil, fmt.Errorf("unable to find component descriptor in map: %w", err)
-			}
-
-			signature, err := signatures.SelectSignatureByName(cd2, o.SignatureName)
-			if err != nil {
-				return nil, fmt.Errorf("unable to get signature: %w", err)
-			}
-
-			return &signature.Digest, nil
-		}
-
-		// iterate backwards -> start with "leave" component descriptors w/o dependencies
-		for i := len(cds) - 1; i >= 0; i-- {
-			cd := cds[i]
-			componentLog := log.WithValues("component-name", cd.Name, "component-version", cd.Version)
-
-			if err := signatures.AddDigestsToComponentDescriptor(ctx, cd, crr, nil); err != nil {
-				componentLog.Error(err, "unable to add digests to component descriptor")
-				return err
-			}
-
-			if err := signatures.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
-				componentLog.Error(err, "unable to sign component descriptor")
-				return err
-			}
-		}
 	}
 
 	for _, cd := range cdLookup {

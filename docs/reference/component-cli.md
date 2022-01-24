@@ -21,5 +21,6 @@ component cli
 * [component-cli ctf](component-cli_ctf.md)	 - 
 * [component-cli image-vector](component-cli_image-vector.md)	 - command to add resource from a image vector and retrieve from a component descriptor
 * [component-cli oci](component-cli_oci.md)	 - 
+* [component-cli transport](component-cli_transport.md)	 - 
 * [component-cli version](component-cli_version.md)	 - displays the version
 
