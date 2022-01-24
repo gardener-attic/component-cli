@@ -20,9 +20,9 @@ import (
 
 // NewProcessingJobFactory creates a new processing job factory
 func NewProcessingJobFactory(transportCfg config.ParsedTransportConfig, ociClient ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository, log logr.Logger, processorTimeout time.Duration) (*ProcessingJobFactory, error) {
-	df := downloaders.NewDownloaderFactory(ociClient, ocicache)
-	pf := processors.NewProcessorFactory(ocicache)
-	uf := uploaders.NewUploaderFactory(ociClient, ocicache, targetCtx)
+	df := downloaders.NewDownloaderFactory(ociClient, ocicache, log)
+	pf := processors.NewProcessorFactory(ocicache, log)
+	uf := uploaders.NewUploaderFactory(ociClient, ocicache, targetCtx, log)
 
 	f := ProcessingJobFactory{
 		parsedConfig:      &transportCfg,

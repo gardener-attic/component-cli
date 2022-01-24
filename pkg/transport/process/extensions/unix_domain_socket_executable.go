@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	"github.com/gardener/component-cli/pkg/transport/process"
 	"github.com/gardener/component-cli/pkg/utils"
 )
@@ -26,11 +28,12 @@ type unixDomainSocketExecutable struct {
 	args []string
 	env  []string
 	addr string
+	log  logr.Logger
 }
 
 // NewUnixDomainSocketExecutable returns a resource processor extension which runs an executable in the
 // background when calling Process(). It communicates with this processor via Unix Domain Sockets.
-func NewUnixDomainSocketExecutable(bin string, args []string, env map[string]string) (process.ResourceStreamProcessor, error) {
+func NewUnixDomainSocketExecutable(bin string, args []string, env map[string]string, log logr.Logger) (process.ResourceStreamProcessor, error) {
 	if _, ok := env[ProcessorServerAddressEnv]; ok {
 		return nil, fmt.Errorf("the env variable %s is not allowed to be set manually", ProcessorServerAddressEnv)
 	}
@@ -52,6 +55,7 @@ func NewUnixDomainSocketExecutable(bin string, args []string, env map[string]str
 		args: args,
 		env:  parsedEnv,
 		addr: addr,
+		log:  log,
 	}
 
 	return &e, nil
@@ -66,6 +70,16 @@ func (e *unixDomainSocketExecutable) Process(ctx context.Context, r io.Reader, w
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("unable to start processor: %w", err)
 	}
+	defer func() {
+		// remove socket file if server hasn't already cleaned up
+		if _, err := os.Stat(e.addr); err == nil {
+			if err := os.Remove(e.addr); err != nil {
+				e.log.Error(err, "unable to remove "+e.addr)
+			}
+		} else if !os.IsNotExist(err) {
+			e.log.Error(err, "unable to get file stats for "+e.addr)
+		}
+	}()
 
 	conn, err := tryConnect(e.addr)
 	if err != nil {
@@ -92,15 +106,6 @@ func (e *unixDomainSocketExecutable) Process(ctx context.Context, r io.Reader, w
 	// extension servers must implement ordinary shutdown (!)
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("unable to wait for processor: %w", err)
-	}
-
-	// remove socket file if server hasn't already cleaned up
-	if _, err := os.Stat(e.addr); err == nil {
-		if err := os.Remove(e.addr); err != nil {
-			return fmt.Errorf("unable to remove %s: %w", e.addr, err)
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("unable to get file stats for %s: %w", e.addr, err)
 	}
 
 	return nil

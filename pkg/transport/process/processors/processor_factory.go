@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -24,15 +25,17 @@ const (
 )
 
 // NewProcessorFactory creates a new processor factory
-func NewProcessorFactory(ociCache cache.Cache) *ProcessorFactory {
+func NewProcessorFactory(ociCache cache.Cache, log logr.Logger) *ProcessorFactory {
 	return &ProcessorFactory{
 		cache: ociCache,
+		log:   log,
 	}
 }
 
 // ProcessorFactory defines a helper struct for creating processors
 type ProcessorFactory struct {
 	cache cache.Cache
+	log   logr.Logger
 }
 
 // Create creates a new processor defined by a type and a spec
@@ -43,7 +46,7 @@ func (f *ProcessorFactory) Create(processorType string, spec *json.RawMessage) (
 	case OCIArtifactFilterProcessorType:
 		return f.createOCIArtifactFilter(spec)
 	case extensions.ExecutableType:
-		return extensions.CreateExecutable(spec)
+		return extensions.CreateExecutable(spec, f.log)
 	default:
 		return nil, fmt.Errorf("unknown processor type %s", processorType)
 	}
@@ -55,8 +58,7 @@ func (f *ProcessorFactory) createResourceLabeler(rawSpec *json.RawMessage) (proc
 	}
 
 	var spec processorSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
@@ -69,8 +71,7 @@ func (f *ProcessorFactory) createOCIArtifactFilter(rawSpec *json.RawMessage) (pr
 	}
 
 	var spec processorSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 

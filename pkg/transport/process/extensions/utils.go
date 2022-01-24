@@ -9,6 +9,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/go-logr/logr"
+
 	"github.com/gardener/component-cli/pkg/transport/process"
 )
 
@@ -18,7 +20,7 @@ const (
 )
 
 // CreateExecutable creates a new executable defined by a spec
-func CreateExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor, error) {
+func CreateExecutable(rawSpec *json.RawMessage, log logr.Logger) (process.ResourceStreamProcessor, error) {
 	type executableSpec struct {
 		Bin  string
 		Args []string
@@ -30,5 +32,5 @@ func CreateExecutable(rawSpec *json.RawMessage) (process.ResourceStreamProcessor
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
-	return NewUnixDomainSocketExecutable(spec.Bin, spec.Args, spec.Env)
+	return NewUnixDomainSocketExecutable(spec.Bin, spec.Args, spec.Env, log)
 }
