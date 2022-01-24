@@ -30,7 +30,7 @@ func main() {
 	cmd := app.NewComponentsCliCommand(context.TODO())
 	cmd.DisableAutoGenTag = true
 	check(doc.GenMarkdownTree(cmd, outputDir))
-	fmt.Printf("Successfully written docs to %s", outputDir)
+	fmt.Printf("Successfully written docs to %s\n", outputDir)
 }
 
 func printHelp() {

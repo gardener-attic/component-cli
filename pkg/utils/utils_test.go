@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/utils"
 )
 
@@ -79,6 +80,43 @@ var _ = Describe("utils", func() {
 		It("should return error if outArchive is nil", func() {
 			inputReader := bytes.NewReader([]byte{})
 			Expect(utils.WriteFileToTARArchive("testfile", inputReader, nil)).To(MatchError("outputWriter must not be nil"))
+		})
+
+	})
+
+	Context("FilterTARArchive", func() {
+
+		It("should filter archive", func() {
+			removePatterns := []string{
+				"second/*",
+			}
+
+			inputFiles := map[string][]byte{
+				"first/testfile":    []byte("some-content"),
+				"second/testfile":   []byte("more-content"),
+				"second/testfile-2": []byte("other-content"),
+			}
+
+			expectedFiles := map[string][]byte{
+				"first/testfile": []byte("some-content"),
+			}
+
+			archive := testutils.CreateTARArchive(inputFiles)
+
+			outBuf := bytes.NewBuffer([]byte{})
+			Expect(utils.FilterTARArchive(archive, outBuf, removePatterns)).To(Succeed())
+
+			testutils.CheckTARArchive(outBuf, expectedFiles)
+		})
+
+		It("should return error if inputReader is nil", func() {
+			outWriter := bytes.NewBuffer([]byte{})
+			Expect(utils.FilterTARArchive(nil, outWriter, []string{})).To(MatchError("inputReader must not be nil"))
+		})
+
+		It("should return error if outputWriter is nil", func() {
+			inputReader := bytes.NewReader([]byte{})
+			Expect(utils.FilterTARArchive(inputReader, nil, []string{})).To(MatchError("outputWriter must not be nil"))
 		})
 
 	})

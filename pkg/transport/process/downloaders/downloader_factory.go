@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/pkg/transport/process"
@@ -26,10 +28,11 @@ const (
 // - Add Go file to downloader package which contains the source code of the new downloader
 // - Add string constant for new downloader type -> will be used in DownloaderFactory.Create()
 // - Add source code for creating new downloader to DownloaderFactory.Create() method
-func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *DownloaderFactory {
+func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache, log logr.Logger) *DownloaderFactory {
 	return &DownloaderFactory{
 		client: client,
 		cache:  ocicache,
+		log:    log,
 	}
 }
 
@@ -37,6 +40,7 @@ func NewDownloaderFactory(client ociclient.Client, ocicache cache.Cache) *Downlo
 type DownloaderFactory struct {
 	client ociclient.Client
 	cache  cache.Cache
+	log    logr.Logger
 }
 
 // Create creates a new downloader defined by a type and a spec
@@ -47,7 +51,7 @@ func (f *DownloaderFactory) Create(downloaderType string, spec *json.RawMessage)
 	case OCIArtifactDownloaderType:
 		return NewOCIArtifactDownloader(f.client, f.cache)
 	case extensions.ExecutableType:
-		return extensions.CreateExecutable(spec)
+		return extensions.CreateExecutable(spec, f.log)
 	default:
 		return nil, fmt.Errorf("unknown downloader type %s", downloaderType)
 	}

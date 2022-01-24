@@ -15,6 +15,7 @@ import (
 	"time"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -76,14 +77,14 @@ var _ = Describe("transport extensions", func() {
 	Context("unix domain socket executable", func() {
 		It("should create processor successfully if env is nil", func() {
 			args := []string{}
-			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, nil)
+			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, nil, logr.Discard())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should modify the processed resource correctly", func() {
 			args := []string{}
 			env := map[string]string{}
-			processor, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env)
+			processor, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env, logr.Discard())
 			Expect(err).ToNot(HaveOccurred())
 
 			runExampleResourceTest(processor)
@@ -94,7 +95,7 @@ var _ = Describe("transport extensions", func() {
 			env := map[string]string{
 				extensions.ProcessorServerAddressEnv: "/tmp/my-processor.sock",
 			}
-			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env)
+			_, err := extensions.NewUnixDomainSocketExecutable(exampleProcessorBinaryPath, args, env, logr.Discard())
 			Expect(err).To(MatchError(fmt.Sprintf("the env variable %s is not allowed to be set manually", extensions.ProcessorServerAddressEnv)))
 		})
 
@@ -103,7 +104,7 @@ var _ = Describe("transport extensions", func() {
 			env := map[string]string{
 				sleepTimeEnv: sleepTime.String(),
 			}
-			processor, err := extensions.NewUnixDomainSocketExecutable(sleepProcessorBinaryPath, args, env)
+			processor, err := extensions.NewUnixDomainSocketExecutable(sleepProcessorBinaryPath, args, env, logr.Discard())
 			Expect(err).ToNot(HaveOccurred())
 
 			runTimeoutTest(processor)

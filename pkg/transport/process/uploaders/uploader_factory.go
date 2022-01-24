@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/component-cli/ociclient"
@@ -29,11 +30,12 @@ const (
 // - Add Go file to uploaders package which contains the source code of the new uploader
 // - Add string constant for new uploader type -> will be used in UploaderFactory.Create()
 // - Add source code for creating new uploader to UploaderFactory.Create() method
-func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository) *UploaderFactory {
+func NewUploaderFactory(client ociclient.Client, ocicache cache.Cache, targetCtx cdv2.OCIRegistryRepository, log logr.Logger) *UploaderFactory {
 	return &UploaderFactory{
 		client:    client,
 		cache:     ocicache,
 		targetCtx: targetCtx,
+		log:       log,
 	}
 }
 
@@ -42,6 +44,7 @@ type UploaderFactory struct {
 	client    ociclient.Client
 	cache     cache.Cache
 	targetCtx cdv2.OCIRegistryRepository
+	log       logr.Logger
 }
 
 // Create creates a new uploader defined by a type and a spec
@@ -52,7 +55,7 @@ func (f *UploaderFactory) Create(uploaderType string, spec *json.RawMessage) (pr
 	case OCIArtifactUploaderType:
 		return f.createOCIArtifactUploader(spec)
 	case extensions.ExecutableType:
-		return extensions.CreateExecutable(spec)
+		return extensions.CreateExecutable(spec, f.log)
 	default:
 		return nil, fmt.Errorf("unknown uploader type %s", uploaderType)
 	}
@@ -65,8 +68,7 @@ func (f *UploaderFactory) createOCIArtifactUploader(rawSpec *json.RawMessage) (p
 	}
 
 	var spec uploaderSpec
-	err := yaml.Unmarshal(*rawSpec, &spec)
-	if err != nil {
+	if err := yaml.Unmarshal(*rawSpec, &spec); err != nil {
 		return nil, fmt.Errorf("unable to parse spec: %w", err)
 	}
 
