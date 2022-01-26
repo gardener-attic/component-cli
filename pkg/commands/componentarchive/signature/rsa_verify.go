@@ -2,7 +2,6 @@ package signature
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
-	"gopkg.in/yaml.v2"
 
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -19,9 +17,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/gardener/component-cli/ociclient"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/signatures"
 )
 
 type VerifyOptions struct {
@@ -90,21 +90,22 @@ func (o *VerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSys
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
+	// check if digest is signed by author with public key
 	verifier, err := cdv2Sign.CreateRsaVerifierFromKeyFile(o.PathToPublicKey)
 	if err != nil {
 		return fmt.Errorf("failed creating rsa verifier: %w", err)
 	}
-
-	// check if digest is signed by author with public key
 	if err = cdv2Sign.VerifySignedComponentDescriptor(cd, verifier, o.SignatureName); err != nil {
 		return fmt.Errorf("signature invalid for digest: %w", err)
 	}
 
-	// check if digest matches the component-descriptor
+	// check resources and componentReferences
 	err = checkCd(cd, repoCtx, ociClient, context.TODO())
 	if err != nil {
 		return fmt.Errorf("failed checking cd: %w", err)
 	}
+
+	// check if digest matches the normalised component-descriptor
 	hasher, err := cdv2Sign.HasherForName("sha256")
 	if err != nil {
 		return fmt.Errorf("failed creating hasher: %w", err)
@@ -124,11 +125,10 @@ func (o *VerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSys
 	}
 
 	log.Info(fmt.Sprintf("Signature %s is valid and digest of normalised cd matches calculated digest", o.SignatureName))
-
 	return nil
 }
 
-func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient cdoci.Client, ctx context.Context) error {
+func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context) error {
 	for _, reference := range cd.ComponentReferences {
 		ociRef, err := cdoci.OCIRef(repoContext, reference.Name, reference.Version)
 		if err != nil {
@@ -141,63 +141,50 @@ func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepositor
 			return fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
 
-		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx)
-		if err != nil {
-			return fmt.Errorf("unable to resolve component reference to %s:%s: %w", reference.ComponentName, reference.Version, err)
-		}
 		if reference.Digest == nil || reference.Digest.HashAlgorithm == "" || reference.Digest.NormalisationAlgorithm == "" || reference.Digest.Value == "" {
 			return fmt.Errorf("component reference is missing digest %s:%s", reference.ComponentName, reference.Version)
-		} else {
-			if reference.Digest.HashAlgorithm != digest.HashAlgorithm || reference.Digest.NormalisationAlgorithm != digest.NormalisationAlgorithm || reference.Digest.Value != digest.Value {
-				return fmt.Errorf("component reference digest is different to stored one %s:%s", reference.ComponentName, reference.Version)
-			}
 		}
+
+		hasherForCdReference, err := cdv2Sign.HasherForName(reference.Digest.HashAlgorithm)
+		if err != nil {
+			return fmt.Errorf("failed creating hasher for algorithm %s for referenceCd %s %s: %w", reference.Digest.HashAlgorithm, reference.Name, reference.Version, err)
+		}
+
+		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx, hasherForCdReference)
+		if err != nil {
+			return fmt.Errorf("checking of component reference %s:%s failed: %w", reference.ComponentName, reference.Version, err)
+		}
+
+		if reference.Digest.HashAlgorithm != digest.HashAlgorithm || reference.Digest.NormalisationAlgorithm != digest.NormalisationAlgorithm || reference.Digest.Value != digest.Value {
+			return fmt.Errorf("component reference digest for  %s:%s is different to stored one", reference.ComponentName, reference.Version)
+		}
+
 	}
 	for _, resource := range cd.Resources {
-		switch resource.Access.Type {
-		case cdv2.OCIRegistryType:
-			hasher, err := cdv2Sign.HasherForName("sha256")
-			if err != nil {
-				return fmt.Errorf("failed creating hasher: %w", err)
-			}
-			ociRegistryAccess := cdv2.OCIRegistryAccess{}
-			resource.Access.DecodeInto(&ociRegistryAccess)
-			//TODO: make stable, use oci digest for tag
-			manifest, err := ociClient.GetManifest(ctx, ociRegistryAccess.ImageReference)
-			if err != nil {
-				return fmt.Errorf("failed resolving manifest: %w", err)
-			}
-			manifestBytes, err := yaml.Marshal(manifest)
-			if err != nil {
-				return fmt.Errorf("failed converting manifest back to yaml bytes: %w", err)
-			}
-
-			hasher.HashFunction.Reset()
-			if _, err = hasher.HashFunction.Write(manifestBytes); err != nil {
-				return fmt.Errorf("failed hashing yaml, %w", err)
-
-			}
-			digest := &cdv2.DigestSpec{
-				HashAlgorithm:          hasher.AlgorithmName,
-				NormalisationAlgorithm: string(cdv2.ManifestDigestV1),
-				Value:                  hex.EncodeToString((hasher.HashFunction.Sum(nil))),
-			}
-			if resource.Digest == nil || resource.Digest.HashAlgorithm == "" || resource.Digest.NormalisationAlgorithm == "" || resource.Digest.Value == "" {
-				return fmt.Errorf("resource is missing digest %s:%s", resource.Name, resource.Version)
-			} else {
-				if resource.Digest.HashAlgorithm != digest.HashAlgorithm || resource.Digest.NormalisationAlgorithm != digest.NormalisationAlgorithm || resource.Digest.Value != digest.Value {
-					return fmt.Errorf("resource digest is different to stored one %s:%s", resource.Name, resource.Version)
-				}
-			}
-
-		default:
-			return fmt.Errorf("access type %s not supported", resource.Access.Type)
+		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" || resource.Digest.NormalisationAlgorithm == "" || resource.Digest.Value == "" {
+			return fmt.Errorf("resource is missing digest %s:%s", resource.Name, resource.Version)
 		}
+
+		hasher, err := cdv2Sign.HasherForName(resource.Digest.HashAlgorithm)
+		if err != nil {
+			return fmt.Errorf("failed creating hasher for algorithm %s for resource %s %s: %w", resource.Digest.HashAlgorithm, resource.Name, resource.Version, err)
+		}
+		digester := signatures.NewDigester(ociClient, *hasher)
+
+		digest, err := digester.DigestForResource(ctx, *cd, resource)
+		if err != nil {
+			return fmt.Errorf("failed creating digest for resource %s: %w", resource.Name, err)
+		}
+
+		if resource.Digest.HashAlgorithm != digest.HashAlgorithm || resource.Digest.NormalisationAlgorithm != digest.NormalisationAlgorithm || resource.Digest.Value != digest.Value {
+			return fmt.Errorf("resource digest is different to stored one %s:%s", resource.Name, resource.Version)
+		}
+
 	}
 	return nil
 }
 
-func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient cdoci.Client, ctx context.Context) (*cdv2.DigestSpec, error) {
+func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, hasherForCd *cdv2Sign.Hasher) (*cdv2.DigestSpec, error) {
 	for referenceIndex, reference := range cd.ComponentReferences {
 		ociRef, err := cdoci.OCIRef(repoContext, reference.Name, reference.Version)
 		if err != nil {
@@ -210,7 +197,22 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
 
-		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx)
+		var hasher *cdv2Sign.Hasher
+		//default to sha256 as default
+		if reference.Digest == nil || reference.Digest.HashAlgorithm == "" {
+			var err error
+			hasher, err = cdv2Sign.HasherForName("sha256")
+			if err != nil {
+				return nil, fmt.Errorf("failed creating hasher: %w", err)
+			}
+		} else {
+			var err error
+			hasher, err = cdv2Sign.HasherForName(reference.Digest.HashAlgorithm)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating hasher for algorithm %s for referenceCd %s %s: %w", reference.Digest.HashAlgorithm, reference.Name, reference.Version, err)
+			}
+		}
+		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx, hasher)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve component reference to %s:%s: %w", reference.ComponentName, reference.Version, err)
 		}
@@ -218,46 +220,33 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 		cd.ComponentReferences[referenceIndex] = reference
 	}
 	for resourceIndex, resource := range cd.Resources {
-		switch resource.Access.Type {
-		case cdv2.OCIRegistryType:
-			hasher, err := cdv2Sign.HasherForName("sha256")
+		var hasher *cdv2Sign.Hasher
+		//default to sha256 as default
+		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" {
+			var err error
+			hasher, err = cdv2Sign.HasherForName("sha256")
 			if err != nil {
 				return nil, fmt.Errorf("failed creating hasher: %w", err)
 			}
-			ociRegistryAccess := cdv2.OCIRegistryAccess{}
-			resource.Access.DecodeInto(&ociRegistryAccess)
-			//TODO: make stable, use oci digest for tag
-			manifest, err := ociClient.GetManifest(ctx, ociRegistryAccess.ImageReference)
+		} else {
+			var err error
+			hasher, err = cdv2Sign.HasherForName(resource.Digest.HashAlgorithm)
 			if err != nil {
-				return nil, fmt.Errorf("failed resolving manifest: %w", err)
+				return nil, fmt.Errorf("failed creating hasher for algorithm %s for resource %s %s: %w", resource.Digest.HashAlgorithm, resource.Name, resource.Version, err)
 			}
-			manifestBytes, err := yaml.Marshal(manifest)
-			if err != nil {
-				return nil, fmt.Errorf("failed converting manifest back to yaml bytes: %w", err)
-			}
-
-			hasher.HashFunction.Reset()
-			if _, err = hasher.HashFunction.Write(manifestBytes); err != nil {
-				return nil, fmt.Errorf("failed hashing yaml, %w", err)
-
-			}
-			digest := &cdv2.DigestSpec{
-				HashAlgorithm:          hasher.AlgorithmName,
-				NormalisationAlgorithm: string(cdv2.ManifestDigestV1),
-				Value:                  hex.EncodeToString((hasher.HashFunction.Sum(nil))),
-			}
-			resource.Digest = digest
-			cd.Resources[resourceIndex] = resource
-
-		default:
-			return nil, fmt.Errorf("access type %s not supported", resource.Access.Type)
 		}
+		digester := signatures.NewDigester(ociClient, *hasher)
+
+		digest, err := digester.DigestForResource(ctx, *cd, resource)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating digest for resource %s: %w", resource.Name, err)
+		}
+
+		resource.Digest = digest
+		cd.Resources[resourceIndex] = resource
 	}
-	hasher, err := cdv2Sign.HasherForName("sha256")
-	if err != nil {
-		return nil, fmt.Errorf("failed creating hasher: %w", err)
-	}
-	hashCd, err := cdv2Sign.HashForComponentDescriptor(*cd, *hasher)
+
+	hashCd, err := cdv2Sign.HashForComponentDescriptor(*cd, *hasherForCd)
 	if err != nil {
 		return nil, fmt.Errorf("failed hashing cd %s:%s: %w", cd.Name, cd.Version, err)
 	}
