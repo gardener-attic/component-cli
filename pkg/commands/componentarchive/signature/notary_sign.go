@@ -93,7 +93,7 @@ func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
-	err = recursivelyResolveCdsToAddDigests(cd, repoCtx, ociClient, context.TODO())
+	err = recursivelyAddDigestsToCd(cd, repoCtx, ociClient, context.TODO())
 	if err != nil {
 		return fmt.Errorf("failed adding adding digests to cd: %w", err)
 	}

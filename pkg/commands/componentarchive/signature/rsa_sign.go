@@ -5,12 +5,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
+	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/opencontainers/go-digest"
 	"gopkg.in/yaml.v2"
 
 	"github.com/go-logr/logr"
@@ -19,9 +25,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/gardener/component-cli/ociclient"
+	ociCache "github.com/gardener/component-cli/ociclient/cache"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
-	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-cli/pkg/logger"
 )
@@ -74,6 +81,84 @@ fetches the component-descriptor and sign it.
 	return cmd
 }
 
+func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolver ctf.BlobResolver, log logr.Logger) error {
+	manifest, err := cdoci.NewManifestBuilder(cache, ctf.NewComponentArchive(&cd, nil)).Build(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
+	}
+	if err := cdv2.InjectRepositoryContext(&cd, &targetRepository); err != nil {
+		return fmt.Errorf("unble to inject target repository: %w", err)
+	}
+
+	// add all localOciBlobs to the layers
+	var layers []ocispecv1.Descriptor
+	blobToResource := map[string]*cdv2.Resource{}
+
+	for _, res := range cd.Resources {
+		if res.Access.Type == cdv2.LocalOCIBlobType {
+			localBlob := &cdv2.LocalOCIBlobAccess{}
+			if err := res.Access.DecodeInto(localBlob); err != nil {
+				return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
+			}
+			blobInfo, err := blobResolver.Info(ctx, res)
+			if err != nil {
+				return fmt.Errorf("unable to get blob info for resource %s: %w", res.Name, err)
+			}
+			d, err := digest.Parse(blobInfo.Digest)
+			if err != nil {
+				return fmt.Errorf("unable to parse digest for resource %s: %w", res.Name, err)
+			}
+			layers = append(layers, ocispecv1.Descriptor{
+				MediaType: blobInfo.MediaType,
+				Digest:    d,
+				Size:      blobInfo.Size,
+				Annotations: map[string]string{
+					"resource": res.Name,
+				},
+			})
+			blobToResource[blobInfo.Digest] = res.DeepCopy()
+
+		}
+	}
+	manifest.Layers = append(manifest.Layers, layers...)
+
+	ref, err := components.OCIRef(&targetRepository, cd.Name, cd.Version)
+	if err != nil {
+		return fmt.Errorf("invalid component reference: %w", err)
+	}
+
+	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+		log := log.WithValues("digest", desc.Digest.String(), "mediaType", desc.MediaType)
+		res, ok := blobToResource[desc.Digest.String()]
+		if !ok {
+			// default to cache
+			log.V(5).Info("copying resource from cache")
+			rc, err := cache.Get(desc)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := rc.Close(); err != nil {
+					log.Error(err, "unable to close blob reader")
+				}
+			}()
+			if _, err := io.Copy(writer, rc); err != nil {
+				return err
+			}
+			return nil
+		}
+		log.V(5).Info("copying resource", "resource", res.Name)
+		_, err := blobResolver.Resolve(ctx, *res, writer)
+		return err
+	})
+	log.V(3).Info("Upload component.", "ref", ref)
+	if err := ociClient.PushManifest(ctx, ref, manifest, ociclient.WithStore(store)); err != nil {
+		return fmt.Errorf("failed pushing manifest: %w", err)
+	}
+	return nil
+
+}
+
 func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	repoCtx := cdv2.OCIRegistryRepository{
 		ObjectType: cdv2.ObjectType{
@@ -89,14 +174,13 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	}
 
 	cdresolver := cdoci.NewResolver(ociClient)
-	cd, err := cdresolver.Resolve(ctx, &repoCtx, o.ComponentName, o.Version)
+	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, &repoCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
-	err = recursivelyResolveCdsToAddDigests(cd, repoCtx, ociClient, context.TODO())
-	if err != nil {
-		return fmt.Errorf("failed adding adding digests to cd: %w", err)
+	if err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, context.TODO()); err != nil {
+		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
 	signer, err := cdv2Sign.CreateRsaSignerFromKeyFile(o.PathToPrivateKey)
 	if err != nil {
@@ -107,45 +191,20 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("failed creating hasher: %w", err)
 	}
 
-	if err = cdv2Sign.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
-		return fmt.Errorf("failed signing component-descriptor: %w", err)
+	if err := cdv2Sign.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
+		return fmt.Errorf("failed signing component descriptor: %w", err)
 	}
 	logger.Log.Info("CD Signed - Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version)
+	targetRepoCtx := cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, "")
 
-	builderOptions := componentarchive.BuilderOptions{
-		BaseUrl:   o.UploadBaseUrlForSigned,
-		Name:      o.ComponentName,
-		Version:   o.Version,
-		Overwrite: true,
+	if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
+		return fmt.Errorf("failed uploading cd: %w", err)
 	}
-	archive, err := builderOptions.Build(fs)
-	if err != nil {
-		return fmt.Errorf("unable to build component archive: %w", err)
-	}
-	archive.ComponentDescriptor = cd
-	// update repository context
-	if len(o.BaseUrl) != 0 {
-		if err := cdv2.InjectRepositoryContext(archive.ComponentDescriptor, cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, "")); err != nil {
-			return fmt.Errorf("unable to add repository context to component descriptor: %w", err)
-		}
-	}
-	manifest, err := cdoci.NewManifestBuilder(cache, archive).Build(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
-	}
-	ref, err := components.OCIRef(archive.ComponentDescriptor.GetEffectiveRepositoryContext(), archive.ComponentDescriptor.Name, archive.ComponentDescriptor.Version)
-	if err != nil {
-		return fmt.Errorf("invalid component reference: %w", err)
-	}
-	if err := ociClient.PushManifest(ctx, ref, manifest); err != nil {
-		return err
-	}
-	log.Info(fmt.Sprintf("Successfully uploaded component descriptor at %q", ref))
 
 	return nil
 }
 
-func recursivelyResolveCdsToAddDigests(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient cdoci.Client, ctx context.Context) error {
+func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient cdoci.Client, ctx context.Context) error {
 	cdResolver := func(c context.Context, cd cdv2.ComponentDescriptor, cr cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
 		ociRef, err := cdoci.OCIRef(repoContext, cr.Name, cr.Version)
 		if err != nil {
@@ -157,7 +216,7 @@ func recursivelyResolveCdsToAddDigests(cd *cdv2.ComponentDescriptor, repoContext
 		if err != nil {
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
-		err = recursivelyResolveCdsToAddDigests(childCd, repoContext, ociClient, ctx)
+		err = recursivelyAddDigestsToCd(childCd, repoContext, ociClient, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed resolving referenced cd %s:%s: %w", cr.Name, cr.Version, err)
 		}
