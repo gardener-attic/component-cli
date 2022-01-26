@@ -2,7 +2,6 @@ package signature
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/opencontainers/go-digest"
-	"gopkg.in/yaml.v2"
 
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -31,6 +29,7 @@ import (
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/signatures"
 )
 
 type SignOptions struct {
@@ -194,7 +193,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	if err := cdv2Sign.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
 		return fmt.Errorf("failed signing component descriptor: %w", err)
 	}
-	logger.Log.Info("CD Signed - Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version)
+	logger.Log.Info(fmt.Sprintf("CD Signed - Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version))
 	targetRepoCtx := cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, "")
 
 	if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
@@ -204,7 +203,13 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	return nil
 }
 
-func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient cdoci.Client, ctx context.Context) error {
+func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context) error {
+	hasher, err := cdv2Sign.HasherForName("sha256")
+	if err != nil {
+		return fmt.Errorf("failed creating hasher: %w", err)
+	}
+	digester := signatures.NewDigester(ociClient, *hasher)
+
 	cdResolver := func(c context.Context, cd cdv2.ComponentDescriptor, cr cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
 		ociRef, err := cdoci.OCIRef(repoContext, cr.Name, cr.Version)
 		if err != nil {
@@ -216,8 +221,7 @@ func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 		if err != nil {
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
-		err = recursivelyAddDigestsToCd(childCd, repoContext, ociClient, ctx)
-		if err != nil {
+		if err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, ctx); err != nil {
 			return nil, fmt.Errorf("failed resolving referenced cd %s:%s: %w", cr.Name, cr.Version, err)
 		}
 		hasher, err := cdv2Sign.HasherForName("sha256")
@@ -229,44 +233,9 @@ func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 			return nil, fmt.Errorf("failed hashing referenced cd %s:%s: %w", cr.Name, cr.Version, err)
 		}
 		return hashCd, nil
-
 	}
-	resResolver := func(c context.Context, cd cdv2.ComponentDescriptor, cr cdv2.Resource) (*cdv2.DigestSpec, error) {
-		switch cr.Access.Type {
-		case cdv2.OCIRegistryType:
-			hasher, err := cdv2Sign.HasherForName("sha256")
-			if err != nil {
-				return nil, fmt.Errorf("failed creating hasher: %w", err)
-			}
-			ociRegistryAccess := cdv2.OCIRegistryAccess{}
-			cr.Access.DecodeInto(&ociRegistryAccess)
-			//TODO: make stable, use oci digest for tag
-			manifest, err := ociClient.GetManifest(ctx, ociRegistryAccess.ImageReference)
-			if err != nil {
-				return nil, fmt.Errorf("failed resolving manifest: %w", err)
-			}
-			manifestBytes, err := yaml.Marshal(manifest)
-			if err != nil {
-				return nil, fmt.Errorf("failed converting manifest back to yaml bytes: %w", err)
-			}
 
-			hasher.HashFunction.Reset()
-			if _, err = hasher.HashFunction.Write(manifestBytes); err != nil {
-				return nil, fmt.Errorf("failed hashing yaml, %w", err)
-
-			}
-			return &cdv2.DigestSpec{
-				HashAlgorithm:          hasher.AlgorithmName,
-				NormalisationAlgorithm: string(cdv2.ManifestDigestV1),
-				Value:                  hex.EncodeToString((hasher.HashFunction.Sum(nil))),
-			}, nil
-		default:
-			return nil, fmt.Errorf("access type %s not supported", cr.Access.Type)
-		}
-
-	}
-	err := cdv2Sign.AddDigestsToComponentDescriptor(context.TODO(), cd, cdResolver, resResolver)
-	if err != nil {
+	if err := cdv2Sign.AddDigestsToComponentDescriptor(context.TODO(), cd, cdResolver, digester.DigestForResource); err != nil {
 		return fmt.Errorf("failed adding digests to cd %s:%s: %w", cd.Name, cd.Version, err)
 	}
 	return nil
