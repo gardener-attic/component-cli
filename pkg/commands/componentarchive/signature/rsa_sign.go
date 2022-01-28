@@ -48,6 +48,9 @@ type SignOptions struct {
 
 	UploadBaseUrlForSigned string
 
+	//RecursiveSigning to sign and upload all referenced components
+	RecursiveSigning bool
+
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
 }
@@ -178,9 +181,11 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
-	if err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, context.TODO()); err != nil {
+	signedCds, err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, context.TODO())
+	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
+
 	signer, err := cdv2Sign.CreateRsaSignerFromKeyFile(o.PathToPrivateKey)
 	if err != nil {
 		return fmt.Errorf("failed creating rsa signer: %w", err)
@@ -190,23 +195,34 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("failed creating hasher: %w", err)
 	}
 
-	if err := cdv2Sign.SignComponentDescriptor(cd, signer, *hasher, o.SignatureName); err != nil {
-		return fmt.Errorf("failed signing component descriptor: %w", err)
-	}
-	logger.Log.Info(fmt.Sprintf("CD Signed - Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version))
 	targetRepoCtx := cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, "")
 
-	if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
-		return fmt.Errorf("failed uploading cd: %w", err)
+	if o.RecursiveSigning {
+		for _, signedCd := range signedCds {
+			if err := cdv2Sign.SignComponentDescriptor(signedCd, signer, *hasher, o.SignatureName); err != nil {
+				return fmt.Errorf("failed signing component descriptor: %w", err)
+			}
+			logger.Log.Info(fmt.Sprintf("CD Signed - Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version))
+
+			if err := UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
+				return fmt.Errorf("failed uploading cd: %w", err)
+			}
+		}
+	} else {
+		if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
+			return fmt.Errorf("failed uploading cd: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context) error {
+func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context) ([]*cdv2.ComponentDescriptor, error) {
+	cdsWithHashes := []*cdv2.ComponentDescriptor{}
+
 	hasher, err := cdv2Sign.HasherForName("sha256")
 	if err != nil {
-		return fmt.Errorf("failed creating hasher: %w", err)
+		return nil, fmt.Errorf("failed creating hasher: %w", err)
 	}
 	digester := signatures.NewDigester(ociClient, *hasher)
 
@@ -221,9 +237,12 @@ func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 		if err != nil {
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
-		if err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, ctx); err != nil {
+		cds, err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, ctx)
+		if err != nil {
 			return nil, fmt.Errorf("failed resolving referenced cd %s:%s: %w", cr.Name, cr.Version, err)
 		}
+		cdsWithHashes = append(cdsWithHashes, cds...)
+
 		hasher, err := cdv2Sign.HasherForName("sha256")
 		if err != nil {
 			return nil, fmt.Errorf("failed creating hasher: %w", err)
@@ -236,9 +255,10 @@ func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 	}
 
 	if err := cdv2Sign.AddDigestsToComponentDescriptor(context.TODO(), cd, cdResolver, digester.DigestForResource); err != nil {
-		return fmt.Errorf("failed adding digests to cd %s:%s: %w", cd.Name, cd.Version, err)
+		return nil, fmt.Errorf("failed adding digests to cd %s:%s: %w", cd.Name, cd.Version, err)
 	}
-	return nil
+	cdsWithHashes = append(cdsWithHashes, cd)
+	return cdsWithHashes, nil
 }
 
 func (o *SignOptions) Complete(args []string) error {
@@ -284,5 +304,6 @@ func (o *SignOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
 	fs.StringVar(&o.PathToPrivateKey, "keyfile", "", "path to private key file")
 	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
+	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced cds")
 	o.OciOptions.AddFlags(fs)
 }
