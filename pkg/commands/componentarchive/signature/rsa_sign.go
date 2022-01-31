@@ -51,6 +51,9 @@ type SignOptions struct {
 	//RecursiveSigning to sign and upload all referenced components
 	RecursiveSigning bool
 
+	//SkipSigning to skip signing and only add digests to cds
+	SkipSigning bool
+
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
 }
@@ -199,10 +202,14 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 
 	if o.RecursiveSigning {
 		for _, signedCd := range signedCds {
-			if err := cdv2Sign.SignComponentDescriptor(signedCd, signer, *hasher, o.SignatureName); err != nil {
-				return fmt.Errorf("failed signing component descriptor: %w", err)
+			if !o.SkipSigning {
+				if err := cdv2Sign.SignComponentDescriptor(signedCd, signer, *hasher, o.SignatureName); err != nil {
+					return fmt.Errorf("failed signing component descriptor: %w", err)
+				}
+				logger.Log.Info(fmt.Sprintf("CD Signed %s %s", o.ComponentName, o.Version))
 			}
-			logger.Log.Info(fmt.Sprintf("CD Signed - Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version))
+
+			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version))
 
 			if err := UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
@@ -305,5 +312,6 @@ func (o *SignOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.PathToPrivateKey, "keyfile", "", "path to private key file")
 	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
 	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced cds")
+	fs.BoolVar(&o.SkipSigning, "skip-signing", false, "skip the signing to only add digests")
 	o.OciOptions.AddFlags(fs)
 }
