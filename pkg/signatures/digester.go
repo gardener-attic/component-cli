@@ -3,7 +3,6 @@ package signatures
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -63,10 +62,12 @@ func (d *Digester) digestForLocalOciBlob(ctx context.Context, componentDescripto
 		return nil, fmt.Errorf("unable to resolve component descriptor: %w", err)
 	}
 	if _, err := blobResolver.Resolve(ctx, res, tmpfile); err != nil {
-		return nil, fmt.Errorf("unable to to resolve blob: %w", err)
+		return nil, fmt.Errorf("unable to resolve blob: %w", err)
 	}
 
-	tmpfile.Seek(0, io.SeekStart)
+	if _, err := tmpfile.Seek(0, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("unable to seek to beginning of tempfile: %w", err)
+	}
 	d.hasher.HashFunction.Reset()
 
 	if _, err := io.Copy(d.hasher.HashFunction, tmpfile); err != nil {
@@ -89,18 +90,18 @@ func (d *Digester) digestForOciArtifact(ctx context.Context, componentDescriptor
 		return nil, fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
-	manifest, err := d.ociClient.GetManifest(ctx, ociAccess.ImageReference)
+	ociArtifact, err := d.ociClient.GetOCIArtifact(ctx, ociAccess.ImageReference)
 	if err != nil {
-		return nil, fmt.Errorf("failed resolving manifest: %w", err)
+		return nil, fmt.Errorf("failed resolving oci artifact: %w", err)
 	}
 
-	manifestBytes, err := json.Marshal(manifest)
+	bytes, err := ociArtifact.Raw()
 	if err != nil {
-		return nil, fmt.Errorf("failed json marshaling: %w", err)
+		return nil, fmt.Errorf("failed getting oci artifact raw data: %w", err)
 	}
 
 	d.hasher.HashFunction.Reset()
-	if _, err = d.hasher.HashFunction.Write(manifestBytes); err != nil {
+	if _, err = d.hasher.HashFunction.Write(bytes); err != nil {
 		return nil, fmt.Errorf("failed hashing yaml, %w", err)
 	}
 
