@@ -189,20 +189,20 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
 
-	signer, err := cdv2Sign.CreateRsaSignerFromKeyFile(o.PathToPrivateKey)
-	if err != nil {
-		return fmt.Errorf("failed creating rsa signer: %w", err)
-	}
-	hasher, err := cdv2Sign.HasherForName("sha256")
-	if err != nil {
-		return fmt.Errorf("failed creating hasher: %w", err)
-	}
-
 	targetRepoCtx := cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, "")
 
 	if o.RecursiveSigning {
 		for _, signedCd := range signedCds {
 			if !o.SkipSigning {
+				signer, err := cdv2Sign.CreateRsaSignerFromKeyFile(o.PathToPrivateKey)
+				if err != nil {
+					return fmt.Errorf("failed creating rsa signer: %w", err)
+				}
+				hasher, err := cdv2Sign.HasherForName("sha256")
+				if err != nil {
+					return fmt.Errorf("failed creating hasher: %w", err)
+				}
+
 				if err := cdv2Sign.SignComponentDescriptor(signedCd, signer, *hasher, o.SignatureName); err != nil {
 					return fmt.Errorf("failed signing component descriptor: %w", err)
 				}
