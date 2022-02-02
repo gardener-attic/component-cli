@@ -87,10 +87,6 @@ fetches the component-descriptor and sign it.
 }
 
 func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolver ctf.BlobResolver, log logr.Logger) error {
-	manifest, err := cdoci.NewManifestBuilder(cache, ctf.NewComponentArchive(&cd, nil)).Build(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
-	}
 	if err := cdv2.InjectRepositoryContext(&cd, &targetRepository); err != nil {
 		return fmt.Errorf("unble to inject target repository: %w", err)
 	}
@@ -124,6 +120,10 @@ func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescrip
 			blobToResource[blobInfo.Digest] = res.DeepCopy()
 
 		}
+	}
+	manifest, err := cdoci.NewManifestBuilder(cache, ctf.NewComponentArchive(&cd, nil)).Build(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
 	}
 	manifest.Layers = append(manifest.Layers, layers...)
 
@@ -209,7 +209,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 				logger.Log.Info(fmt.Sprintf("CD Signed %s %s", o.ComponentName, o.Version))
 			}
 
-			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, o.ComponentName, o.Version))
+			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, signedCd.Name, signedCd.Version))
 
 			if err := UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
