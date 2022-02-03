@@ -86,7 +86,7 @@ fetches the component-descriptor and sign it.
 	return cmd
 }
 
-func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolver ctf.BlobResolver, log logr.Logger) error {
+func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolvers map[string]ctf.BlobResolver, log logr.Logger) error {
 	if err := cdv2.InjectRepositoryContext(&cd, &targetRepository); err != nil {
 		return fmt.Errorf("unble to inject target repository: %w", err)
 	}
@@ -94,6 +94,12 @@ func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescrip
 	// add all localOciBlobs to the layers
 	var layers []ocispecv1.Descriptor
 	blobToResource := map[string]*cdv2.Resource{}
+
+	//get the blob resolver used for downloading
+	blobResolver, ok := blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)]
+	if !ok {
+		return fmt.Errorf("no blob resolver found for %s %s", cd.Name, cd.Version)
+	}
 
 	for _, res := range cd.Resources {
 		if res.Access.Type == cdv2.LocalOCIBlobType {
@@ -184,7 +190,10 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
-	signedCds, err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, context.TODO())
+	blobResolvers := map[string]ctf.BlobResolver{}
+	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
+
+	signedCds, err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO())
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
@@ -211,12 +220,12 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 
 			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, signedCd.Name, signedCd.Version))
 
-			if err := UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
+			if err := UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
 			}
 		}
 	} else {
-		if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolver, log); err != nil {
+		if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
 			return fmt.Errorf("failed uploading cd: %w", err)
 		}
 	}
@@ -224,7 +233,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	return nil
 }
 
-func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context) ([]*cdv2.ComponentDescriptor, error) {
+func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context) ([]*cdv2.ComponentDescriptor, error) {
 	cdsWithHashes := []*cdv2.ComponentDescriptor{}
 
 	hasher, err := cdv2Sign.HasherForName("sha256")
@@ -240,11 +249,13 @@ func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 		}
 
 		cdresolver := cdoci.NewResolver(ociClient)
-		childCd, err := cdresolver.Resolve(ctx, &repoContext, cr.ComponentName, cr.Version)
+		childCd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, &repoContext, cr.ComponentName, cr.Version)
 		if err != nil {
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
-		cds, err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, ctx)
+		blobResolvers[fmt.Sprintf("%s:%s", childCd.Name, childCd.Version)] = blobResolver
+
+		cds, err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, blobResolvers, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed resolving referenced cd %s:%s: %w", cr.Name, cr.Version, err)
 		}

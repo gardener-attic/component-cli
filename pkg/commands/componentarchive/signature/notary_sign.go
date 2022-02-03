@@ -9,6 +9,7 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
+	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 
 	"github.com/go-logr/logr"
@@ -88,12 +89,14 @@ func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 	}
 
 	cdresolver := cdoci.NewResolver(ociClient)
-	cd, err := cdresolver.Resolve(ctx, &repoCtx, o.ComponentName, o.Version)
+	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, &repoCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
+	blobResolvers := map[string]ctf.BlobResolver{}
+	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	_, err = recursivelyAddDigestsToCd(cd, repoCtx, ociClient, context.TODO())
+	_, err = recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO())
 	if err != nil {
 		return fmt.Errorf("failed adding adding digests to cd: %w", err)
 	}
