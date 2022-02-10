@@ -17,6 +17,7 @@ func NewSignatureCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(NewNotarySignCommand(ctx))
 	cmd.AddCommand(NewRSAVerifyCommand(ctx))
 	cmd.AddCommand(NewNotaryVerifyCommand(ctx))
+	cmd.AddCommand(NewCompareCommand(ctx))
 
 	return cmd
 }
