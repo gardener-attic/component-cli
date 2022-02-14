@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
@@ -203,6 +204,12 @@ func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs 
 	if err != nil {
 		return fmt.Errorf("unable to parse image vector: %s", err.Error())
 	}
+
+	sortedImages := imageVector.Images
+	sort.Slice(sortedImages, func(i, j int) bool {
+		return sortedImages[i].Name < sortedImages[j].Name
+	})
+	imageVector.Images = sortedImages
 
 	data, err := yaml.Marshal(imageVector)
 	if err != nil {

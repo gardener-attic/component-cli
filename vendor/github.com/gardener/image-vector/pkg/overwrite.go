@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	"github.com/go-logr/logr"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	
 )
 
 // OCIResolver resolves oci references
@@ -370,11 +371,6 @@ func (io *imageOverwrite) parseGenericImages(ctx context.Context, ca *cdv2.Compo
 	}
 
 	for _, image := range imageVector.Images {
-		if image.TargetVersion == nil {
-			// it is expected that generic images without a target version are already handled as part of the default component descriptor.
-			io.log.V(7).Info("ignore image with no target version", "image", image.Name)
-			continue
-		}
 		entries, err := io.findGenericImageResource(ctx, image, list.Components)
 		if err != nil {
 			return nil, err
@@ -391,12 +387,17 @@ func (io *imageOverwrite) parseGenericImages(ctx context.Context, ca *cdv2.Compo
 
 func (io *imageOverwrite) findGenericImageResource(ctx context.Context, image ImageEntry, components []cdv2.ComponentDescriptor) ([]ImageEntry, error) {
 	log := io.log.WithValues("image", image.Name)
-
-	constr, err := semver.NewConstraint(*image.TargetVersion)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse target version for %q: %w", image.Name, err)
+	
+	var constr *semver.Constraints
+	var err error
+	
+	if image.TargetVersion != nil && *image.TargetVersion != "" {
+		constr, err = semver.NewConstraint(*image.TargetVersion)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse target version for %q: %w", image.Name, err)
+		}
 	}
-
+	
 	log.V(7).Info("search corresponding resource for generic image in component descriptors")
 	images := make([]ImageEntry, 0)
 	for _, comp := range components {
@@ -428,7 +429,7 @@ func (io *imageOverwrite) findGenericImageResource(ctx context.Context, image Im
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse resource version from resource %q of component %q: %w", res.GetName(), comp.GetName(), err)
 			}
-			if !constr.Check(semverVersion) {
+			if constr != nil && !constr.Check(semverVersion) {
 				rLog.V(9).Info("semver constraint does not match", "version", res.GetVersion(), "constraint", *image.TargetVersion)
 				continue
 			}
@@ -439,9 +440,17 @@ func (io *imageOverwrite) findGenericImageResource(ctx context.Context, image Im
 			if err := parseResourceAccess(&entry, res); err != nil {
 				return nil, fmt.Errorf("unable to parse oci access from resource %q of component %q: %w", res.GetName(), comp.GetName(), err)
 			}
-			targetVersion := semverVersion.String()
-			entry.TargetVersion = &targetVersion
-			images = append(images, entry)
+
+			if image.TargetVersion == nil {
+				io.log.V(7).Info("found image with no target version", "image", image.Name)
+				entry.Tag = nil
+				images = append(images, entry)
+				return images, nil
+			} else {
+				targetVersion := semverVersion.String()
+				entry.TargetVersion = &targetVersion
+				images = append(images, entry)
+			}
 		}
 	}
 	return images, nil
@@ -501,8 +510,16 @@ func resourceMatchesGenericImage(ctx context.Context, image ImageEntry, res cdv2
 
 // resolveDigests replaces all tags with their digest.
 func resolveDigests(ctx context.Context, ociClient OCIResolver, iv *ImageVector) error {
+	if iv == nil {
+		return fmt.Errorf("iv is empty")
+	}
+
+	if iv.Images == nil {
+		return fmt.Errorf("iv.Images is empty")
+	}
+	
 	for i, img := range iv.Images {
-		if TagIsDigest(*img.Tag) {
+		if img.Tag == nil || *img.Tag == "" || TagIsDigest(*img.Tag) {
 			continue
 		}
 		ref := img.Repository + ":" + *img.Tag
