@@ -54,6 +54,9 @@ type SignOptions struct {
 	//SkipSigning to skip signing and only add digests to cds
 	SkipSigning bool
 
+	//SkipAccessTypes defines the access types that will be ignored for signing
+	SkipAccessTypes []string
+
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
 }
@@ -193,7 +196,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	signedCds, err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO())
+	signedCds, err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
@@ -233,14 +236,14 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	return nil
 }
 
-func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context) ([]*cdv2.ComponentDescriptor, error) {
+func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context, skipAccessTypes []string) ([]*cdv2.ComponentDescriptor, error) {
 	cdsWithHashes := []*cdv2.ComponentDescriptor{}
 
 	hasher, err := cdv2Sign.HasherForName("sha256")
 	if err != nil {
 		return nil, fmt.Errorf("failed creating hasher: %w", err)
 	}
-	digester := signatures.NewDigester(ociClient, *hasher)
+	digester := signatures.NewDigester(ociClient, *hasher, skipAccessTypes)
 
 	cdResolver := func(c context.Context, cd cdv2.ComponentDescriptor, cr cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
 		ociRef, err := cdoci.OCIRef(repoContext, cr.Name, cr.Version)
@@ -255,7 +258,7 @@ func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 		}
 		blobResolvers[fmt.Sprintf("%s:%s", childCd.Name, childCd.Version)] = blobResolver
 
-		cds, err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, blobResolvers, ctx)
+		cds, err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, blobResolvers, ctx, skipAccessTypes)
 		if err != nil {
 			return nil, fmt.Errorf("failed resolving referenced cd %s:%s: %w", cr.Name, cr.Version, err)
 		}
@@ -322,6 +325,7 @@ func (o *SignOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
 	fs.StringVar(&o.PathToPrivateKey, "keyfile", "", "path to private key file")
 	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be digested and signed")
 	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced cds")
 	fs.BoolVar(&o.SkipSigning, "skip-signing", false, "skip the signing to only add digests")
 	o.OciOptions.AddFlags(fs)

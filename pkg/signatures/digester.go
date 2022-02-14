@@ -17,19 +17,29 @@ import (
 )
 
 type Digester struct {
-	ociClient ociclient.Client
-	hasher    signatures.Hasher
+	ociClient       ociclient.Client
+	hasher          signatures.Hasher
+	skipAccessTypes map[string]bool
 }
 
-func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher) *Digester {
+func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher, skipAccessTypes []string) *Digester {
+	skipAccessTypesMap := map[string]bool{}
+	for _, v := range skipAccessTypes {
+		skipAccessTypesMap[v] = true
+	}
 	return &Digester{
-		ociClient: ociClient,
-		hasher:    hasher,
+		ociClient:       ociClient,
+		hasher:          hasher,
+		skipAccessTypes: skipAccessTypesMap,
 	}
 
 }
 
 func (d *Digester) DigestForResource(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.DigestSpec, error) {
+	//skip ignored access type
+	if _, ok := d.skipAccessTypes[res.Access.Type]; ok {
+		return nil, nil
+	}
 
 	switch res.Access.Type {
 	case cdv2.OCIRegistryType:

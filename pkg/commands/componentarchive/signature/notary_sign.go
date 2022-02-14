@@ -96,7 +96,7 @@ func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	_, err = recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO())
+	_, err = recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), []string{})
 	if err != nil {
 		return fmt.Errorf("failed adding adding digests to cd: %w", err)
 	}

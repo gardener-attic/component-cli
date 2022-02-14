@@ -169,7 +169,7 @@ func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepositor
 		if err != nil {
 			return fmt.Errorf("failed creating hasher for algorithm %s for resource %s %s: %w", resource.Digest.HashAlgorithm, resource.Name, resource.Version, err)
 		}
-		digester := signatures.NewDigester(ociClient, *hasher)
+		digester := signatures.NewDigester(ociClient, *hasher, []string{})
 
 		digest, err := digester.DigestForResource(ctx, *cd, resource)
 		if err != nil {
@@ -235,7 +235,7 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 				return nil, fmt.Errorf("failed creating hasher for algorithm %s for resource %s %s: %w", resource.Digest.HashAlgorithm, resource.Name, resource.Version, err)
 			}
 		}
-		digester := signatures.NewDigester(ociClient, *hasher)
+		digester := signatures.NewDigester(ociClient, *hasher, []string{})
 
 		digest, err := digester.DigestForResource(ctx, *cd, resource)
 		if err != nil {
