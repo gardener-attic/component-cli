@@ -189,6 +189,9 @@ var _ = Describe("client", func() {
 			}
 		}, 20)
 
+		// TODO: write copy test with manifest list mediatype
+		// TODO: compare checksums of copied artifacts
+
 	})
 
 	Context("ExtendedClient", func() {

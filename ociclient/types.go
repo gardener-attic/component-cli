@@ -36,6 +36,9 @@ type Client interface {
 
 	// PushBlob uploads the blob for the given ocispec Descriptor to the given ref
 	PushBlob(ctx context.Context, ref string, desc ocispecv1.Descriptor, opts ...PushOption) error
+
+	GetManifestRaw(ctx context.Context, ref string) (ocispecv1.Descriptor, []byte, error)
+	PushManifestRaw(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, opts ...PushOption) error
 }
 
 // ExtendedClient defines an oci client with extended functionality that may not work with all registries.

@@ -165,7 +165,7 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		return nil, err
 	}
 
-	if desc.MediaType == ocispecv1.MediaTypeImageIndex || desc.MediaType == images.MediaTypeDockerSchema2ManifestList {
+	if IsMultiArchImageMediaType(desc.MediaType) {
 		var index ocispecv1.Index
 		if err := json.Unmarshal(data.Bytes(), &index); err != nil {
 			return nil, err
@@ -201,7 +201,7 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		}
 
 		return indexArtifact, nil
-	} else if desc.MediaType == ocispecv1.MediaTypeImageManifest || desc.MediaType == images.MediaTypeDockerSchema2Manifest {
+	} else if IsSingleArchImageMediaType(desc.MediaType) {
 		var manifest ocispecv1.Manifest
 		if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
 			return nil, err
@@ -291,6 +291,61 @@ func (c *client) PushBlob(ctx context.Context, ref string, desc ocispecv1.Descri
 	return nil
 }
 
+func (c *client) PushManifestRaw(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, opts ...PushOption) error {
+	if !IsSingleArchImageMediaType(desc.MediaType) && !IsMultiArchImageMediaType(desc.MediaType) {
+		return fmt.Errorf("media type is not an image manifest or image index: %s", desc.MediaType)
+	}
+
+	manifestDigest := digest.FromBytes(rawManifest)
+	if desc.Digest != manifestDigest {
+		return fmt.Errorf("descriptor digest does not match content digest")
+	}
+
+	if err := c.PushBlob(ctx, ref, desc, opts...); err != nil {
+		return fmt.Errorf("unable to push manifest: %w", err)
+	}
+
+	return nil
+}
+
+func (c *client) GetManifestRaw(ctx context.Context, ref string) (ocispecv1.Descriptor, []byte, error) {
+	refspec, err := oci.ParseRef(ref)
+	if err != nil {
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to parse ref: %w", err)
+	}
+	ref = refspec.String()
+
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PullScope)
+	if err != nil {
+		return ocispecv1.Descriptor{}, nil, err
+	}
+	_, desc, err := resolver.Resolve(ctx, ref)
+	if err != nil {
+		return ocispecv1.Descriptor{}, nil, err
+	}
+
+	if desc.MediaType == MediaTypeDockerV2Schema1Manifest || desc.MediaType == MediaTypeDockerV2Schema1SignedManifest {
+		c.log.V(7).Info("found v1 manifest -> convert to v2")
+		convertedManifestDesc, err := ConvertV1ManifestToV2(ctx, c, c.cache, ref, desc)
+		if err != nil {
+			return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to convert v1 manifest to v2: %w", err)
+		}
+		desc = convertedManifestDesc
+	}
+
+	if !IsSingleArchImageMediaType(desc.MediaType) && !IsMultiArchImageMediaType(desc.MediaType) {
+		return ocispecv1.Descriptor{}, nil, fmt.Errorf("media type is not an image manifest or image index: %s", desc.MediaType)
+	}
+
+	data := bytes.NewBuffer([]byte{})
+	if err := c.Fetch(ctx, ref, desc, data); err != nil {
+		return ocispecv1.Descriptor{}, nil, err
+	}
+	rawManifest := data.Bytes()
+
+	return desc, rawManifest, nil
+}
+
 func (c *client) pushManifest(ctx context.Context, manifest *ocispecv1.Manifest, pusher remotes.Pusher, cache cache.Cache, opts *PushOptions) (ocispecv1.Descriptor, error) {
 	// add dummy config if it is not set
 	if manifest.Config.Size == 0 {
@@ -360,12 +415,22 @@ func (c *client) pushImageIndex(ctx context.Context, indexArtifact *oci.Index, p
 		Annotations: indexArtifact.Annotations,
 	}
 
-	idesc, err := createDescriptorFromIndex(cache, &index)
+	indexBytes, err := json.Marshal(index)
 	if err != nil {
-		return fmt.Errorf("unable to create image index descriptor: %w", err)
+		return err
+	}
+	indexDescriptor := ocispecv1.Descriptor{
+		MediaType: ocispecv1.MediaTypeImageIndex,
+		Digest:    digest.FromBytes(indexBytes),
+		Size:      int64(len(indexBytes)),
 	}
 
-	if err := c.pushContent(ctx, cache, pusher, idesc); err != nil {
+	manifestBuf := bytes.NewBuffer(indexBytes)
+	if err := cache.Add(indexDescriptor, ioutil.NopCloser(manifestBuf)); err != nil {
+		return err
+	}
+
+	if err := c.pushContent(ctx, cache, pusher, indexDescriptor); err != nil {
 		return fmt.Errorf("unable to push image index: %w", err)
 	}
 
@@ -373,16 +438,21 @@ func (c *client) pushImageIndex(ctx context.Context, indexArtifact *oci.Index, p
 }
 
 func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
-	ociArtifact, err := c.GetOCIArtifact(ctx, ref)
+	desc, rawManifest, err := c.GetManifestRaw(ctx, ref)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to get manifest: %w", err)
 	}
 
-	if !ociArtifact.IsManifest() {
-		return nil, fmt.Errorf("oci artifact is not a manifest: %+v", ociArtifact)
+	if desc.MediaType != ocispecv1.MediaTypeImageManifest && desc.MediaType != images.MediaTypeDockerSchema2Manifest {
+		return nil, fmt.Errorf("media type is not an image manifest: %s", desc.MediaType)
 	}
 
-	return ociArtifact.GetManifest().Data, nil
+	var manifest ocispecv1.Manifest
+	if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal manifest: %w", err)
+	}
+
+	return &manifest, nil
 }
 
 func (c *client) Fetch(ctx context.Context, ref string, desc ocispecv1.Descriptor, writer io.Writer) error {
@@ -755,24 +825,6 @@ func CreateDescriptorFromManifest(manifest *ocispecv1.Manifest) (ocispecv1.Descr
 	return manifestDescriptor, nil
 }
 
-func createDescriptorFromIndex(cache cache.Cache, index *ocispecv1.Index) (ocispecv1.Descriptor, error) {
-	indexBytes, err := json.Marshal(index)
-	if err != nil {
-		return ocispecv1.Descriptor{}, err
-	}
-	indexDescriptor := ocispecv1.Descriptor{
-		MediaType: ocispecv1.MediaTypeImageIndex,
-		Digest:    digest.FromBytes(indexBytes),
-		Size:      int64(len(indexBytes)),
-	}
-
-	manifestBuf := bytes.NewBuffer(indexBytes)
-	if err := cache.Add(indexDescriptor, ioutil.NopCloser(manifestBuf)); err != nil {
-		return ocispecv1.Descriptor{}, err
-	}
-	return indexDescriptor, nil
-}
-
 func (c *client) pushContent(ctx context.Context, store Store, pusher remotes.Pusher, desc ocispecv1.Descriptor) error {
 	if store == nil {
 		return errors.New("a store is needed to upload content but no store has been defined")
@@ -792,6 +844,16 @@ func (c *client) pushContent(ctx context.Context, store Store, pusher remotes.Pu
 	}
 	defer writer.Close()
 	return content.Copy(ctx, writer, r, desc.Size, desc.Digest)
+}
+
+func IsMultiArchImageMediaType(mediaType string) bool {
+	return mediaType == ocispecv1.MediaTypeImageIndex ||
+		mediaType == images.MediaTypeDockerSchema2ManifestList
+}
+
+func IsSingleArchImageMediaType(mediaType string) bool {
+	return mediaType == ocispecv1.MediaTypeImageManifest ||
+		mediaType == images.MediaTypeDockerSchema2Manifest
 }
 
 // AddKnownMediaTypesToCtx adds a list of known media types to the context
