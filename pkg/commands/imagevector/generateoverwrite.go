@@ -207,6 +207,9 @@ func (o *GenerateOverwriteOptions) Run(ctx context.Context, log logr.Logger, fs 
 
 	sortedImages := imageVector.Images
 	sort.Slice(sortedImages, func(i, j int) bool {
+		if sortedImages[i].Name == sortedImages[j].Name && sortedImages[i].TargetVersion != nil && sortedImages[j].TargetVersion != nil{
+			return *sortedImages[i].TargetVersion < *sortedImages[j].TargetVersion
+		}
 		return sortedImages[i].Name < sortedImages[j].Name
 	})
 	imageVector.Images = sortedImages

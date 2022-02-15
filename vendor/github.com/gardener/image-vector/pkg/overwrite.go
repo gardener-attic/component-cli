@@ -391,7 +391,7 @@ func (io *imageOverwrite) findGenericImageResource(ctx context.Context, image Im
 	var constr *semver.Constraints
 	var err error
 	
-	if image.TargetVersion != nil && *image.TargetVersion != "" {
+	if image.TargetVersion != nil {
 		constr, err = semver.NewConstraint(*image.TargetVersion)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse target version for %q: %w", image.Name, err)
