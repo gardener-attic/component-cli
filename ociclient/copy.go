@@ -27,7 +27,7 @@ func Copy(ctx context.Context, client Client, srcRef, tgtRef string) error {
 		return client.Fetch(ctx, srcRef, desc, writer)
 	})
 
-	if IsMultiArchImageMediaType(desc.MediaType) {
+	if IsMultiArchImage(desc.MediaType) {
 		index := ocispecv1.Index{}
 		if err := json.Unmarshal(rawManifest, &index); err != nil {
 			return fmt.Errorf("unable to unmarshal image index: %w", err)
@@ -38,50 +38,15 @@ func Copy(ctx context.Context, client Client, srcRef, tgtRef string) error {
 			if err := client.Fetch(ctx, srcRef, manifestDesc, buf); err != nil {
 				return fmt.Errorf("unable to get manifest: %w", err)
 			}
-			rawManifest := buf.Bytes()
 
-			manifest := ocispecv1.Manifest{}
-			if err := json.Unmarshal(rawManifest, &manifest); err != nil {
-				return fmt.Errorf("unable to unmarshal manifest: %w", err)
-			}
-
-			if err := client.PushBlob(ctx, tgtRef, manifest.Config, WithStore(store)); err != nil {
-				return fmt.Errorf("unable to push config: %w", err)
-			}
-
-			for _, layerDesc := range manifest.Layers {
-				if err := client.PushBlob(ctx, tgtRef, layerDesc, WithStore(store)); err != nil {
-					return fmt.Errorf("unable to push layer: %w", err)
-				}
-			}
-
-			if err := client.PushManifestRaw(ctx, tgtRef, manifestDesc, rawManifest); err != nil {
+			if err := client.PushManifestRaw(ctx, tgtRef, manifestDesc, buf.Bytes(), WithStore(store)); err != nil {
 				return fmt.Errorf("unable to push manifest: %w", err)
 			}
 		}
+	}
 
-		if err := client.PushManifestRaw(ctx, tgtRef, desc, rawManifest); err != nil {
-			return fmt.Errorf("unable to push index: %w", err)
-		}
-	} else {
-		manifest := ocispecv1.Manifest{}
-		if err := json.Unmarshal(rawManifest, &manifest); err != nil {
-			return fmt.Errorf("unable to unmarshal manifest: %w", err)
-		}
-
-		if err := client.PushBlob(ctx, tgtRef, manifest.Config, WithStore(store)); err != nil {
-			return fmt.Errorf("unable to push config: %w", err)
-		}
-
-		for _, layerDesc := range manifest.Layers {
-			if err := client.PushBlob(ctx, tgtRef, layerDesc, WithStore(store)); err != nil {
-				return fmt.Errorf("unable to push layer: %w", err)
-			}
-		}
-
-		if err := client.PushManifestRaw(ctx, tgtRef, desc, rawManifest); err != nil {
-			return fmt.Errorf("unable to push manifest: %w", err)
-		}
+	if err := client.PushManifestRaw(ctx, tgtRef, desc, rawManifest, WithStore(store)); err != nil {
+		return fmt.Errorf("unable to push manifest: %w", err)
 	}
 
 	return nil

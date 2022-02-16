@@ -26,6 +26,9 @@ func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string
 	configData := []byte("config-data")
 	layerData := []byte("layer-data")
 	manifest := &ocispecv1.Manifest{
+		Versioned: specs.Versioned{
+			SchemaVersion: 2,
+		},
 		Config: ocispecv1.Descriptor{
 			MediaType: "text/plain",
 			Digest:    digest.FromBytes(configData),

@@ -165,7 +165,7 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		return nil, err
 	}
 
-	if IsMultiArchImageMediaType(desc.MediaType) {
+	if IsMultiArchImage(desc.MediaType) {
 		var index ocispecv1.Index
 		if err := json.Unmarshal(data.Bytes(), &index); err != nil {
 			return nil, err
@@ -201,7 +201,7 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		}
 
 		return indexArtifact, nil
-	} else if IsSingleArchImageMediaType(desc.MediaType) {
+	} else if IsSingleArchImage(desc.MediaType) {
 		var manifest ocispecv1.Manifest
 		if err := json.Unmarshal(data.Bytes(), &manifest); err != nil {
 			return nil, err
@@ -291,17 +291,70 @@ func (c *client) PushBlob(ctx context.Context, ref string, desc ocispecv1.Descri
 	return nil
 }
 
-func (c *client) PushManifestRaw(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, opts ...PushOption) error {
-	if !IsSingleArchImageMediaType(desc.MediaType) && !IsMultiArchImageMediaType(desc.MediaType) {
+func (c *client) PushManifestRaw(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, options ...PushOption) error {
+	if !IsSingleArchImage(desc.MediaType) && !IsMultiArchImage(desc.MediaType) {
 		return fmt.Errorf("media type is not an image manifest or image index: %s", desc.MediaType)
 	}
 
-	manifestDigest := digest.FromBytes(rawManifest)
-	if desc.Digest != manifestDigest {
-		return fmt.Errorf("descriptor digest does not match content digest")
+	tempCache := c.cache
+	if tempCache == nil {
+		tempCache = cache.NewInMemoryCache()
 	}
 
-	if err := c.PushBlob(ctx, ref, desc, opts...); err != nil {
+	opts := &PushOptions{}
+	opts.ApplyOptions(options)
+	if opts.Store == nil {
+		opts.ApplyOptions([]PushOption{WithStore(tempCache)})
+	}
+
+	resolver, err := c.getResolverForRef(ctx, ref, transport.PushScope)
+	if err != nil {
+		return err
+	}
+
+	pusher, err := resolver.Pusher(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	if IsSingleArchImage(desc.MediaType) {
+		manifest := ocispecv1.Manifest{}
+		if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+			return fmt.Errorf("unable to unmarshal manifest: %w", err)
+		}
+
+		// add dummy config if it is not set
+		if manifest.Config.Size == 0 {
+			dummyConfig := []byte("{}")
+			dummyDesc := ocispecv1.Descriptor{
+				MediaType: "application/json",
+				Digest:    digest.FromBytes(dummyConfig),
+				Size:      int64(len(dummyConfig)),
+			}
+			if err := tempCache.Add(dummyDesc, ioutil.NopCloser(bytes.NewBuffer(dummyConfig))); err != nil {
+				return fmt.Errorf("unable to add dummy config to cache: %w", err)
+			}
+			if err := c.pushContent(ctx, tempCache, pusher, dummyDesc); err != nil {
+				return fmt.Errorf("unable to push dummy config: %w", err)
+			}
+		} else {
+			if err := c.pushContent(ctx, opts.Store, pusher, manifest.Config); err != nil {
+				return fmt.Errorf("unable to push config: %w", err)
+			}
+		}
+
+		for _, layerDesc := range manifest.Layers {
+			if err := c.pushContent(ctx, opts.Store, pusher, layerDesc); err != nil {
+				return fmt.Errorf("unable to push layer: %w", err)
+			}
+		}
+	}
+
+	if err := tempCache.Add(desc, ioutil.NopCloser(bytes.NewBuffer(rawManifest))); err != nil {
+		return fmt.Errorf("unable to add manifest to cache: %w", err)
+	}
+
+	if err := c.pushContent(ctx, tempCache, pusher, desc); err != nil {
 		return fmt.Errorf("unable to push manifest: %w", err)
 	}
 
@@ -333,7 +386,7 @@ func (c *client) GetManifestRaw(ctx context.Context, ref string) (ocispecv1.Desc
 		desc = convertedManifestDesc
 	}
 
-	if !IsSingleArchImageMediaType(desc.MediaType) && !IsMultiArchImageMediaType(desc.MediaType) {
+	if !IsSingleArchImage(desc.MediaType) && !IsMultiArchImage(desc.MediaType) {
 		return ocispecv1.Descriptor{}, nil, fmt.Errorf("media type is not an image manifest or image index: %s", desc.MediaType)
 	}
 
@@ -518,16 +571,19 @@ func (c *client) getFetchReader(ctx context.Context, ref string, desc ocispecv1.
 }
 
 func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, options ...PushOption) error {
-	m := oci.Manifest{
-		Data: manifest,
-	}
-
-	a, err := oci.NewManifestArtifact(&m)
+	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {
-		return fmt.Errorf("unable to create oci artifact: %w", err)
+		return fmt.Errorf("unable to marshal manifest: %w", err)
 	}
 
-	return c.PushOCIArtifact(ctx, ref, a, options...)
+	desc := ocispecv1.Descriptor{
+		MediaType:   ocispecv1.MediaTypeImageManifest,
+		Digest:      digest.FromBytes(manifestBytes),
+		Size:        int64(len(manifestBytes)),
+		Annotations: manifest.Annotations,
+	}
+
+	return c.PushManifestRaw(ctx, ref, desc, manifestBytes, options...)
 }
 
 func (c *client) getHttpClient() *http.Client {
@@ -844,16 +900,6 @@ func (c *client) pushContent(ctx context.Context, store Store, pusher remotes.Pu
 	}
 	defer writer.Close()
 	return content.Copy(ctx, writer, r, desc.Size, desc.Digest)
-}
-
-func IsMultiArchImageMediaType(mediaType string) bool {
-	return mediaType == ocispecv1.MediaTypeImageIndex ||
-		mediaType == images.MediaTypeDockerSchema2ManifestList
-}
-
-func IsSingleArchImageMediaType(mediaType string) bool {
-	return mediaType == ocispecv1.MediaTypeImageManifest ||
-		mediaType == images.MediaTypeDockerSchema2Manifest
 }
 
 // AddKnownMediaTypesToCtx adds a list of known media types to the context
