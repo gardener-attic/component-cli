@@ -99,7 +99,7 @@ func (o *NotaryVerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.F
 	}
 
 	// check referenced resources and cds
-	err = checkCd(cd, repoCtx, ociClient, context.TODO())
+	err = checkCd(cd, repoCtx, ociClient, context.TODO(), []string{})
 	if err != nil {
 		return fmt.Errorf("failed checking cd: %w", err)
 	}
