@@ -4,18 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
-	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-
-	"github.com/opencontainers/go-digest"
 
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
@@ -23,11 +18,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/gardener/component-cli/ociclient"
-	ociCache "github.com/gardener/component-cli/ociclient/cache"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
-	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/signatures"
 )
@@ -89,90 +81,6 @@ fetches the component-descriptor and sign it.
 	return cmd
 }
 
-func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolvers map[string]ctf.BlobResolver, log logr.Logger) error {
-	if err := cdv2.InjectRepositoryContext(&cd, &targetRepository); err != nil {
-		return fmt.Errorf("unble to inject target repository: %w", err)
-	}
-
-	// add all localOciBlobs to the layers
-	var layers []ocispecv1.Descriptor
-	blobToResource := map[string]*cdv2.Resource{}
-
-	//get the blob resolver used for downloading
-	blobResolver, ok := blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)]
-	if !ok {
-		return fmt.Errorf("no blob resolver found for %s %s", cd.Name, cd.Version)
-	}
-
-	for _, res := range cd.Resources {
-		if res.Access.Type == cdv2.LocalOCIBlobType {
-			localBlob := &cdv2.LocalOCIBlobAccess{}
-			if err := res.Access.DecodeInto(localBlob); err != nil {
-				return fmt.Errorf("unable to decode resource %s: %w", res.Name, err)
-			}
-			blobInfo, err := blobResolver.Info(ctx, res)
-			if err != nil {
-				return fmt.Errorf("unable to get blob info for resource %s: %w", res.Name, err)
-			}
-			d, err := digest.Parse(blobInfo.Digest)
-			if err != nil {
-				return fmt.Errorf("unable to parse digest for resource %s: %w", res.Name, err)
-			}
-			layers = append(layers, ocispecv1.Descriptor{
-				MediaType: blobInfo.MediaType,
-				Digest:    d,
-				Size:      blobInfo.Size,
-				Annotations: map[string]string{
-					"resource": res.Name,
-				},
-			})
-			blobToResource[blobInfo.Digest] = res.DeepCopy()
-
-		}
-	}
-	manifest, err := cdoci.NewManifestBuilder(cache, ctf.NewComponentArchive(&cd, nil)).Build(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to build oci artifact for component acrchive: %w", err)
-	}
-	manifest.Layers = append(manifest.Layers, layers...)
-
-	ref, err := components.OCIRef(&targetRepository, cd.Name, cd.Version)
-	if err != nil {
-		return fmt.Errorf("invalid component reference: %w", err)
-	}
-
-	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		log := log.WithValues("digest", desc.Digest.String(), "mediaType", desc.MediaType)
-		res, ok := blobToResource[desc.Digest.String()]
-		if !ok {
-			// default to cache
-			log.V(5).Info("copying resource from cache")
-			rc, err := cache.Get(desc)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := rc.Close(); err != nil {
-					log.Error(err, "unable to close blob reader")
-				}
-			}()
-			if _, err := io.Copy(writer, rc); err != nil {
-				return err
-			}
-			return nil
-		}
-		log.V(5).Info("copying resource", "resource", res.Name)
-		_, err := blobResolver.Resolve(ctx, *res, writer)
-		return err
-	})
-	log.V(3).Info("Upload component.", "ref", ref)
-	if err := ociClient.PushManifest(ctx, ref, manifest, ociclient.WithStore(store)); err != nil {
-		return fmt.Errorf("failed pushing manifest: %w", err)
-	}
-	return nil
-
-}
-
 func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	repoCtx := cdv2.OCIRegistryRepository{
 		ObjectType: cdv2.ObjectType{
@@ -181,7 +89,6 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 		BaseURL: o.BaseUrl,
 	}
 
-	//TODO: disable caching!!!!!!!
 	ociClient, cache, err := o.OciOptions.Build(log, fs)
 	if err != nil {
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
@@ -196,7 +103,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	signedCds, err := recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
+	signedCds, err := signatures.RecursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
@@ -223,63 +130,17 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 
 			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, signedCd.Name, signedCd.Version))
 
-			if err := UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
 			}
 		}
 	} else {
-		if err := UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
 			return fmt.Errorf("failed uploading cd: %w", err)
 		}
 	}
 
 	return nil
-}
-
-func recursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context, skipAccessTypes []string) ([]*cdv2.ComponentDescriptor, error) {
-	cdsWithHashes := []*cdv2.ComponentDescriptor{}
-
-	hasher, err := cdv2Sign.HasherForName("sha256")
-	if err != nil {
-		return nil, fmt.Errorf("failed creating hasher: %w", err)
-	}
-	digester := signatures.NewDigester(ociClient, *hasher, skipAccessTypes)
-
-	cdResolver := func(c context.Context, cd cdv2.ComponentDescriptor, cr cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
-		ociRef, err := cdoci.OCIRef(repoContext, cr.Name, cr.Version)
-		if err != nil {
-			return nil, fmt.Errorf("invalid component reference: %w", err)
-		}
-
-		cdresolver := cdoci.NewResolver(ociClient)
-		childCd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, &repoContext, cr.ComponentName, cr.Version)
-		if err != nil {
-			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
-		}
-		blobResolvers[fmt.Sprintf("%s:%s", childCd.Name, childCd.Version)] = blobResolver
-
-		cds, err := recursivelyAddDigestsToCd(childCd, repoContext, ociClient, blobResolvers, ctx, skipAccessTypes)
-		if err != nil {
-			return nil, fmt.Errorf("failed resolving referenced cd %s:%s: %w", cr.Name, cr.Version, err)
-		}
-		cdsWithHashes = append(cdsWithHashes, cds...)
-
-		hasher, err := cdv2Sign.HasherForName("sha256")
-		if err != nil {
-			return nil, fmt.Errorf("failed creating hasher: %w", err)
-		}
-		hashCd, err := cdv2Sign.HashForComponentDescriptor(*childCd, *hasher)
-		if err != nil {
-			return nil, fmt.Errorf("failed hashing referenced cd %s:%s: %w", cr.Name, cr.Version, err)
-		}
-		return hashCd, nil
-	}
-
-	if err := cdv2Sign.AddDigestsToComponentDescriptor(context.TODO(), cd, cdResolver, digester.DigestForResource); err != nil {
-		return nil, fmt.Errorf("failed adding digests to cd %s:%s: %w", cd.Name, cd.Version, err)
-	}
-	cdsWithHashes = append(cdsWithHashes, cd)
-	return cdsWithHashes, nil
 }
 
 func (o *SignOptions) Complete(args []string) error {

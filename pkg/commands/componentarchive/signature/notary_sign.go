@@ -23,6 +23,7 @@ import (
 	"github.com/gardener/component-cli/pkg/componentarchive"
 	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/signatures"
 )
 
 type NotarySignOptions struct {
@@ -96,7 +97,7 @@ func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	_, err = recursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), []string{})
+	_, err = signatures.RecursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), []string{})
 	if err != nil {
 		return fmt.Errorf("failed adding adding digests to cd: %w", err)
 	}
