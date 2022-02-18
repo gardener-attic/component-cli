@@ -82,12 +82,7 @@ fetches the component-descriptor and sign it.
 }
 
 func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	repoCtx := cdv2.OCIRegistryRepository{
-		ObjectType: cdv2.ObjectType{
-			Type: cdv2.OCIRegistryType,
-		},
-		BaseURL: o.BaseUrl,
-	}
+	repoCtx := cdv2.NewOCIRegistryRepository(o.BaseUrl, "")
 
 	ociClient, cache, err := o.OciOptions.Build(log, fs)
 	if err != nil {
@@ -95,7 +90,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	}
 
 	cdresolver := cdoci.NewResolver(ociClient)
-	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, &repoCtx, o.ComponentName, o.Version)
+	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, repoCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
@@ -103,7 +98,7 @@ func (o *SignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSyste
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	signedCds, err := signatures.RecursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
+	signedCds, err := signatures.RecursivelyAddDigestsToCd(cd, *repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}

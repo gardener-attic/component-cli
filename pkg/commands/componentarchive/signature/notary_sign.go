@@ -76,12 +76,7 @@ fetches the component-descriptor and sign it with notary.
 }
 
 func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	repoCtx := cdv2.OCIRegistryRepository{
-		ObjectType: cdv2.ObjectType{
-			Type: cdv2.OCIRegistryType,
-		},
-		BaseURL: o.BaseUrl,
-	}
+	repoCtx := cdv2.NewOCIRegistryRepository(o.BaseUrl, "")
 
 	//TODO: disable caching!!!!!!!
 	ociClient, cache, err := o.OciOptions.Build(log, fs)
@@ -90,14 +85,14 @@ func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 	}
 
 	cdresolver := cdoci.NewResolver(ociClient)
-	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, &repoCtx, o.ComponentName, o.Version)
+	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, repoCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	_, err = signatures.RecursivelyAddDigestsToCd(cd, repoCtx, ociClient, blobResolvers, context.TODO(), []string{})
+	_, err = signatures.RecursivelyAddDigestsToCd(cd, *repoCtx, ociClient, blobResolvers, context.TODO(), []string{})
 	if err != nil {
 		return fmt.Errorf("failed adding adding digests to cd: %w", err)
 	}
