@@ -81,45 +81,66 @@ func (o *CompareOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSy
 		BaseURL: o.BaseUrlSecond,
 	}
 
-	eq, uneq, err := CompareCds(repoCtxFirst, repoCtxSecond, o.ComponentName, o.Version, ociClient, "")
+	eq, uneq, eqRef, uneqRef, err := CompareCds(repoCtxFirst, repoCtxSecond, o.ComponentName, o.Version, ociClient, "")
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("EQUAL")
+	fmt.Println("EQUAL RES")
 	for _, v := range eq {
 		fmt.Println(v)
 	}
-	fmt.Println("UNEQUAL")
+	fmt.Println("EQUAL CD REF")
+	for _, v := range eqRef {
+		fmt.Println(v)
+	}
+
+	fmt.Println("UNEQUAL RES")
 	for _, v := range uneq {
+		fmt.Println(v)
+	}
+
+	fmt.Println("UNEQUAL CD REF")
+	for _, v := range uneqRef {
 		fmt.Println(v)
 	}
 
 	return nil
 }
 
-func CompareCds(repoContextFirst cdv2.OCIRegistryRepository, repoContextSecond cdv2.OCIRegistryRepository, name string, version string, ociClient ociclient.Client, path string) ([]string, []string, error) {
+func CompareCds(repoContextFirst cdv2.OCIRegistryRepository, repoContextSecond cdv2.OCIRegistryRepository, name string, version string, ociClient ociclient.Client, path string) ([]string, []string, []string, []string, error) {
 	path = fmt.Sprintf("%s|%s:%s", path, name, version)
 	equalResources := []string{}
 	unEqualResources := []string{}
+	equalCdRefs := []string{}
+	unEqualCdRefs := []string{}
 
 	cdresolver := cdoci.NewResolver(ociClient)
 	firstCd, err := cdresolver.Resolve(context.TODO(), &repoContextFirst, name, version)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to to fetch component descriptor %s %s %s: %w", repoContextFirst.BaseURL, name, version, err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to to fetch component descriptor %s %s %s: %w", repoContextFirst.BaseURL, name, version, err)
 	}
 	secondCd, err := cdresolver.Resolve(context.TODO(), &repoContextSecond, name, version)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to to fetch component descriptor %s %s %s: %w", repoContextSecond.BaseURL, name, version, err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to to fetch component descriptor %s %s %s: %w", repoContextSecond.BaseURL, name, version, err)
 	}
 
-	for _, reference := range firstCd.ComponentReferences {
-		eq, uneq, err := CompareCds(repoContextFirst, repoContextSecond, reference.ComponentName, reference.Version, ociClient, path)
+	for referenceIndex, reference := range firstCd.ComponentReferences {
+		eq, uneq, eqCdref, uneqCdref, err := CompareCds(repoContextFirst, repoContextSecond, reference.ComponentName, reference.Version, ociClient, path)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed comparing cds %s %s: %w", reference.ComponentName, reference.Version, err)
+			return nil, nil, nil, nil, fmt.Errorf("failed comparing cds %s %s: %w", reference.ComponentName, reference.Version, err)
 		}
 		equalResources = append(equalResources, eq...)
 		unEqualResources = append(unEqualResources, uneq...)
+		equalCdRefs = append(equalCdRefs, eqCdref...)
+		unEqualCdRefs = append(unEqualCdRefs, uneqCdref...)
+
+		if reflect.DeepEqual(reference.Digest, secondCd.ComponentReferences[referenceIndex].Digest) {
+			equalCdRefs = append(equalCdRefs, fmt.Sprintf("%s|cdref:%s_%s", path, reference.ComponentName, reference.Version))
+		} else {
+			unEqualCdRefs = append(unEqualCdRefs, fmt.Sprintf("%s|cdref:%s_%s", path, reference.ComponentName, reference.Version))
+		}
+
 	}
 
 	for resIndex, res := range firstCd.Resources {
@@ -131,7 +152,7 @@ func CompareCds(repoContextFirst cdv2.OCIRegistryRepository, repoContextSecond c
 			unEqualResources = append(unEqualResources, fmt.Sprintf("%s|res:%s_%s", path, res.Name, res.Version))
 		}
 	}
-	return equalResources, unEqualResources, nil
+	return equalResources, unEqualResources, equalCdRefs, unEqualCdRefs, nil
 
 }
 
