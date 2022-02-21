@@ -21,14 +21,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// NewSignatureCommand creates a new command to interact with signatures.
-func NewSignatureCommand(ctx context.Context) *cobra.Command {
+// NewSignCommand creates a new command to interact with signatures.
+func NewSignCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sign",
 		Short: "command to sign component-descriptors",
 	}
 
 	cmd.AddCommand(NewRSASignCommand(ctx))
+	cmd.AddCommand(NewNotarySignCommand(ctx))
 
 	return cmd
 }

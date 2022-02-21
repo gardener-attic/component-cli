@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/component-cli/pkg/commands/componentarchive/signature"
 	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/signatures"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
@@ -27,9 +27,9 @@ func NewNotarySignCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "notary-sign BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from a oci registry and sign it with notary",
+		Short: "[EXPERIMENTAL] fetch the component descriptor from a oci registry and sign it with notary",
 		Long: `
-fetches the component-descriptor and sign it with notary.
+[EXPERIMENTAL] fetches the component-descriptor and sign it with notary.
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
@@ -50,7 +50,7 @@ fetches the component-descriptor and sign it with notary.
 }
 
 func (o *NotarySignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	signer, err := signature.CreateNotarySignerFromConfig(o.PathToNotaryConfig)
+	signer, err := signatures.CreateNotarySignerFromConfig(o.PathToNotaryConfig)
 	if err != nil {
 		return fmt.Errorf("failed creating rsa signer: %w", err)
 	}

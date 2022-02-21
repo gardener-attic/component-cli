@@ -1,4 +1,4 @@
-package signature
+package verify
 
 import (
 	"context"
@@ -8,24 +8,34 @@ import (
 	"path/filepath"
 	"reflect"
 
-	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
-	cdoci "github.com/gardener/component-spec/bindings-go/oci"
-
-	"github.com/go-logr/logr"
-	"github.com/mandelsoft/vfs/pkg/osfs"
-	"github.com/mandelsoft/vfs/pkg/vfs"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/gardener/component-cli/ociclient"
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/signatures"
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
+	cdoci "github.com/gardener/component-spec/bindings-go/oci"
+	"github.com/go-logr/logr"
+	"github.com/mandelsoft/vfs/pkg/vfs"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
-type VerifyOptions struct {
+// NewSignatureCommand creates a new command to interact with signatures.
+func NewVerifyCommand(ctx context.Context) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "verify",
+		Short: "command to verify the signature of a component-descriptor",
+	}
+
+	cmd.AddCommand(NewRSAVerifyCommand(ctx))
+	cmd.AddCommand(NewNotaryVerifyCommand(ctx))
+	return cmd
+}
+
+type GenericVerifyOptions struct {
 	// BaseUrl is the oci registry where the component is stored.
 	BaseUrl string
 	// ComponentName is the unique name of the component in the registry.
@@ -36,11 +46,8 @@ type VerifyOptions struct {
 	// SignatureName selects the matching signature to verify
 	SignatureName string
 
-	// PathToPublicKey for RSA signing
-	PathToPublicKey string
-
-	//SkipSignatureCheck to skip checking the signature and only check the digests
-	SkipSignatureCheck bool
+	//RecursiveVerification to verify every referenced component descriptor
+	RecursiveVerification bool
 
 	//SkipAccessTypes defines the access types that will be ignored for signing
 	SkipAccessTypes []string
@@ -49,68 +56,64 @@ type VerifyOptions struct {
 	OciOptions ociopts.Options
 }
 
-// NewGetCommand shows definitions and their configuration.
-func NewRSAVerifyCommand(ctx context.Context) *cobra.Command {
-	opts := &VerifyOptions{}
-	cmd := &cobra.Command{
-		Use:   "rsa-verify BASE_URL COMPONENT_NAME VERSION",
-		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from a oci registry and verify its integrity",
-		Long: `
-fetches the component-descriptor and sign it.
-`,
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := opts.Complete(args); err != nil {
-				fmt.Println(err.Error())
-				os.Exit(1)
-			}
+//Complete validates the arguments and flags from the command line
+func (o *GenericVerifyOptions) Complete(args []string) error {
+	o.BaseUrl = args[0]
+	o.ComponentName = args[1]
+	o.Version = args[2]
 
-			if err := opts.Run(ctx, logger.Log, osfs.New()); err != nil {
-				fmt.Println(err.Error())
-				os.Exit(1)
-			}
-		},
+	cliHomeDir, err := constants.CliHomeDir()
+	if err != nil {
+		return err
 	}
 
-	opts.AddFlags(cmd.Flags())
+	o.OciOptions.CacheDir = filepath.Join(cliHomeDir, "components")
+	if err := os.MkdirAll(o.OciOptions.CacheDir, os.ModePerm); err != nil {
+		return fmt.Errorf("unable to create cache directory %s: %w", o.OciOptions.CacheDir, err)
+	}
 
-	return cmd
+	if len(o.BaseUrl) == 0 {
+		return errors.New("the base url must be defined")
+	}
+	if len(o.ComponentName) == 0 {
+		return errors.New("a component name must be defined")
+	}
+	if len(o.Version) == 0 {
+		return errors.New("a component's Version must be defined")
+	}
+	if o.SignatureName == "" {
+		return errors.New("a signature name must be provided")
+	}
+	return nil
 }
 
-func (o *VerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	repoCtx := cdv2.OCIRegistryRepository{
-		ObjectType: cdv2.ObjectType{
-			Type: cdv2.OCIRegistryType,
-		},
-		BaseURL: o.BaseUrl,
-	}
+func (o *GenericVerifyOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be ignored for verification")
+	fs.BoolVar(&o.RecursiveVerification, "recursive", false, "recursively verify the signature of all referenced component descriptors")
+	o.OciOptions.AddFlags(fs)
+}
 
-	//TODO: disable caching!!!!!!!
+func (o *GenericVerifyOptions) VerifyWithVerifier(ctx context.Context, log logr.Logger, fs vfs.FileSystem, verifier cdv2Sign.Verifier) error {
+	repoCtx := cdv2.NewOCIRegistryRepository(o.BaseUrl, "")
+
 	ociClient, _, err := o.OciOptions.Build(log, fs)
 	if err != nil {
 		return fmt.Errorf("unable to build oci client: %s", err.Error())
 	}
 
 	cdresolver := cdoci.NewResolver(ociClient)
-	cd, err := cdresolver.Resolve(ctx, &repoCtx, o.ComponentName, o.Version)
+	cd, err := cdresolver.Resolve(ctx, repoCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
 	// check componentReferences and resources
-	if err := checkCd(cd, repoCtx, ociClient, context.TODO(), o.SkipAccessTypes); err != nil {
+	if err := CheckCd(cd, *repoCtx, ociClient, context.TODO(), o.SkipAccessTypes); err != nil {
 		return fmt.Errorf("failed checking cd: %w", err)
 	}
 
-	if o.SkipSignatureCheck {
-		return nil
-	}
-
 	// check if digest is signed by author with public key
-	verifier, err := cdv2Sign.CreateRsaVerifierFromKeyFile(o.PathToPublicKey)
-	if err != nil {
-		return fmt.Errorf("failed creating rsa verifier: %w", err)
-	}
 	if err = cdv2Sign.VerifySignedComponentDescriptor(cd, verifier, o.SignatureName); err != nil {
 		return fmt.Errorf("signature invalid for digest: %w", err)
 	}
@@ -136,9 +139,14 @@ func (o *VerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSys
 
 	log.Info(fmt.Sprintf("Signature %s is valid and digest of normalised cd matches calculated digest", o.SignatureName))
 	return nil
+
 }
 
-func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, skipAccessTypes []string) error {
+func CheckCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, skipAccessTypes []string) error {
+	skipAccessTypesMap := map[string]bool{}
+	for _, v := range skipAccessTypes {
+		skipAccessTypesMap[v] = true
+	}
 	for _, reference := range cd.ComponentReferences {
 		ociRef, err := cdoci.OCIRef(repoContext, reference.Name, reference.Version)
 		if err != nil {
@@ -171,9 +179,16 @@ func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepositor
 
 	}
 	for _, resource := range cd.Resources {
+		log := logger.Log.WithValues("componentDescriptor", cd, "resource.name", resource.Name, "resource.version", resource.Version, "resource.extraIdentity", resource.ExtraIdentity)
+
+		//skip ignored access type
+		if _, ok := skipAccessTypesMap[resource.Access.Type]; ok {
+			log.Info("skipping resource as defined in --skip-access-types")
+			continue
+		}
 		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" || resource.Digest.NormalisationAlgorithm == "" || resource.Digest.Value == "" {
 			return fmt.Errorf("resource is missing digest %s:%s", resource.Name, resource.Version)
-		} //todo: integrate with skipAccessType
+		}
 
 		hasher, err := cdv2Sign.HasherForName(resource.Digest.HashAlgorithm)
 		if err != nil {
@@ -195,6 +210,11 @@ func checkCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepositor
 }
 
 func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, hasherForCd *cdv2Sign.Hasher, skipAccessTypes []string) (*cdv2.DigestSpec, error) {
+	skipAccessTypesMap := map[string]bool{}
+	for _, v := range skipAccessTypes {
+		skipAccessTypesMap[v] = true
+	}
+
 	for referenceIndex, reference := range cd.ComponentReferences {
 		reference := reference
 
@@ -235,6 +255,12 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 		resource := resource
 		log := logger.Log.WithValues("componentDescriptor", cd, "resource.name", resource.Name, "resource.version", resource.Version, "resource.extraIdentity", resource.ExtraIdentity)
 
+		//skip ignored access type
+		if _, ok := skipAccessTypesMap[resource.Access.Type]; ok {
+			log.Info("skipping resource as defined in --skip-access-types")
+			continue
+		}
+
 		var hasher *cdv2Sign.Hasher
 		//default to sha256 as default
 		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" {
@@ -258,7 +284,7 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 		}
 
 		if resource.Digest != nil && !reflect.DeepEqual(resource.Digest, digest) {
-			log.Info(fmt.Sprintf("digest in cd %+v missmatches with calculated digest %+v ", resource.Digest, digest))
+			log.Info(fmt.Sprintf("digest in cd %+v mismatches with calculated digest %+v ", resource.Digest, digest))
 		}
 
 		resource.Digest = digest
@@ -270,49 +296,4 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 		return nil, fmt.Errorf("failed hashing cd %s:%s: %w", cd.Name, cd.Version, err)
 	}
 	return hashCd, nil
-}
-
-func (o *VerifyOptions) Complete(args []string) error {
-	// todo: validate args
-	o.BaseUrl = args[0]
-	o.ComponentName = args[1]
-	o.Version = args[2]
-
-	cliHomeDir, err := constants.CliHomeDir()
-	if err != nil {
-		return err
-	}
-
-	// TODO: disable caching
-	o.OciOptions.CacheDir = filepath.Join(cliHomeDir, "components")
-	if err := os.MkdirAll(o.OciOptions.CacheDir, os.ModePerm); err != nil {
-		return fmt.Errorf("unable to create cache directory %s: %w", o.OciOptions.CacheDir, err)
-	}
-
-	if len(o.BaseUrl) == 0 {
-		return errors.New("the base url must be defined")
-	}
-	if len(o.ComponentName) == 0 {
-		return errors.New("a component name must be defined")
-	}
-	if len(o.Version) == 0 {
-		return errors.New("a component's Version must be defined")
-	}
-
-	if !o.SkipSignatureCheck && o.PathToPublicKey == "" {
-		return errors.New("a path to public key file must be given as --keyfile flag")
-	}
-
-	if !o.SkipSignatureCheck && o.SignatureName == "" {
-		return errors.New("a signature name must be provided")
-	}
-	return nil
-}
-
-func (o *VerifyOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.PathToPublicKey, "keyfile", "", "path to public key file")
-	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
-	fs.BoolVar(&o.SkipSignatureCheck, "skip-signature-check", false, "skip signature check to only check digests")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be digested and not used for signature verification")
-	o.OciOptions.AddFlags(fs)
 }
