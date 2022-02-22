@@ -291,7 +291,7 @@ func (c *client) PushBlob(ctx context.Context, ref string, desc ocispecv1.Descri
 	return nil
 }
 
-func (c *client) PushManifestRaw(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, options ...PushOption) error {
+func (c *client) PushRawManifest(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, options ...PushOption) error {
 	if !IsSingleArchImage(desc.MediaType) && !IsMultiArchImage(desc.MediaType) {
 		return fmt.Errorf("media type is not an image manifest or image index: %s", desc.MediaType)
 	}
@@ -361,7 +361,7 @@ func (c *client) PushManifestRaw(ctx context.Context, ref string, desc ocispecv1
 	return nil
 }
 
-func (c *client) GetManifestRaw(ctx context.Context, ref string) (ocispecv1.Descriptor, []byte, error) {
+func (c *client) GetRawManifest(ctx context.Context, ref string) (ocispecv1.Descriptor, []byte, error) {
 	refspec, err := oci.ParseRef(ref)
 	if err != nil {
 		return ocispecv1.Descriptor{}, nil, fmt.Errorf("unable to parse ref: %w", err)
@@ -491,7 +491,7 @@ func (c *client) pushImageIndex(ctx context.Context, indexArtifact *oci.Index, p
 }
 
 func (c *client) GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error) {
-	desc, rawManifest, err := c.GetManifestRaw(ctx, ref)
+	desc, rawManifest, err := c.GetRawManifest(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get manifest: %w", err)
 	}
@@ -583,7 +583,7 @@ func (c *client) PushManifest(ctx context.Context, ref string, manifest *ocispec
 		Annotations: manifest.Annotations,
 	}
 
-	return c.PushManifestRaw(ctx, ref, desc, manifestBytes, options...)
+	return c.PushRawManifest(ctx, ref, desc, manifestBytes, options...)
 }
 
 func (c *client) getHttpClient() *http.Client {

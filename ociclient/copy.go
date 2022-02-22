@@ -18,7 +18,7 @@ import (
 // The artifact is copied without any modification.
 // This function does directly stream the blobs from the upstream it does not use any cache.
 func Copy(ctx context.Context, client Client, srcRef, tgtRef string) error {
-	desc, rawManifest, err := client.GetManifestRaw(ctx, srcRef)
+	desc, rawManifest, err := client.GetRawManifest(ctx, srcRef)
 	if err != nil {
 		return fmt.Errorf("unable to get manifest: %w", err)
 	}
@@ -39,13 +39,13 @@ func Copy(ctx context.Context, client Client, srcRef, tgtRef string) error {
 				return fmt.Errorf("unable to get manifest: %w", err)
 			}
 
-			if err := client.PushManifestRaw(ctx, tgtRef, manifestDesc, buf.Bytes(), WithStore(store)); err != nil {
+			if err := client.PushRawManifest(ctx, tgtRef, manifestDesc, buf.Bytes(), WithStore(store)); err != nil {
 				return fmt.Errorf("unable to push manifest: %w", err)
 			}
 		}
 	}
 
-	if err := client.PushManifestRaw(ctx, tgtRef, desc, rawManifest, WithStore(store)); err != nil {
+	if err := client.PushRawManifest(ctx, tgtRef, desc, rawManifest, WithStore(store)); err != nil {
 		return fmt.Errorf("unable to push manifest: %w", err)
 	}
 
