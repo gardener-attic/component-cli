@@ -7,10 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	ociopts "github.com/gardener/component-cli/ociclient/options"
-	"github.com/gardener/component-cli/pkg/commands/constants"
-	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/signatures"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	"github.com/gardener/component-spec/bindings-go/ctf"
@@ -19,6 +15,11 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	ociopts "github.com/gardener/component-cli/ociclient/options"
+	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/signatures"
 )
 
 // NewSignCommand creates a new command to interact with signatures.

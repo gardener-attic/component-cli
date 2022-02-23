@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gardener/component-cli/pkg/logger"
-	"github.com/gardener/component-cli/pkg/signatures"
 	"github.com/go-logr/logr"
 	"github.com/mandelsoft/vfs/pkg/osfs"
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/gardener/component-cli/pkg/logger"
+	"github.com/gardener/component-cli/pkg/signatures"
 )
 
 type NotarySignOptions struct {

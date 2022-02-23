@@ -5,18 +5,20 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 	"github.com/go-logr/logr"
 	"github.com/opencontainers/go-digest"
 
-	ociCache "github.com/gardener/component-cli/ociclient/cache"
+	"github.com/gardener/component-cli/ociclient"
+	"github.com/gardener/component-cli/pkg/components"
+
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
+
+	ociCache "github.com/gardener/component-cli/ociclient/cache"
 )
 
 func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context, skipAccessTypes []string) ([]*cdv2.ComponentDescriptor, error) {

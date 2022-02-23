@@ -7,10 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	ociopts "github.com/gardener/component-cli/ociclient/options"
-	"github.com/gardener/component-cli/pkg/commands/componentarchive/signature/verify"
-	"github.com/gardener/component-cli/pkg/commands/constants"
-	"github.com/gardener/component-cli/pkg/logger"
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdoci "github.com/gardener/component-spec/bindings-go/oci"
 	"github.com/go-logr/logr"
@@ -18,6 +14,11 @@ import (
 	"github.com/mandelsoft/vfs/pkg/vfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	ociopts "github.com/gardener/component-cli/ociclient/options"
+	"github.com/gardener/component-cli/pkg/commands/componentarchive/signature/verify"
+	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/logger"
 )
 
 type CheckDigestsOptions struct {

@@ -3,9 +3,10 @@ package signature
 import (
 	"context"
 
+	"github.com/spf13/cobra"
+
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/signature/sign"
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/signature/verify"
-	"github.com/spf13/cobra"
 )
 
 // NewSignatureCommand creates a new command to interact with signatures.
