@@ -28,7 +28,7 @@ type CheckDigestsOptions struct {
 	// Version is the component Version in the oci registry.
 	Version string
 
-	//SkipAccessTypes defines the access types that will be ignored for signing
+	// SkipAccessTypes defines the access types that will be ignored for checking digests
 	SkipAccessTypes []string
 
 	// OciOptions contains all exposed options to configure the oci client.
@@ -113,6 +113,6 @@ func (o *CheckDigestsOptions) Complete(args []string) error {
 }
 
 func (o *CheckDigestsOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be ignored for verification")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be ignored for digest verification")
 	o.OciOptions.AddFlags(fs)
 }

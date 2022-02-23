@@ -76,5 +76,5 @@ func (o *VerifyOptions) Complete(args []string) error {
 
 func (o *VerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GenericVerifyOptions.AddFlags(fs)
-	fs.StringVar(&o.PathToPublicKey, "keyfile", "", "path to public key file")
+	fs.StringVar(&o.PathToPublicKey, "public-key", "", "path to public key file")
 }

@@ -29,13 +29,13 @@ type AddDigestsOptions struct {
 	// Version is the component Version in the oci registry.
 	Version string
 
-	//UploadBaseUrlForSigned is the base url where the digested component descriptor will be uploaded
-	UploadBaseUrlForSigned string
+	// UploadBaseUrl is the base url where the digested component descriptor will be uploaded
+	UploadBaseUrl string
 
-	//Recursive to digest and upload all referenced component descriptors
+	// Recursive to digest and upload all referenced component descriptors
 	Recursive bool
 
-	//SkipAccessTypes defines the access types that will be ignored for adding digests
+	// SkipAccessTypes defines the access types that will be ignored for adding digests
 	SkipAccessTypes []string
 
 	// OciOptions contains all exposed options to configure the oci client.
@@ -78,31 +78,31 @@ func (o *AddDigestsOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 	}
 
 	cdresolver := cdoci.NewResolver(ociClient)
-	cd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, repoCtx, o.ComponentName, o.Version)
+	rootCd, blobResolver, err := cdresolver.ResolveWithBlobResolver(ctx, repoCtx, o.ComponentName, o.Version)
 	if err != nil {
 		return fmt.Errorf("unable to to fetch component descriptor %s:%s: %w", o.ComponentName, o.Version, err)
 	}
 
 	blobResolvers := map[string]ctf.BlobResolver{}
-	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
+	blobResolvers[fmt.Sprintf("%s:%s", rootCd.Name, rootCd.Version)] = blobResolver
 
-	signedCds, err := signatures.RecursivelyAddDigestsToCd(cd, *repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
+	cds, err := signatures.RecursivelyAddDigestsToCd(rootCd, *repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}
 
-	targetRepoCtx := cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, "")
+	targetRepoCtx := cdv2.NewOCIRegistryRepository(o.UploadBaseUrl, "")
 
 	if o.Recursive {
-		for _, signedCd := range signedCds {
-			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, signedCd.Name, signedCd.Version))
+		for _, cd := range cds {
+			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrl, cd.Name, cd.Version))
 
-			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
 			}
 		}
 	} else {
-		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *rootCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
 			return fmt.Errorf("failed uploading cd: %w", err)
 		}
 	}
@@ -132,19 +132,19 @@ func (o *AddDigestsOptions) Complete(args []string) error {
 		return errors.New("a component name must be defined")
 	}
 	if len(o.Version) == 0 {
-		return errors.New("a component's Version must be defined")
+		return errors.New("a component version must be defined")
 	}
 
-	if o.UploadBaseUrlForSigned == "" {
-		return errors.New("a new upload-base-url is required to upload component-desriptor")
+	if o.UploadBaseUrl == "" {
+		return errors.New("upload-base-url must be defined")
 	}
 
 	return nil
 }
 
 func (o *AddDigestsOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be digested and signed")
-	fs.BoolVar(&o.Recursive, "recursive", false, "recursively sign and upload all referenced cds")
+	fs.StringVar(&o.UploadBaseUrl, "upload-base-url", "", "target repository context to upload the signed cd")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be digested")
+	fs.BoolVar(&o.Recursive, "recursive", false, "recursively upload all referenced component descriptors")
 	o.OciOptions.AddFlags(fs)
 }

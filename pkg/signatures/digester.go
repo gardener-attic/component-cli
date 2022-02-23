@@ -91,7 +91,7 @@ func (d *Digester) digestForLocalOciBlob(ctx context.Context, componentDescripto
 	}
 	return &cdv2.DigestSpec{
 		HashAlgorithm:          d.hasher.AlgorithmName,
-		NormalisationAlgorithm: string(cdv2.LocalOciBlobDigestV1),
+		NormalisationAlgorithm: string(cdv2.GenericBlobDigestV1),
 		Value:                  hex.EncodeToString((d.hasher.HashFunction.Sum(nil))),
 	}, nil
 }

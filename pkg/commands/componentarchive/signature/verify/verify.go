@@ -40,16 +40,16 @@ type GenericVerifyOptions struct {
 	BaseUrl string
 	// ComponentName is the unique name of the component in the registry.
 	ComponentName string
-	// Version is the component Version in the oci registry.
+	// Version is the component version in the oci registry.
 	Version string
 
 	// SignatureName selects the matching signature to verify
 	SignatureName string
 
-	//RecursiveVerification to verify every referenced component descriptor
+	// RecursiveVerification to verify every referenced component descriptor
 	RecursiveVerification bool
 
-	//SkipAccessTypes defines the access types that will be ignored for signing
+	// SkipAccessTypes defines the access types that will be ignored for verification
 	SkipAccessTypes []string
 
 	// OciOptions contains all exposed options to configure the oci client.
@@ -89,7 +89,7 @@ func (o *GenericVerifyOptions) Complete(args []string) error {
 
 func (o *GenericVerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be ignored for verification")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be ignored for verification")
 	fs.BoolVar(&o.RecursiveVerification, "recursive", false, "recursively verify the signature of all referenced component descriptors")
 	o.OciOptions.AddFlags(fs)
 }

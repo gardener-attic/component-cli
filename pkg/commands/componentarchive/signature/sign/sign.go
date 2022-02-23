@@ -45,13 +45,13 @@ type GenericSignOptions struct {
 	// SignatureName selects the matching signature to verify
 	SignatureName string
 
-	//UploadBaseUrlForSigned is the base url where the signed component descriptor will be uploaded
+	// UploadBaseUrlForSigned is the base url where the signed component descriptor will be uploaded
 	UploadBaseUrlForSigned string
 
-	//RecursiveSigning to sign and upload all referenced components
+	// RecursiveSigning to enable/disable signing and uploading of all referenced components
 	RecursiveSigning bool
 
-	//SkipAccessTypes defines the access types that will be ignored for signing
+	// SkipAccessTypes defines the access types that will be ignored for signing
 	SkipAccessTypes []string
 
 	// OciOptions contains all exposed options to configure the oci client.
@@ -84,7 +84,7 @@ func (o *GenericSignOptions) Complete(args []string) error {
 		return errors.New("a component's Version must be defined")
 	}
 	if o.UploadBaseUrlForSigned == "" {
-		return errors.New("a new upload-base-url is required to upload component-desriptor")
+		return errors.New("upload-base-url must be defined")
 	}
 	if o.SignatureName == "" {
 		return errors.New("a signature name must be provided")
@@ -95,8 +95,8 @@ func (o *GenericSignOptions) Complete(args []string) error {
 func (o *GenericSignOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
 	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separeted list of access types that will not be digested and signed")
-	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced cds")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be digested and signed")
+	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced component descriptors")
 	o.OciOptions.AddFlags(fs)
 }
 

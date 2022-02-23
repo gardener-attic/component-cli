@@ -30,7 +30,7 @@ func NewRSASignCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rsa BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from a oci registry and sign it",
+		Short: "fetch the component descriptor from an oci registry and sign it using RSASSA-PKCS1-V1_5-SIGN",
 		Long: `
 fetches the component-descriptor and sign it.
 `,
@@ -74,5 +74,5 @@ func (o *RSASignOptions) Complete(args []string) error {
 
 func (o *RSASignOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GenericSignOptions.AddFlags(fs)
-	fs.StringVar(&o.PathToPrivateKey, "keyfile", "", "path to private key file")
+	fs.StringVar(&o.PathToPrivateKey, "private-key", "", "path to private key file used for signing")
 }
