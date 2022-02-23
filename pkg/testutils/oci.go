@@ -17,7 +17,6 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/ociclient/cache"
 	"github.com/gardener/component-cli/ociclient/oci"
 )
 
@@ -126,16 +125,16 @@ func UploadTestIndex(ctx context.Context, client ociclient.Client, indexRef stri
 	return &index, nil
 }
 
-// CreateManifest creates an oci manifest. if ocicache is set, all blobs are added to cache
-func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache) (*ocispecv1.Manifest, ocispecv1.Descriptor) {
+// CreateImage creates an oci image manifest.
+func CreateImage(configData []byte, layersData [][]byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, map[digest.Digest][]byte) {
+	blobMap := map[digest.Digest][]byte{}
+
 	configDesc := ocispecv1.Descriptor{
 		MediaType: "text/plain",
 		Digest:    digest.FromBytes(configData),
 		Size:      int64(len(configData)),
 	}
-	if ocicache != nil {
-		Expect(ocicache.Add(configDesc, io.NopCloser(bytes.NewReader(configData)))).To(Succeed())
-	}
+	blobMap[configDesc.Digest] = configData
 
 	layerDescs := []ocispecv1.Descriptor{}
 	for _, layerData := range layersData {
@@ -144,10 +143,8 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 			Digest:    digest.FromBytes(layerData),
 			Size:      int64(len(layerData)),
 		}
+		blobMap[layerDesc.Digest] = layerData
 		layerDescs = append(layerDescs, layerDesc)
-		if ocicache != nil {
-			Expect(ocicache.Add(layerDesc, io.NopCloser(bytes.NewReader(layerData)))).To(Succeed())
-		}
 	}
 
 	manifest := ocispecv1.Manifest{
@@ -166,11 +163,9 @@ func CreateManifest(configData []byte, layersData [][]byte, ocicache cache.Cache
 		Digest:    digest.FromBytes(manifestBytes),
 		Size:      int64(len(manifestBytes)),
 	}
-	if ocicache != nil {
-		Expect(ocicache.Add(manifestDesc, io.NopCloser(bytes.NewReader(manifestBytes)))).To(Succeed())
-	}
+	blobMap[manifestDesc.Digest] = manifestBytes
 
-	return &manifest, manifestDesc
+	return &manifest, manifestDesc, blobMap
 }
 
 func CompareRemoteManifest(client ociclient.Client, ref string, expectedManifest oci.Manifest, expectedCfgBytes []byte, expectedLayers [][]byte) {

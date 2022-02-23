@@ -7,7 +7,9 @@ package ociclient_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,17 +17,150 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/credentials"
 	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/testutils"
-
-	"github.com/gardener/component-cli/ociclient"
 )
+
+func RunPushAndPullImageTest(repository, manifestMediaType string) {
+	ctx := context.Background()
+	defer ctx.Done()
+
+	configData := []byte("config-data")
+	layersData := [][]byte{
+		[]byte("layer-1-data"),
+		[]byte("layer-2-data"),
+	}
+	ref := fmt.Sprintf("%s/%s", testenv.Addr, repository)
+
+	expectedManifest, expectedManifestDesc, blobMap := testutils.CreateImage(configData, layersData)
+	expectedManifestDesc.MediaType = manifestMediaType
+	expectedManifestBytes, err := json.Marshal(expectedManifest)
+	Expect(err).ToNot(HaveOccurred())
+
+	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+		_, err := writer.Write(blobMap[desc.Digest])
+		return err
+	})
+
+	Expect(client.PushRawManifest(ctx, ref, expectedManifestDesc, expectedManifestBytes, ociclient.WithStore(store))).To(Succeed())
+
+	actualManifestDesc, actualManifestBytes, err := client.GetRawManifest(ctx, ref)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(actualManifestDesc).To(Equal(expectedManifestDesc))
+	Expect(actualManifestBytes).To(Equal(expectedManifestBytes))
+
+	actualManifest := ocispecv1.Manifest{}
+	Expect(json.Unmarshal(actualManifestBytes, &actualManifest)).To(Succeed())
+
+	actualConfigBuf := bytes.NewBuffer([]byte{})
+	Expect(client.Fetch(ctx, ref, actualManifest.Config, actualConfigBuf)).To(Succeed())
+	Expect(actualConfigBuf.Bytes()).To(Equal(configData))
+
+	for i, layerDesc := range actualManifest.Layers {
+		actualLayerBuf := bytes.NewBuffer([]byte{})
+		Expect(client.Fetch(ctx, ref, layerDesc, actualLayerBuf)).To(Succeed())
+		Expect(actualLayerBuf.Bytes()).To(Equal(layersData[i]))
+	}
+}
+
+func RunPushAndPullImageIndexTest(repository, indexMediaType string) {
+	ctx := context.Background()
+	defer ctx.Done()
+
+	configData := []byte("config-data")
+	layersData := [][]byte{
+		[]byte("layer-1-data"),
+		[]byte("layer-2-data"),
+	}
+	ref := fmt.Sprintf("%s/%s", testenv.Addr, repository)
+
+	manifest1, manifest1Desc, blobMap := testutils.CreateImage(configData, layersData)
+	manifest1Desc.Platform = &ocispecv1.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
+	}
+	manifest1Bytes, err := json.Marshal(manifest1)
+	Expect(err).ToNot(HaveOccurred())
+	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+		_, err := writer.Write(blobMap[desc.Digest])
+		return err
+	})
+	Expect(client.PushRawManifest(ctx, ref, manifest1Desc, manifest1Bytes, ociclient.WithStore(store)))
+
+	manifest2, manifest2Desc, blobMap := testutils.CreateImage(configData, layersData)
+	manifest2Desc.Platform = &ocispecv1.Platform{
+		Architecture: "amd64",
+		OS:           "windows",
+	}
+	manifest2Bytes, err := json.Marshal(manifest2)
+	Expect(err).ToNot(HaveOccurred())
+	store = ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+		_, err := writer.Write(blobMap[desc.Digest])
+		return err
+	})
+	Expect(client.PushRawManifest(ctx, ref, manifest2Desc, manifest2Bytes, ociclient.WithStore(store)))
+
+	index := ocispecv1.Index{
+		Versioned: specs.Versioned{SchemaVersion: 2},
+		Manifests: []ocispecv1.Descriptor{
+			manifest1Desc,
+			manifest2Desc,
+		},
+		Annotations: map[string]string{
+			"test": "test",
+		},
+	}
+
+	indexBytes, err := json.Marshal(index)
+	Expect(err).ToNot(HaveOccurred())
+
+	indexDesc := ocispecv1.Descriptor{
+		MediaType: indexMediaType,
+		Digest:    digest.FromBytes(indexBytes),
+		Size:      int64(len(indexBytes)),
+	}
+	blobMap[indexDesc.Digest] = indexBytes
+
+	store = ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+		_, err := writer.Write(blobMap[desc.Digest])
+		return err
+	})
+
+	Expect(client.PushRawManifest(ctx, ref, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
+
+	actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, ref)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(actualIndexDesc).To(Equal(indexDesc))
+	Expect(actualIndexBytes).To(Equal(indexBytes))
+}
 
 var _ = Describe("client", func() {
 
 	Context("Client", func() {
+
+		It("should push and pull a single architecture image without modifications (oci media type)", func() {
+			RunPushAndPullImageTest("single-arch-tests/0/artifact:0.0.1", ocispecv1.MediaTypeImageManifest)
+		}, 20)
+
+		// TODO: investigate why this test isn't working (could be registry not accepting docker media type)
+		// It("should push and pull a single architecture image without modifications (docker media type)", func() {
+		// 	RunPushAndPullTest("single-arch-tests/1/artifact:0.0.1", images.MediaTypeDockerSchema2Manifest)
+		// }, 20)
+
+		It("should push and pull a multi architecture image without modifications (oci media type)", func() {
+			RunPushAndPullImageIndexTest("multi-arch-tests/0/artifact:0.0.1", ocispecv1.MediaTypeImageIndex)
+		}, 20)
+
+		// TODO: investigate why this test isn't working (could be registry not accepting docker media type)
+		// It("should push and pull a multi architecture image without modifications (docker media type)", func() {
+		// 	RunPushAndPullImageIndexTest("multi-arch-tests/1/artifact:0.0.1", images.MediaTypeDockerSchema2ManifestList)
+		// }, 20)
 
 		It("should push and pull an oci artifact", func() {
 			ctx := context.Background()
