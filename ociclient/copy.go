@@ -5,7 +5,9 @@
 package ociclient
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -15,17 +17,39 @@ import (
 // Copy copies a oci artifact from one location to a target ref.
 // The artifact is copied without any modification.
 // This function does directly stream the blobs from the upstream it does not use any cache.
-func Copy(ctx context.Context, client Client, from, to string) error {
-	artifact, err := client.GetOCIArtifact(ctx, from)
+func Copy(ctx context.Context, client Client, srcRef, tgtRef string) error {
+	desc, rawManifest, err := client.GetRawManifest(ctx, srcRef)
 	if err != nil {
-		return fmt.Errorf("unable to get source oci artifact %q: %w", from, err)
+		return fmt.Errorf("unable to get manifest: %w", err)
 	}
 
 	store := GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		return client.Fetch(ctx, from, desc, writer)
+		return client.Fetch(ctx, srcRef, desc, writer)
 	})
 
-	return client.PushOCIArtifact(ctx, to, artifact, WithStore(store))
+	if IsMultiArchImage(desc.MediaType) {
+		index := ocispecv1.Index{}
+		if err := json.Unmarshal(rawManifest, &index); err != nil {
+			return fmt.Errorf("unable to unmarshal image index: %w", err)
+		}
+
+		for _, manifestDesc := range index.Manifests {
+			buf := bytes.NewBuffer([]byte{})
+			if err := client.Fetch(ctx, srcRef, manifestDesc, buf); err != nil {
+				return fmt.Errorf("unable to get manifest: %w", err)
+			}
+
+			if err := client.PushRawManifest(ctx, tgtRef, manifestDesc, buf.Bytes(), WithStore(store)); err != nil {
+				return fmt.Errorf("unable to push manifest: %w", err)
+			}
+		}
+	}
+
+	if err := client.PushRawManifest(ctx, tgtRef, desc, rawManifest, WithStore(store)); err != nil {
+		return fmt.Errorf("unable to push manifest: %w", err)
+	}
+
+	return nil
 }
 
 // GenericStore is a helper struct to implement a custom oci blob store.
