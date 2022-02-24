@@ -106,14 +106,9 @@ func (d *Digester) digestForOciArtifact(ctx context.Context, componentDescriptor
 		return nil, fmt.Errorf("unable to decode resource access: %w", err)
 	}
 
-	ociArtifact, err := d.ociClient.GetOCIArtifact(ctx, ociAccess.ImageReference)
+	_, bytes, err := d.ociClient.GetRawManifest(ctx, ociAccess.ImageReference)
 	if err != nil {
-		return nil, fmt.Errorf("failed resolving oci artifact: %w", err)
-	}
-
-	bytes, err := ociArtifact.Raw()
-	if err != nil {
-		return nil, fmt.Errorf("failed getting oci artifact raw data: %w", err)
+		return nil, fmt.Errorf("failed getting oci raw manifest: %w", err)
 	}
 
 	d.hasher.HashFunction.Reset()
