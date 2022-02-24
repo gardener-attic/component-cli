@@ -37,7 +37,7 @@ type CheckDigestsOptions struct {
 }
 
 func NewCheckDigest(ctx context.Context) *cobra.Command {
-	opts := &AddDigestsOptions{}
+	opts := &CheckDigestsOptions{}
 	cmd := &cobra.Command{
 		Use:   "check-digests BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
