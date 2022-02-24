@@ -211,61 +211,94 @@ var _ = Describe("client", func() {
 			ctx := context.Background()
 			defer ctx.Done()
 
-			ref := testenv.Addr + "/image-index/2/empty-img:v0.0.1"
-			index := oci.Index{
-				Manifests: []*oci.Manifest{},
+			ref := testenv.Addr + "/multi-arch-tests/3/empty-img:v0.0.1"
+			index := ocispecv1.Index{
+				Versioned: specs.Versioned{
+					SchemaVersion: 2,
+				},
+				Manifests: []ocispecv1.Descriptor{},
 				Annotations: map[string]string{
 					"test": "test",
 				},
 			}
 
-			tmp, err := oci.NewIndexArtifact(&index)
+			indexBytes, err := json.Marshal(index)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = client.PushOCIArtifact(ctx, ref, tmp)
+			indexDesc := ocispecv1.Descriptor{
+				MediaType: ocispecv1.MediaTypeImageIndex,
+				Digest:    digest.FromBytes(indexBytes),
+				Size:      int64(len(indexBytes)),
+			}
+
+			store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+				_, err := writer.Write(indexBytes)
+				return err
+			})
+
+			Expect(client.PushRawManifest(ctx, ref, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
+
+			actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, ref)
 			Expect(err).ToNot(HaveOccurred())
 
-			actualArtifact, err := client.GetOCIArtifact(ctx, ref)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(actualArtifact.IsManifest()).To(BeFalse())
-			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			Expect(actualArtifact.GetIndex()).To(Equal(&index))
+			Expect(actualIndexDesc).To(Equal(indexDesc))
+			Expect(actualIndexBytes).To(Equal(indexBytes))
 		}, 20)
 
 		It("should push and pull an oci image index with only 1 manifest and no platform information", func() {
 			ctx := context.Background()
 			defer ctx.Done()
 
-			ref := testenv.Addr + "/image-index/3/img:v0.0.1"
-			manifest1Ref := testenv.Addr + "/image-index/1/img-platform-1:v0.0.1"
-			manifest, mdesc, err := testutils.UploadTestManifest(ctx, client, manifest1Ref)
+			configData := []byte("config-data")
+			layersData := [][]byte{
+				[]byte("layer-1-data"),
+				[]byte("layer-2-data"),
+			}
+			imageRef := testenv.Addr + "/multi-arch-tests/4/img:v0.0.1"
+
+			m, mdesc, blobMap := testutils.CreateImage(configData, layersData)
+			mbytes, err := json.Marshal(m)
 			Expect(err).ToNot(HaveOccurred())
 
-			index := oci.Index{
-				Manifests: []*oci.Manifest{
-					{
-						Descriptor: mdesc,
-						Data:       manifest,
-					},
+			store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+				_, err := writer.Write(blobMap[desc.Digest])
+				return err
+			})
+
+			Expect(client.PushRawManifest(ctx, imageRef, mdesc, mbytes, ociclient.WithStore(store))).To(Succeed())
+
+			index := ocispecv1.Index{
+				Versioned: specs.Versioned{
+					SchemaVersion: 2,
+				},
+				Manifests: []ocispecv1.Descriptor{
+					mdesc,
 				},
 				Annotations: map[string]string{
 					"test": "test",
 				},
 			}
 
-			tmp, err := oci.NewIndexArtifact(&index)
+			indexBytes, err := json.Marshal(index)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = client.PushOCIArtifact(ctx, ref, tmp)
-			Expect(err).ToNot(HaveOccurred())
+			indexDesc := ocispecv1.Descriptor{
+				MediaType: ocispecv1.MediaTypeImageIndex,
+				Digest:    digest.FromBytes(indexBytes),
+				Size:      int64(len(indexBytes)),
+			}
 
-			actualArtifact, err := client.GetOCIArtifact(ctx, ref)
-			Expect(err).ToNot(HaveOccurred())
+			store = ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+				_, err := writer.Write(indexBytes)
+				return err
+			})
 
-			Expect(actualArtifact.IsManifest()).To(BeFalse())
-			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			Expect(actualArtifact.GetIndex()).To(Equal(&index))
+			Expect(client.PushRawManifest(ctx, imageRef, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
+
+			actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, imageRef)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actualIndexDesc).To(Equal(indexDesc))
+			Expect(actualIndexBytes).To(Equal(indexBytes))
 		}, 20)
 
 		It("should copy an oci artifact", func() {
@@ -323,9 +356,6 @@ var _ = Describe("client", func() {
 				)
 			}
 		}, 20)
-
-		// TODO: write copy test with manifest list mediatype
-		// TODO: compare checksums of copied artifacts
 
 	})
 
