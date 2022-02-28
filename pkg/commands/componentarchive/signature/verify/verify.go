@@ -258,15 +258,14 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 		}
 
 		var hasher *cdv2Sign.Hasher
+		var err error
 		//default to sha256 as default
 		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" {
-			var err error
 			hasher, err = cdv2Sign.HasherForName("sha256")
 			if err != nil {
 				return nil, fmt.Errorf("failed creating hasher: %w", err)
 			}
 		} else {
-			var err error
 			hasher, err = cdv2Sign.HasherForName(resource.Digest.HashAlgorithm)
 			if err != nil {
 				return nil, fmt.Errorf("failed creating hasher for algorithm %s for resource %s %s: %w", resource.Digest.HashAlgorithm, resource.Name, resource.Version, err)
