@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/gardener/component-cli/pkg/testutils"
 	"github.com/gardener/component-cli/pkg/transport/process/downloaders"
 	"github.com/gardener/component-cli/pkg/transport/process/utils"
 )
@@ -43,15 +42,6 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, ociCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*actualOciArtifact.GetManifest()).To(Equal(expectedImageManifest))
-			testutils.CompareRemoteManifest(
-				ociClient,
-				imageRef,
-				expectedImageManifest,
-				[]byte("config-data"),
-				[][]byte{
-					[]byte("layer-data"),
-				},
-			)
 		})
 
 		It("should download and stream oci image index", func() {

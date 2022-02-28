@@ -5,7 +5,6 @@
 package ociclient_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,7 +22,6 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/credentials"
-	"github.com/gardener/component-cli/ociclient/oci"
 	"github.com/gardener/component-cli/pkg/testutils"
 )
 
@@ -38,35 +36,9 @@ func RunPushAndPullImageTest(repository, manifestMediaType string) {
 	}
 	ref := fmt.Sprintf("%s/%s", testenv.Addr, repository)
 
-	expectedManifest, expectedManifestDesc, blobMap := testutils.CreateImage(configData, layersData)
-	expectedManifestDesc.MediaType = manifestMediaType
-	expectedManifestBytes, err := json.Marshal(expectedManifest)
-	Expect(err).ToNot(HaveOccurred())
+	manifestDesc, manifestBytes := testutils.UploadTestImage(ctx, client, ref, manifestMediaType, configData, layersData)
 
-	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		_, err := writer.Write(blobMap[desc.Digest])
-		return err
-	})
-
-	Expect(client.PushRawManifest(ctx, ref, expectedManifestDesc, expectedManifestBytes, ociclient.WithStore(store))).To(Succeed())
-
-	actualManifestDesc, actualManifestBytes, err := client.GetRawManifest(ctx, ref)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(actualManifestDesc).To(Equal(expectedManifestDesc))
-	Expect(actualManifestBytes).To(Equal(expectedManifestBytes))
-
-	actualManifest := ocispecv1.Manifest{}
-	Expect(json.Unmarshal(actualManifestBytes, &actualManifest)).To(Succeed())
-
-	actualConfigBuf := bytes.NewBuffer([]byte{})
-	Expect(client.Fetch(ctx, ref, actualManifest.Config, actualConfigBuf)).To(Succeed())
-	Expect(actualConfigBuf.Bytes()).To(Equal(configData))
-
-	for i, layerDesc := range actualManifest.Layers {
-		actualLayerBuf := bytes.NewBuffer([]byte{})
-		Expect(client.Fetch(ctx, ref, layerDesc, actualLayerBuf)).To(Succeed())
-		Expect(actualLayerBuf.Bytes()).To(Equal(layersData[i]))
-	}
+	testutils.CompareRemoteManifest(ctx, client, ref, manifestDesc, manifestBytes, configData, layersData)
 }
 
 func RunPushAndPullImageIndexTest(repository, indexMediaType string) {
@@ -79,65 +51,43 @@ func RunPushAndPullImageIndexTest(repository, indexMediaType string) {
 		[]byte("layer-2-data"),
 	}
 	ref := fmt.Sprintf("%s/%s", testenv.Addr, repository)
+	ref1 := ref + "-platform-1"
+	ref2 := ref + "-platform-2"
 
-	manifest1, manifest1Desc, blobMap := testutils.CreateImage(configData, layersData)
-	manifest1Desc.Platform = &ocispecv1.Platform{
+	manifest1Desc, manifest1Bytes := testutils.UploadTestImage(ctx, client, ref1, ocispecv1.MediaTypeImageManifest, configData, layersData)
+	manifest1IndexDesc := manifest1Desc
+	manifest1IndexDesc.Platform = &ocispecv1.Platform{
 		Architecture: "amd64",
 		OS:           "linux",
 	}
-	manifest1Bytes, err := json.Marshal(manifest1)
-	Expect(err).ToNot(HaveOccurred())
-	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		_, err := writer.Write(blobMap[desc.Digest])
-		return err
-	})
-	Expect(client.PushRawManifest(ctx, ref, manifest1Desc, manifest1Bytes, ociclient.WithStore(store)))
 
-	manifest2, manifest2Desc, blobMap := testutils.CreateImage(configData, layersData)
-	manifest2Desc.Platform = &ocispecv1.Platform{
+	manifest2Desc, manifest2Bytes := testutils.UploadTestImage(ctx, client, ref2, ocispecv1.MediaTypeImageManifest, configData, layersData)
+	manifest2IndexDesc := manifest2Desc
+	manifest2IndexDesc.Platform = &ocispecv1.Platform{
 		Architecture: "amd64",
 		OS:           "windows",
 	}
-	manifest2Bytes, err := json.Marshal(manifest2)
-	Expect(err).ToNot(HaveOccurred())
-	store = ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		_, err := writer.Write(blobMap[desc.Digest])
-		return err
-	})
-	Expect(client.PushRawManifest(ctx, ref, manifest2Desc, manifest2Bytes, ociclient.WithStore(store)))
 
 	index := ocispecv1.Index{
 		Versioned: specs.Versioned{SchemaVersion: 2},
 		Manifests: []ocispecv1.Descriptor{
-			manifest1Desc,
-			manifest2Desc,
+			manifest1IndexDesc,
+			manifest2IndexDesc,
 		},
 		Annotations: map[string]string{
 			"test": "test",
 		},
 	}
 
-	indexBytes, err := json.Marshal(index)
-	Expect(err).ToNot(HaveOccurred())
-
-	indexDesc := ocispecv1.Descriptor{
-		MediaType: indexMediaType,
-		Digest:    digest.FromBytes(indexBytes),
-		Size:      int64(len(indexBytes)),
-	}
-	blobMap[indexDesc.Digest] = indexBytes
-
-	store = ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		_, err := writer.Write(blobMap[desc.Digest])
-		return err
-	})
-
-	Expect(client.PushRawManifest(ctx, ref, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
+	indexDesc, indexBytes := testutils.UploadTestIndex(ctx, client, ref, indexMediaType, index)
 
 	actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, ref)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(actualIndexDesc).To(Equal(indexDesc))
 	Expect(actualIndexBytes).To(Equal(indexBytes))
+
+	testutils.CompareRemoteManifest(ctx, client, ref1, manifest1Desc, manifest1Bytes, configData, layersData)
+	testutils.CompareRemoteManifest(ctx, client, ref2, manifest2Desc, manifest2Bytes, configData, layersData)
 }
 
 var _ = Describe("client", func() {
@@ -148,64 +98,19 @@ var _ = Describe("client", func() {
 			RunPushAndPullImageTest("single-arch-tests/0/artifact:0.0.1", ocispecv1.MediaTypeImageManifest)
 		}, 20)
 
-		// TODO: investigate why this test isn't working (could be registry not accepting docker media type)
-		// It("should push and pull a single architecture image without modifications (docker media type)", func() {
-		// 	RunPushAndPullTest("single-arch-tests/1/artifact:0.0.1", images.MediaTypeDockerSchema2Manifest)
-		// }, 20)
-
 		It("should push and pull a multi architecture image without modifications (oci media type)", func() {
 			RunPushAndPullImageIndexTest("multi-arch-tests/0/artifact:0.0.1", ocispecv1.MediaTypeImageIndex)
 		}, 20)
 
 		// TODO: investigate why this test isn't working (could be registry not accepting docker media type)
+		// It("should push and pull a single architecture image without modifications (docker media type)", func() {
+		// 	RunPushAndPullTest("single-arch-tests/1/artifact:0.0.1", images.MediaTypeDockerSchema2Manifest)
+		// }, 20)
+
+		// TODO: investigate why this test isn't working (could be registry not accepting docker media type)
 		// It("should push and pull a multi architecture image without modifications (docker media type)", func() {
 		// 	RunPushAndPullImageIndexTest("multi-arch-tests/1/artifact:0.0.1", images.MediaTypeDockerSchema2ManifestList)
 		// }, 20)
-
-		It("should push and pull an oci artifact", func() {
-			ctx := context.Background()
-			defer ctx.Done()
-
-			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest, mdesc, err := testutils.UploadTestManifest(ctx, client, ref)
-			Expect(err).ToNot(HaveOccurred())
-
-			res, err := client.GetManifest(ctx, ref)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Config).To(Equal(manifest.Config))
-			Expect(res.Layers).To(Equal(manifest.Layers))
-
-			// TODO: oci image index test only working because cache is filled in this function with config/layer blobs. should be fixed
-			expectedManifest := oci.Manifest{
-				Descriptor: mdesc,
-				Data:       manifest,
-			}
-			testutils.CompareRemoteManifest(
-				client,
-				ref,
-				expectedManifest,
-				[]byte("config-data"),
-				[][]byte{
-					[]byte("layer-data"),
-				},
-			)
-		}, 20)
-
-		It("should push and pull an oci image index", func() {
-			ctx := context.Background()
-			defer ctx.Done()
-
-			indexRef := testenv.Addr + "/image-index/1/img:v0.0.1"
-			index, err := testutils.UploadTestIndex(ctx, client, indexRef)
-			Expect(err).ToNot(HaveOccurred())
-
-			actualArtifact, err := client.GetOCIArtifact(ctx, indexRef)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(actualArtifact.IsManifest()).To(BeFalse())
-			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			Expect(actualArtifact.GetIndex()).To(Equal(index))
-		}, 20)
 
 		It("should push and pull an empty oci image index", func() {
 			ctx := context.Background()
@@ -254,18 +159,9 @@ var _ = Describe("client", func() {
 				[]byte("layer-1-data"),
 				[]byte("layer-2-data"),
 			}
-			imageRef := testenv.Addr + "/multi-arch-tests/4/img:v0.0.1"
+			ref := testenv.Addr + "/multi-arch-tests/4/img:v0.0.1"
 
-			m, mdesc, blobMap := testutils.CreateImage(configData, layersData)
-			mbytes, err := json.Marshal(m)
-			Expect(err).ToNot(HaveOccurred())
-
-			store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-				_, err := writer.Write(blobMap[desc.Digest])
-				return err
-			})
-
-			Expect(client.PushRawManifest(ctx, imageRef, mdesc, mbytes, ociclient.WithStore(store))).To(Succeed())
+			mdesc, _ := testutils.UploadTestImage(ctx, client, ref, ocispecv1.MediaTypeImageManifest, configData, layersData)
 
 			index := ocispecv1.Index{
 				Versioned: specs.Versioned{
@@ -288,14 +184,14 @@ var _ = Describe("client", func() {
 				Size:      int64(len(indexBytes)),
 			}
 
-			store = ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+			store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
 				_, err := writer.Write(indexBytes)
 				return err
 			})
 
-			Expect(client.PushRawManifest(ctx, imageRef, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
+			Expect(client.PushRawManifest(ctx, ref, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
 
-			actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, imageRef)
+			actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, ref)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualIndexDesc).To(Equal(indexDesc))
 			Expect(actualIndexBytes).To(Equal(indexBytes))
@@ -305,63 +201,76 @@ var _ = Describe("client", func() {
 			ctx := context.Background()
 			defer ctx.Done()
 
+			configData := []byte("config-data")
+			layersData := [][]byte{
+				[]byte("layer-1-data"),
+				[]byte("layer-2-data"),
+			}
 			ref := testenv.Addr + "/test/artifact:v0.0.1"
-			manifest, _, err := testutils.UploadTestManifest(ctx, client, ref)
-			Expect(err).ToNot(HaveOccurred())
-
+			mdesc, mbytes := testutils.UploadTestImage(ctx, client, ref, ocispecv1.MediaTypeImageManifest, configData, layersData)
 			newRef := testenv.Addr + "/new/artifact:v0.0.1"
+
 			Expect(ociclient.Copy(ctx, client, ref, newRef)).To(Succeed())
 
-			res, err := client.GetManifest(ctx, newRef)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res.Config).To(Equal(manifest.Config))
-			Expect(res.Layers).To(Equal(manifest.Layers))
-
-			var configBlob bytes.Buffer
-			Expect(client.Fetch(ctx, ref, res.Config, &configBlob)).To(Succeed())
-			Expect(configBlob.String()).To(Equal("config-data"))
-
-			var layerBlob bytes.Buffer
-			Expect(client.Fetch(ctx, ref, res.Layers[0], &layerBlob)).To(Succeed())
-			Expect(layerBlob.String()).To(Equal("layer-data"))
+			testutils.CompareRemoteManifest(ctx, client, newRef, mdesc, mbytes, configData, layersData)
 		}, 20)
 
 		It("should copy an oci image index", func() {
 			ctx := context.Background()
 			defer ctx.Done()
 
+			configData := []byte("config-data")
+			layersData := [][]byte{
+				[]byte("layer-1-data"),
+				[]byte("layer-2-data"),
+			}
+			ref1 := testenv.Addr + "/copy/image-index/src/img:v0.0.1-platform-1"
+			ref2 := testenv.Addr + "/copy/image-index/src/img:v0.0.1-platform-2"
 			ref := testenv.Addr + "/copy/image-index/src/img:v0.0.1"
-			index, err := testutils.UploadTestIndex(ctx, client, ref)
-			Expect(err).ToNot(HaveOccurred())
+
+			manifest1Desc, manifest1Bytes := testutils.UploadTestImage(ctx, client, ref1, ocispecv1.MediaTypeImageManifest, configData, layersData)
+			manifest1IndexDesc := manifest1Desc
+			manifest1IndexDesc.Platform = &ocispecv1.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			}
+
+			manifest2Desc, manifest2Bytes := testutils.UploadTestImage(ctx, client, ref2, ocispecv1.MediaTypeImageManifest, configData, layersData)
+			manifest2IndexDesc := manifest2Desc
+			manifest2IndexDesc.Platform = &ocispecv1.Platform{
+				Architecture: "amd64",
+				OS:           "windows",
+			}
+
+			index := ocispecv1.Index{
+				Versioned: specs.Versioned{SchemaVersion: 2},
+				Manifests: []ocispecv1.Descriptor{
+					manifest1IndexDesc,
+					manifest2IndexDesc,
+				},
+				Annotations: map[string]string{
+					"test": "test",
+				},
+			}
+
+			indexDesc, indexBytes := testutils.UploadTestIndex(ctx, client, ref, ocispecv1.MediaTypeImageIndex, index)
 
 			newRef := testenv.Addr + "/copy/image-index/tgt/img:v0.0.1"
 			Expect(ociclient.Copy(ctx, client, ref, newRef)).To(Succeed())
 
-			actualArtifact, err := client.GetOCIArtifact(ctx, newRef)
+			actualIndexDesc, actualIndexBytes, err := client.GetRawManifest(ctx, ref)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(actualIndexDesc).To(Equal(indexDesc))
+			Expect(actualIndexBytes).To(Equal(indexBytes))
 
-			Expect(actualArtifact.IsManifest()).To(BeFalse())
-			Expect(actualArtifact.IsIndex()).To(BeTrue())
-			Expect(actualArtifact.GetIndex()).To(Equal(index))
-
-			for i := range actualArtifact.GetIndex().Manifests {
-				testutils.CompareRemoteManifest(
-					client,
-					ref,
-					*index.Manifests[i],
-					[]byte("config-data"),
-					[][]byte{
-						[]byte("layer-data"),
-					},
-				)
-			}
+			testutils.CompareRemoteManifest(ctx, client, ref1, manifest1Desc, manifest1Bytes, configData, layersData)
+			testutils.CompareRemoteManifest(ctx, client, ref2, manifest2Desc, manifest2Bytes, configData, layersData)
 		}, 20)
 
 	})
 
 	Context("ExtendedClient", func() {
 		Context("ListTags", func() {
-
 			var (
 				server  *httptest.Server
 				host    string
@@ -418,7 +327,6 @@ var _ = Describe("client", func() {
 		})
 
 		Context("ListRepositories", func() {
-
 			var (
 				server  *httptest.Server
 				host    string

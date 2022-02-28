@@ -97,13 +97,6 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, cache.NewInMemoryCache())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
-			testutils.CompareRemoteManifest(
-				ociClient,
-				expectedImageRef,
-				*expectedOciArtifact.GetManifest(),
-				configData,
-				layers,
-			)
 		})
 
 		It("should upload and stream oci image index", func() {
@@ -214,20 +207,6 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, cache.NewInMemoryCache())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
-			testutils.CompareRemoteManifest(
-				ociClient,
-				expectedImageRef,
-				*expectedOciArtifact.GetIndex().Manifests[0],
-				configData1,
-				layers1,
-			)
-			testutils.CompareRemoteManifest(
-				ociClient,
-				expectedImageRef,
-				*expectedOciArtifact.GetIndex().Manifests[1],
-				configData2,
-				layers2,
-			)
 		})
 
 		It("should return error for invalid access type", func() {
