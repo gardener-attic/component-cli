@@ -19,17 +19,14 @@ import (
 
 // UploadTestImage uploads an oci image manifest to a registry
 func UploadTestImage(ctx context.Context, client ociclient.Client, ref, manifestMediaType string, configData []byte, layersData [][]byte) (ocispecv1.Descriptor, []byte) {
-	manifest, desc, blobMap := CreateImage(configData, layersData)
-	desc.MediaType = manifestMediaType
-
-	manifestBytes, err := json.Marshal(manifest)
-	Expect(err).ToNot(HaveOccurred())
+	_, desc, blobMap := CreateImage(manifestMediaType, configData, layersData)
 
 	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
 		_, err := writer.Write(blobMap[desc.Digest])
 		return err
 	})
 
+	manifestBytes := blobMap[desc.Digest]
 	Expect(client.PushRawManifest(ctx, ref, desc, manifestBytes, ociclient.WithStore(store))).To(Succeed())
 
 	return desc, manifestBytes
@@ -57,7 +54,7 @@ func UploadTestIndex(ctx context.Context, client ociclient.Client, ref, indexMed
 }
 
 // CreateImage creates an oci image manifest.
-func CreateImage(configData []byte, layersData [][]byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, map[digest.Digest][]byte) {
+func CreateImage(manifestMediaType string, configData []byte, layersData [][]byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, map[digest.Digest][]byte) {
 	blobMap := map[digest.Digest][]byte{}
 
 	configDesc := ocispecv1.Descriptor{
@@ -90,7 +87,7 @@ func CreateImage(configData []byte, layersData [][]byte) (*ocispecv1.Manifest, o
 	Expect(err).ToNot(HaveOccurred())
 
 	manifestDesc := ocispecv1.Descriptor{
-		MediaType: ocispecv1.MediaTypeImageManifest,
+		MediaType: manifestMediaType,
 		Digest:    digest.FromBytes(manifestBytes),
 		Size:      int64(len(manifestBytes)),
 	}
