@@ -32,7 +32,6 @@ func NewVerifyCommand(ctx context.Context) *cobra.Command {
 	}
 
 	cmd.AddCommand(NewRSAVerifyCommand(ctx))
-	cmd.AddCommand(NewNotaryVerifyCommand(ctx))
 	return cmd
 }
 
