@@ -33,6 +33,9 @@ type AddDigestsOptions struct {
 	// UploadBaseUrl is the base url where the digested component descriptor will be uploaded
 	UploadBaseUrl string
 
+	// Force to overwrite component descriptors on upload
+	Force bool
+
 	// Recursive to digest and upload all referenced component descriptors
 	Recursive bool
 
@@ -98,12 +101,12 @@ func (o *AddDigestsOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 		for _, cd := range cds {
 			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrl, cd.Name, cd.Version))
 
-			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, o.Force, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
 			}
 		}
 	} else {
-		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *rootCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *rootCd, *targetRepoCtx, ociClient, cache, blobResolvers, o.Force, log); err != nil {
 			return fmt.Errorf("failed uploading cd: %w", err)
 		}
 	}
@@ -146,6 +149,7 @@ func (o *AddDigestsOptions) Complete(args []string) error {
 func (o *AddDigestsOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.UploadBaseUrl, "upload-base-url", "", "target repository context to upload the signed cd")
 	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be digested")
+	fs.BoolVar(&o.Force, "force", false, "force overwrite of already existing component descriptors")
 	fs.BoolVar(&o.Recursive, "recursive", false, "recursively upload all referenced component descriptors")
 	o.OciOptions.AddFlags(fs)
 }

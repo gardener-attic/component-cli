@@ -66,7 +66,16 @@ func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 	return cdsWithHashes, nil
 }
 
-func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolvers map[string]ctf.BlobResolver, log logr.Logger) error {
+func UploadCDPreservingLocalOciBlobs(ctx context.Context, cd v2.ComponentDescriptor, targetRepository cdv2.OCIRegistryRepository, ociClient ociclient.ExtendedClient, cache ociCache.Cache, blobResolvers map[string]ctf.BlobResolver, force bool, log logr.Logger) error {
+	// check if the component descriptor already exists and skip if not forced to overwrite
+	if !force {
+		cdresolver := cdoci.NewResolver(ociClient)
+		if _, err := cdresolver.Resolve(ctx, &targetRepository, cd.Name, cd.Version); err == nil {
+			log.V(3).Info(fmt.Sprintf("Component Descriptor %s %s already exists in %s. Skip uploading cd", cd.Name, cd.Version, targetRepository.BaseURL))
+			return nil
+		}
+	}
+
 	if err := cdv2.InjectRepositoryContext(&cd, &targetRepository); err != nil {
 		return fmt.Errorf("unble to inject target repository: %w", err)
 	}

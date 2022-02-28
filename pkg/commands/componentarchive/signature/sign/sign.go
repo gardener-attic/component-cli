@@ -47,6 +47,9 @@ type GenericSignOptions struct {
 	// UploadBaseUrlForSigned is the base url where the signed component descriptor will be uploaded
 	UploadBaseUrlForSigned string
 
+	// Force to overwrite component descriptors on upload
+	Force bool
+
 	// RecursiveSigning to enable/disable signing and uploading of all referenced components
 	RecursiveSigning bool
 
@@ -95,6 +98,7 @@ func (o *GenericSignOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
 	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
 	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be digested and signed")
+	fs.BoolVar(&o.Force, "force", false, "force overwrite of already existing component descriptors")
 	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced component descriptors")
 	o.OciOptions.AddFlags(fs)
 }
@@ -137,12 +141,12 @@ func (o *GenericSignOptions) SignAndUploadWithSigner(ctx context.Context, log lo
 
 			logger.Log.Info(fmt.Sprintf("Uploading to %s %s %s", o.UploadBaseUrlForSigned, signedCd.Name, signedCd.Version))
 
-			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+			if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *signedCd, *targetRepoCtx, ociClient, cache, blobResolvers, o.Force, log); err != nil {
 				return fmt.Errorf("failed uploading cd: %w", err)
 			}
 		}
 	} else {
-		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, log); err != nil {
+		if err := signatures.UploadCDPreservingLocalOciBlobs(ctx, *cd, *targetRepoCtx, ociClient, cache, blobResolvers, o.Force, log); err != nil {
 			return fmt.Errorf("failed uploading cd: %w", err)
 		}
 	}
