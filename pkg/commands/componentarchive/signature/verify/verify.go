@@ -115,7 +115,7 @@ func (o *GenericVerifyOptions) VerifyWithVerifier(ctx context.Context, log logr.
 	}
 
 	// check if digest matches the normalised component-descriptor
-	hasher, err := cdv2Sign.HasherForName("sha256")
+	hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
 	if err != nil {
 		return fmt.Errorf("failed creating hasher: %w", err)
 	}
@@ -225,21 +225,17 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
 
-		var hasher *cdv2Sign.Hasher
-		//default to sha256 as default
+		hashAlgorithmIdentifier := ""
 		if reference.Digest == nil || reference.Digest.HashAlgorithm == "" {
-			var err error
-			hasher, err = cdv2Sign.HasherForName("sha256")
-			if err != nil {
-				return nil, fmt.Errorf("failed creating hasher: %w", err)
-			}
+			hashAlgorithmIdentifier = cdv2Sign.SHA256
 		} else {
-			var err error
-			hasher, err = cdv2Sign.HasherForName(reference.Digest.HashAlgorithm)
-			if err != nil {
-				return nil, fmt.Errorf("failed creating hasher for algorithm %s for referenceCd %s %s: %w", reference.Digest.HashAlgorithm, reference.Name, reference.Version, err)
-			}
+			hashAlgorithmIdentifier = reference.Digest.HashAlgorithm
 		}
+		hasher, err := cdv2Sign.HasherForName(hashAlgorithmIdentifier)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating hasher: %w", err)
+		}
+
 		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx, hasher, skipAccessTypes)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve component reference to %s:%s: %w", reference.ComponentName, reference.Version, err)
@@ -257,20 +253,17 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 			continue
 		}
 
-		var hasher *cdv2Sign.Hasher
-		var err error
-		//default to sha256 as default
+		hashAlgorithmIdentifier := ""
 		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" {
-			hasher, err = cdv2Sign.HasherForName("sha256")
-			if err != nil {
-				return nil, fmt.Errorf("failed creating hasher: %w", err)
-			}
+			hashAlgorithmIdentifier = cdv2Sign.SHA256
 		} else {
-			hasher, err = cdv2Sign.HasherForName(resource.Digest.HashAlgorithm)
-			if err != nil {
-				return nil, fmt.Errorf("failed creating hasher for algorithm %s for resource %s %s: %w", resource.Digest.HashAlgorithm, resource.Name, resource.Version, err)
-			}
+			hashAlgorithmIdentifier = resource.Digest.HashAlgorithm
 		}
+		hasher, err := cdv2Sign.HasherForName(hashAlgorithmIdentifier)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating hasher: %w", err)
+		}
+
 		digester := signatures.NewDigester(ociClient, *hasher, skipAccessTypes)
 
 		digest, err := digester.DigestForResource(ctx, *cd, resource)
