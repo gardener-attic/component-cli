@@ -174,7 +174,6 @@ func (c *client) GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact,
 		i := oci.Index{
 			Manifests:   []*oci.Manifest{},
 			Annotations: index.Annotations,
-			Data:        &index,
 		}
 
 		indexArtifact, err := oci.NewIndexArtifact(&i)

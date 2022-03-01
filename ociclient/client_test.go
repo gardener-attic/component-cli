@@ -320,9 +320,6 @@ var _ = Describe("client", func() {
 			testutils.CompareRemoteManifest(ctx, client, manifest2TgtRef, manifest2Desc, manifest2Bytes, configData2, layersData2)
 		}, 20)
 
-		// TODO: write copy test with manifest list mediatype
-		// TODO: compare checksums of copied artifacts
-
 	})
 
 	Context("ExtendedClient", func() {

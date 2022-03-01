@@ -7,7 +7,6 @@ package oci
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -29,7 +28,6 @@ type Manifest struct {
 type Index struct {
 	Manifests   []*Manifest
 	Annotations map[string]string
-	Data        *ocispecv1.Index
 }
 
 // NewManifestArtifact creates a new OCI artifact of type manifest
@@ -90,24 +88,6 @@ func (a *Artifact) IsManifest() bool {
 
 func (a *Artifact) IsIndex() bool {
 	return a.index != nil
-}
-
-func (a *Artifact) Raw() ([]byte, error) {
-	if a.IsManifest() {
-		bytes, err := json.Marshal(a.manifest.Data)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal manifest: %w", err)
-		}
-		return bytes, nil
-	} else if a.IsIndex() {
-		bytes, err := json.Marshal(a.index.Data)
-		if err != nil {
-			return nil, fmt.Errorf("unable to marshal index: %w", err)
-		}
-		return bytes, nil
-	} else {
-		return nil, errors.New("oci artifact is not a manifest or index")
-	}
 }
 
 func (a *Artifact) MarshalJSON() ([]byte, error) {
