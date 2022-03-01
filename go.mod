@@ -8,7 +8,7 @@ require (
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce // indirect
 	github.com/drone/envsubst v1.0.2
 	github.com/gardener/component-spec/bindings-go v0.0.53
-	github.com/gardener/image-vector v0.7.0
+	github.com/gardener/image-vector v0.10.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.3.0

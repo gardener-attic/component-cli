@@ -5,6 +5,7 @@ package downloaders_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,6 +19,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
+	"github.com/opencontainers/image-spec/specs-go"
+	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/ociclient/cache"
@@ -156,27 +159,20 @@ func createLocalOciBlobRes(fs vfs.FileSystem) cdv2.Resource {
 func createImageRes(ctx context.Context) cdv2.Resource {
 	imageRef = testenv.Addr + "/test/downloaders/image:0.1.0"
 
-	manifest, desc, err := testutils.UploadTestManifest(ctx, ociClient, imageRef)
-	Expect(err).ToNot(HaveOccurred())
-
-	// TODO: currently needed to fill the cache. remove from test, also from ociclient unit test
-	m := oci.Manifest{
-		Descriptor: desc,
-		Data:       manifest,
+	configData := []byte("config-data")
+	layersData := [][]byte{
+		[]byte("layer-data"),
 	}
-	testutils.CompareRemoteManifest(
-		ociClient,
-		imageRef,
-		m,
-		[]byte("config-data"),
-		[][]byte{
-			[]byte("layer-data"),
-		},
-	)
+
+	mdesc, mbytes := testutils.UploadTestImage(ctx, ociClient, imageRef, ocispecv1.MediaTypeImageManifest, configData, layersData)
+	testutils.CompareRemoteManifest(ctx, ociClient, imageRef, mdesc, mbytes, configData, layersData)
+
+	manifest := ocispecv1.Manifest{}
+	Expect(json.Unmarshal(mbytes, &manifest)).To(Succeed())
 
 	expectedImageManifest = oci.Manifest{
-		Descriptor: desc,
-		Data:       manifest,
+		Descriptor: mdesc,
+		Data:       &manifest,
 	}
 
 	acc, err := cdv2.NewUnstructured(
@@ -202,10 +198,41 @@ func createImageRes(ctx context.Context) cdv2.Resource {
 func createImageIndexRes(ctx context.Context) cdv2.Resource {
 	imageIndexRef = testenv.Addr + "/test/downloaders/image-index:0.1.0"
 
-	i, err := testutils.UploadTestIndex(ctx, ociClient, imageIndexRef)
-	Expect(err).ToNot(HaveOccurred())
+	configData := []byte("config-data")
+	layersData := [][]byte{
+		[]byte("layer-1-data"),
+		[]byte("layer-2-data"),
+	}
 
-	expectedImageIndex = *i
+	manifest1Desc, _ := testutils.UploadTestImage(ctx, ociClient, imageIndexRef, ocispecv1.MediaTypeImageManifest, configData, layersData)
+	manifest1Desc.Platform = &ocispecv1.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
+	}
+
+	manifest2Desc, _ := testutils.UploadTestImage(ctx, ociClient, imageIndexRef, ocispecv1.MediaTypeImageManifest, configData, layersData)
+	manifest2Desc.Platform = &ocispecv1.Platform{
+		Architecture: "amd64",
+		OS:           "windows",
+	}
+
+	index := ocispecv1.Index{
+		Versioned: specs.Versioned{SchemaVersion: 2},
+		Manifests: []ocispecv1.Descriptor{
+			manifest1Desc,
+			manifest2Desc,
+		},
+		Annotations: map[string]string{
+			"test": "test",
+		},
+	}
+
+	testutils.UploadTestIndex(ctx, ociClient, imageIndexRef, ocispecv1.MediaTypeImageIndex, index)
+
+	var err error
+	ociArtifact, err := ociClient.GetOCIArtifact(ctx, imageIndexRef)
+	Expect(err).ToNot(HaveOccurred())
+	expectedImageIndex = *ociArtifact.GetIndex()
 
 	acc, err := cdv2.NewUnstructured(
 		cdv2.NewOCIRegistryAccess(

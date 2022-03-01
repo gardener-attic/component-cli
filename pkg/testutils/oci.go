@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
-	"strings"
 
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
@@ -17,116 +15,46 @@ import (
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/gardener/component-cli/ociclient"
-	"github.com/gardener/component-cli/ociclient/oci"
 )
 
-// UploadTestManifest uploads an oci image manifest to a registry
-func UploadTestManifest(ctx context.Context, client ociclient.Client, ref string) (*ocispecv1.Manifest, ocispecv1.Descriptor, error) {
-	configData := []byte("config-data")
-	layerData := []byte("layer-data")
-	manifest := &ocispecv1.Manifest{
-		Versioned: specs.Versioned{
-			SchemaVersion: 2,
-		},
-		Config: ocispecv1.Descriptor{
-			MediaType: "text/plain",
-			Digest:    digest.FromBytes(configData),
-			Size:      int64(len(configData)),
-		},
-		Layers: []ocispecv1.Descriptor{
-			{
-				MediaType: "text/plain",
-				Digest:    digest.FromBytes(layerData),
-				Size:      int64(len(layerData)),
-			},
-		},
-	}
+// UploadTestImage uploads an oci image manifest to a registry
+func UploadTestImage(ctx context.Context, client ociclient.Client, ref, manifestMediaType string, configData []byte, layersData [][]byte) (ocispecv1.Descriptor, []byte) {
+	_, desc, blobMap := CreateImage(manifestMediaType, configData, layersData)
+
 	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
-		switch desc.Digest.String() {
-		case manifest.Config.Digest.String():
-			_, err := writer.Write(configData)
-			return err
-		default:
-			_, err := writer.Write(layerData)
-			return err
-		}
+		_, err := writer.Write(blobMap[desc.Digest])
+		return err
 	})
 
-	if err := client.PushManifest(ctx, ref, manifest, ociclient.WithStore(store)); err != nil {
-		return nil, ocispecv1.Descriptor{}, err
-	}
+	manifestBytes := blobMap[desc.Digest]
+	Expect(client.PushRawManifest(ctx, ref, desc, manifestBytes, ociclient.WithStore(store))).To(Succeed())
 
-	manifestBytes, err := json.Marshal(manifest)
-	if err != nil {
-		return nil, ocispecv1.Descriptor{}, err
-	}
-
-	desc := ocispecv1.Descriptor{
-		MediaType: ocispecv1.MediaTypeImageManifest,
-		Digest:    digest.FromBytes(manifestBytes),
-		Size:      int64(len(manifestBytes)),
-	}
-
-	return manifest, desc, nil
+	return desc, manifestBytes
 }
 
 // UploadTestIndex uploads an oci image index to a registry
-func UploadTestIndex(ctx context.Context, client ociclient.Client, indexRef string) (*oci.Index, error) {
-	splitted := strings.Split(indexRef, ":")
-	indexRepo := strings.Join(splitted[0:len(splitted)-1], ":")
-	tag := splitted[len(splitted)-1]
+func UploadTestIndex(ctx context.Context, client ociclient.Client, ref, indexMediaType string, index ocispecv1.Index) (ocispecv1.Descriptor, []byte) {
+	indexBytes, err := json.Marshal(index)
+	Expect(err).ToNot(HaveOccurred())
 
-	manifest1Ref := fmt.Sprintf("%s-platform-1:%s", indexRepo, tag)
-	manifest2Ref := fmt.Sprintf("%s-platform-2:%s", indexRepo, tag)
-
-	manifest1, mdesc1, err := UploadTestManifest(ctx, client, manifest1Ref)
-	if err != nil {
-		return nil, err
-	}
-	mdesc1.Platform = &ocispecv1.Platform{
-		Architecture: "amd64",
-		OS:           "linux",
+	indexDesc := ocispecv1.Descriptor{
+		MediaType: indexMediaType,
+		Digest:    digest.FromBytes(indexBytes),
+		Size:      int64(len(indexBytes)),
 	}
 
-	manifest2, mdesc2, err := UploadTestManifest(ctx, client, manifest2Ref)
-	if err != nil {
-		return nil, err
-	}
-	mdesc2.Platform = &ocispecv1.Platform{
-		Architecture: "amd64",
-		OS:           "windows",
-	}
+	store := ociclient.GenericStore(func(ctx context.Context, desc ocispecv1.Descriptor, writer io.Writer) error {
+		_, err := writer.Write(indexBytes)
+		return err
+	})
 
-	index := oci.Index{
-		Manifests: []*oci.Manifest{
-			{
-				Descriptor: mdesc1,
-				Data:       manifest1,
-			},
-			{
-				Descriptor: mdesc2,
-				Data:       manifest2,
-			},
-		},
-		Annotations: map[string]string{
-			"test": "test",
-		},
-	}
+	Expect(client.PushRawManifest(ctx, ref, indexDesc, indexBytes, ociclient.WithStore(store))).To(Succeed())
 
-	ociArtifact, err := oci.NewIndexArtifact(&index)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := client.PushOCIArtifact(ctx, indexRef, ociArtifact); err != nil {
-		return nil, err
-	}
-
-	return &index, nil
+	return indexDesc, indexBytes
 }
 
 // CreateImage creates an oci image manifest.
-func CreateImage(configData []byte, layersData [][]byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, map[digest.Digest][]byte) {
+func CreateImage(manifestMediaType string, configData []byte, layersData [][]byte) (*ocispecv1.Manifest, ocispecv1.Descriptor, map[digest.Digest][]byte) {
 	blobMap := map[digest.Digest][]byte{}
 
 	configDesc := ocispecv1.Descriptor{
@@ -159,7 +87,7 @@ func CreateImage(configData []byte, layersData [][]byte) (*ocispecv1.Manifest, o
 	Expect(err).ToNot(HaveOccurred())
 
 	manifestDesc := ocispecv1.Descriptor{
-		MediaType: ocispecv1.MediaTypeImageManifest,
+		MediaType: manifestMediaType,
 		Digest:    digest.FromBytes(manifestBytes),
 		Size:      int64(len(manifestBytes)),
 	}
@@ -168,20 +96,22 @@ func CreateImage(configData []byte, layersData [][]byte) (*ocispecv1.Manifest, o
 	return &manifest, manifestDesc, blobMap
 }
 
-func CompareRemoteManifest(client ociclient.Client, ref string, expectedManifest oci.Manifest, expectedCfgBytes []byte, expectedLayers [][]byte) {
-	buf := bytes.NewBuffer([]byte{})
-	Expect(client.Fetch(context.TODO(), ref, expectedManifest.Descriptor, buf)).To(Succeed())
-	manifestFromRemote := ocispecv1.Manifest{}
-	Expect(json.Unmarshal(buf.Bytes(), &manifestFromRemote)).To(Succeed())
-	Expect(manifestFromRemote).To(Equal(*expectedManifest.Data))
+func CompareRemoteManifest(ctx context.Context, client ociclient.Client, ref string, expectedManifestDesc ocispecv1.Descriptor, expectedManifestBytes []byte, expectedCfgBytes []byte, expectedLayers [][]byte) {
+	actualManifestDesc, actualManifestBytes, err := client.GetRawManifest(ctx, ref)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(actualManifestDesc).To(Equal(expectedManifestDesc))
+	Expect(actualManifestBytes).To(Equal(expectedManifestBytes))
 
-	buf = bytes.NewBuffer([]byte{})
-	Expect(client.Fetch(context.TODO(), ref, manifestFromRemote.Config, buf)).To(Succeed())
-	Expect(buf.Bytes()).To(Equal(expectedCfgBytes))
+	actualManifest := ocispecv1.Manifest{}
+	Expect(json.Unmarshal(actualManifestBytes, &actualManifest)).To(Succeed())
 
-	for i, layerDesc := range manifestFromRemote.Layers {
-		buf = bytes.NewBuffer([]byte{})
-		Expect(client.Fetch(context.TODO(), ref, layerDesc, buf)).To(Succeed())
-		Expect(buf.Bytes()).To(Equal(expectedLayers[i]))
+	actualConfigBuf := bytes.NewBuffer([]byte{})
+	Expect(client.Fetch(ctx, ref, actualManifest.Config, actualConfigBuf)).To(Succeed())
+	Expect(actualConfigBuf.Bytes()).To(Equal(expectedCfgBytes))
+
+	for i, layerDesc := range actualManifest.Layers {
+		actualLayerBuf := bytes.NewBuffer([]byte{})
+		Expect(client.Fetch(ctx, ref, layerDesc, actualLayerBuf)).To(Succeed())
+		Expect(actualLayerBuf.Bytes()).To(Equal(expectedLayers[i]))
 	}
 }

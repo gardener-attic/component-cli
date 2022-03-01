@@ -36,15 +36,19 @@ type Client interface {
 	PushRawManifest(ctx context.Context, ref string, desc ocispecv1.Descriptor, rawManifest []byte, opts ...PushOption) error
 
 	// GetManifest returns the ocispec Manifest for a reference
+	// Deprecated: Please prefer GetRawManifest instead
 	GetManifest(ctx context.Context, ref string) (*ocispecv1.Manifest, error)
 
 	// PushManifest uploads the given Manifest to the given reference.
+	// Deprecated: Please prefer PushRawManifest instead
 	PushManifest(ctx context.Context, ref string, manifest *ocispecv1.Manifest, opts ...PushOption) error
 
 	// GetOCIArtifact returns an OCIArtifact for a reference.
+	// Deprecated: Please prefer GetRawManifest instead
 	GetOCIArtifact(ctx context.Context, ref string) (*oci.Artifact, error)
 
 	// PushOCIArtifact uploads the given OCIArtifact to the given ref.
+	// Deprecated: Please prefer PushRawManifest instead
 	PushOCIArtifact(ctx context.Context, ref string, artifact *oci.Artifact, opts ...PushOption) error
 }
 

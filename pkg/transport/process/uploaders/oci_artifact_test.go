@@ -53,7 +53,7 @@ var _ = Describe("ociArtifact", func() {
 			layers := [][]byte{
 				[]byte("layer-data"),
 			}
-			m, mdesc, _ := testutils.CreateImage(configData, layers)
+			m, mdesc, _ := testutils.CreateImage(ocispecv1.MediaTypeImageManifest, configData, layers)
 
 			expectedOciArtifact, err := oci.NewManifestArtifact(
 				&oci.Manifest{
@@ -97,13 +97,6 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, cache.NewInMemoryCache())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
-			testutils.CompareRemoteManifest(
-				ociClient,
-				expectedImageRef,
-				*expectedOciArtifact.GetManifest(),
-				configData,
-				layers,
-			)
 		})
 
 		It("should upload and stream oci image index", func() {
@@ -139,13 +132,13 @@ var _ = Describe("ociArtifact", func() {
 				[]byte("layer-data-2"),
 			}
 
-			m1, m1Desc, _ := testutils.CreateImage(configData1, layers1)
+			m1, m1Desc, _ := testutils.CreateImage(ocispecv1.MediaTypeImageManifest, configData1, layers1)
 			m1Desc.Platform = &ocispecv1.Platform{
 				Architecture: "amd64",
 				OS:           "linux",
 			}
 
-			m2, m2Desc, _ := testutils.CreateImage(configData2, layers2)
+			m2, m2Desc, _ := testutils.CreateImage(ocispecv1.MediaTypeImageManifest, configData2, layers2)
 			m2Desc.Platform = &ocispecv1.Platform{
 				Architecture: "amd64",
 				OS:           "windows",
@@ -214,20 +207,6 @@ var _ = Describe("ociArtifact", func() {
 			actualOciArtifact, err := utils.DeserializeOCIArtifact(resBlobReader, cache.NewInMemoryCache())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actualOciArtifact).To(Equal(expectedOciArtifact))
-			testutils.CompareRemoteManifest(
-				ociClient,
-				expectedImageRef,
-				*expectedOciArtifact.GetIndex().Manifests[0],
-				configData1,
-				layers1,
-			)
-			testutils.CompareRemoteManifest(
-				ociClient,
-				expectedImageRef,
-				*expectedOciArtifact.GetIndex().Manifests[1],
-				configData2,
-				layers2,
-			)
 		})
 
 		It("should return error for invalid access type", func() {

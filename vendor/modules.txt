@@ -56,7 +56,7 @@ github.com/gardener/component-spec/bindings-go/codec
 github.com/gardener/component-spec/bindings-go/ctf
 github.com/gardener/component-spec/bindings-go/oci
 github.com/gardener/component-spec/bindings-go/utils/selector
-# github.com/gardener/image-vector v0.7.0
+# github.com/gardener/image-vector v0.10.0
 ## explicit
 github.com/gardener/image-vector/pkg
 # github.com/ghodss/yaml v1.0.0

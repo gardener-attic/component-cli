@@ -5,7 +5,6 @@
 package ociclient
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,14 +32,22 @@ func Copy(ctx context.Context, client Client, srcRef, tgtRef string) error {
 			return fmt.Errorf("unable to unmarshal image index: %w", err)
 		}
 
-		for _, manifestDesc := range index.Manifests {
-			buf := bytes.NewBuffer([]byte{})
-			if err := client.Fetch(ctx, srcRef, manifestDesc, buf); err != nil {
-				return fmt.Errorf("unable to get manifest: %w", err)
-			}
+		srcRepo, _, err := ParseImageRef(srcRef)
+		if err != nil {
+			return fmt.Errorf("unable to parse src ref: %w", err)
+		}
 
-			if err := client.PushRawManifest(ctx, tgtRef, manifestDesc, buf.Bytes(), WithStore(store)); err != nil {
-				return fmt.Errorf("unable to push manifest: %w", err)
+		tgtRepo, _, err := ParseImageRef(tgtRef)
+		if err != nil {
+			return fmt.Errorf("unable to parse tgt ref: %w", err)
+		}
+
+		for _, manifestDesc := range index.Manifests {
+			subManifestSrcRef := fmt.Sprintf("%s@%s", srcRepo, manifestDesc.Digest)
+			subManifestTgtRef := fmt.Sprintf("%s@%s", tgtRepo, manifestDesc.Digest)
+
+			if err := Copy(ctx, client, subManifestSrcRef, subManifestTgtRef); err != nil {
+				return fmt.Errorf("unable to copy sub manifest: %w", err)
 			}
 		}
 	}
