@@ -41,5 +41,6 @@ component-cli component-archive [component-archive-path] [ctf-path] [flags]
 * [component-cli component-archive export](component-cli_component-archive_export.md)	 - Exports a component archive as defined by CTF
 * [component-cli component-archive remote](component-cli_component-archive_remote.md)	 - command to interact with component descriptors stored in an oci registry
 * [component-cli component-archive resources](component-cli_component-archive_resources.md)	 - command to modify resources of a component descriptor
+* [component-cli component-archive signature](component-cli_component-archive_signature.md)	 - [EXPERIMENTAL] command to work with signatures and digests in component-descriptors
 * [component-cli component-archive sources](component-cli_component-archive_sources.md)	 - command to modify sources of a component descriptor
 
