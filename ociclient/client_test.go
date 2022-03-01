@@ -25,7 +25,7 @@ import (
 	"github.com/gardener/component-cli/pkg/testutils"
 )
 
-func RunPushAndPullImageTest(repository, manifestMediaType string) {
+func RunPushAndPullImageTest(ref, manifestMediaType string) {
 	ctx := context.Background()
 	defer ctx.Done()
 
@@ -34,7 +34,6 @@ func RunPushAndPullImageTest(repository, manifestMediaType string) {
 		[]byte("layer-1-data"),
 		[]byte("layer-2-data"),
 	}
-	ref := fmt.Sprintf("%s/%s", testenv.Addr, repository)
 
 	manifestDesc, manifestBytes := testutils.UploadTestImage(ctx, client, ref, manifestMediaType, configData, layersData)
 
@@ -113,7 +112,7 @@ var _ = Describe("client", func() {
 	Context("Client", func() {
 
 		It("should push and pull a single architecture image without modifications (oci media type)", func() {
-			ref := fmt.Sprintf("%s/%s", testenv.Addr, "single-arch-tests/0/artifact:0.0.1")
+			ref := fmt.Sprintf("%s/%s", testenv.Addr, "single-arch-tests/0/artifact:v0.0.1")
 			RunPushAndPullImageTest(ref, ocispecv1.MediaTypeImageManifest)
 		}, 20)
 
