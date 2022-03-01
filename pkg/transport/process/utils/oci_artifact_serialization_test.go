@@ -30,7 +30,7 @@ var _ = Describe("oci artifact serialization", func() {
 			layers := [][]byte{
 				[]byte("layer-data"),
 			}
-			m, _ := testutils.CreateManifest(configData, layers, nil)
+			m, _, _ := testutils.CreateImage(ocispecv1.MediaTypeImageManifest, configData, layers)
 
 			expectedOciArtifact, err := oci.NewManifestArtifact(
 				&oci.Manifest{
@@ -76,13 +76,13 @@ var _ = Describe("oci artifact serialization", func() {
 				[]byte("layer-data-2"),
 			}
 
-			m1, m1Desc := testutils.CreateManifest(configData1, layers1, nil)
+			m1, m1Desc, _ := testutils.CreateImage(ocispecv1.MediaTypeImageManifest, configData1, layers1)
 			m1Desc.Platform = &ocispecv1.Platform{
 				Architecture: "amd64",
 				OS:           "linux",
 			}
 
-			m2, m2Desc := testutils.CreateManifest(configData2, layers2, nil)
+			m2, m2Desc, _ := testutils.CreateImage(ocispecv1.MediaTypeImageManifest, configData2, layers2)
 			m2Desc.Platform = &ocispecv1.Platform{
 				Architecture: "amd64",
 				OS:           "windows",
