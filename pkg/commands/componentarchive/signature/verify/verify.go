@@ -280,6 +280,7 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 
 		if resource.Digest != nil && !reflect.DeepEqual(resource.Digest, digest) {
 			log.Info(fmt.Sprintf("digest in cd %+v mismatches with calculated digest %+v ", resource.Digest, digest))
+			return nil, fmt.Errorf("digest %+v in cd %s %s mismatches with calculated digest %+v ", resource.Digest, cd.Name, cd.Version, digest)
 		}
 
 		resource.Digest = digest
