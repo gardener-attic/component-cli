@@ -45,12 +45,13 @@ github.com/drone/envsubst/parse
 github.com/drone/envsubst/path
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
-# github.com/gardener/component-spec/bindings-go v0.0.53
+# github.com/gardener/component-spec/bindings-go v0.0.57
 ## explicit
 github.com/gardener/component-spec/bindings-go/apis
 github.com/gardener/component-spec/bindings-go/apis/v2
 github.com/gardener/component-spec/bindings-go/apis/v2/cdutils
 github.com/gardener/component-spec/bindings-go/apis/v2/jsonscheme
+github.com/gardener/component-spec/bindings-go/apis/v2/signatures
 github.com/gardener/component-spec/bindings-go/apis/v2/validation
 github.com/gardener/component-spec/bindings-go/codec
 github.com/gardener/component-spec/bindings-go/ctf
