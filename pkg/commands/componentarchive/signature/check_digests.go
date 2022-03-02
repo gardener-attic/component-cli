@@ -41,10 +41,7 @@ func NewCheckDigest(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "check-digests BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from a oci registry and check digests",
-		Long: `
-		fetch the component descriptor from a oci registry and check digests
-`,
+		Short: "fetch the component descriptor from an oci registry and check digests",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())

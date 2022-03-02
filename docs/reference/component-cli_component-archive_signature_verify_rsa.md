@@ -1,12 +1,6 @@
 ## component-cli component-archive signature verify rsa
 
-fetch the component descriptor from a oci registry and verify its integrity
-
-### Synopsis
-
-
-fetches the component-descriptor and sign it.
-
+fetch the component descriptor from an oci registry and verify its integrity
 
 ```
 component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VERSION [flags]
@@ -38,5 +32,5 @@ component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VER
 
 ### SEE ALSO
 
-* [component-cli component-archive signature verify](component-cli_component-archive_signature_verify.md)	 - command to verify the signature of a component-descriptor
+* [component-cli component-archive signature verify](component-cli_component-archive_signature_verify.md)	 - command to verify the signature of a component descriptor
 

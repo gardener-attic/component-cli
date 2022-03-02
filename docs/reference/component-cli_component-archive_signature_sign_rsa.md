@@ -2,12 +2,6 @@
 
 fetch the component descriptor from an oci registry and sign it using RSASSA-PKCS1-V1_5-SIGN
 
-### Synopsis
-
-
-fetches the component-descriptor and sign it.
-
-
 ```
 component-cli component-archive signature sign rsa BASE_URL COMPONENT_NAME VERSION [flags]
 ```
@@ -41,5 +35,5 @@ component-cli component-archive signature sign rsa BASE_URL COMPONENT_NAME VERSI
 
 ### SEE ALSO
 
-* [component-cli component-archive signature sign](component-cli_component-archive_signature_sign.md)	 - command to sign component-descriptors
+* [component-cli component-archive signature sign](component-cli_component-archive_signature_sign.md)	 - command to sign component descriptors
 

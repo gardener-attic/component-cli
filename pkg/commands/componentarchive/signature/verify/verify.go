@@ -28,7 +28,7 @@ import (
 func NewVerifyCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify",
-		Short: "command to verify the signature of a component-descriptor",
+		Short: "command to verify the signature of a component descriptor",
 	}
 
 	cmd.AddCommand(NewRSAVerifyCommand(ctx))
@@ -114,7 +114,7 @@ func (o *GenericVerifyOptions) VerifyWithVerifier(ctx context.Context, log logr.
 		return fmt.Errorf("signature invalid for digest: %w", err)
 	}
 
-	// check if digest matches the normalised component-descriptor
+	// check if digest matches the normalised component descriptor
 	hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
 	if err != nil {
 		return fmt.Errorf("failed creating hasher: %w", err)

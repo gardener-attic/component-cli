@@ -1,6 +1,6 @@
 ## component-cli component-archive signature verify
 
-command to verify the signature of a component-descriptor
+command to verify the signature of a component descriptor
 
 ### Options
 
@@ -22,5 +22,5 @@ command to verify the signature of a component-descriptor
 ### SEE ALSO
 
 * [component-cli component-archive signature](component-cli_component-archive_signature.md)	 - [EXPERIMENTAL] command to work with signatures and digests in component descriptors
-* [component-cli component-archive signature verify rsa](component-cli_component-archive_signature_verify_rsa.md)	 - fetch the component descriptor from a oci registry and verify its integrity
+* [component-cli component-archive signature verify rsa](component-cli_component-archive_signature_verify_rsa.md)	 - fetch the component descriptor from an oci registry and verify its integrity
 

@@ -31,9 +31,6 @@ func NewRSASignCommand(ctx context.Context) *cobra.Command {
 		Use:   "rsa BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
 		Short: "fetch the component descriptor from an oci registry and sign it using RSASSA-PKCS1-V1_5-SIGN",
-		Long: `
-fetches the component-descriptor and sign it.
-`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())

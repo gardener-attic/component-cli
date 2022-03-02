@@ -22,8 +22,8 @@
 ### SEE ALSO
 
 * [component-cli component-archive](component-cli_component-archive.md)	 - 
-* [component-cli component-archive signature add-digests](component-cli_component-archive_signature_add-digests.md)	 - fetch the component descriptor from a oci registry and add digests
-* [component-cli component-archive signature check-digests](component-cli_component-archive_signature_check-digests.md)	 - fetch the component descriptor from a oci registry and check digests
-* [component-cli component-archive signature sign](component-cli_component-archive_signature_sign.md)	 - command to sign component-descriptors
-* [component-cli component-archive signature verify](component-cli_component-archive_signature_verify.md)	 - command to verify the signature of a component-descriptor
+* [component-cli component-archive signature add-digests](component-cli_component-archive_signature_add-digests.md)	 - fetch the component descriptor from an oci registry and add digests
+* [component-cli component-archive signature check-digests](component-cli_component-archive_signature_check-digests.md)	 - fetch the component descriptor from an oci registry and check digests
+* [component-cli component-archive signature sign](component-cli_component-archive_signature_sign.md)	 - command to sign component descriptors
+* [component-cli component-archive signature verify](component-cli_component-archive_signature_verify.md)	 - command to verify the signature of a component descriptor
 

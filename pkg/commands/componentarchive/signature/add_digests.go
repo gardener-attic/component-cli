@@ -51,9 +51,9 @@ func NewAddDigestsCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-digests BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from a oci registry and add digests",
+		Short: "fetch the component descriptor from an oci registry and add digests",
 		Long: `
-		fetch the component descriptor from a oci registry and add digests. Optionally resolve and digest the referenced component descriptors.
+		fetch the component descriptor from an oci registry and add digests. Optionally resolve and digest the referenced component descriptors.
 `,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {

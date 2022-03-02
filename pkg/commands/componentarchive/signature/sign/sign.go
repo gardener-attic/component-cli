@@ -26,7 +26,7 @@ import (
 func NewSignCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sign",
-		Short: "command to sign component-descriptors",
+		Short: "command to sign component descriptors",
 	}
 
 	cmd.AddCommand(NewRSASignCommand(ctx))

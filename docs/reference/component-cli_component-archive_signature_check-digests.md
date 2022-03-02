@@ -1,12 +1,6 @@
 ## component-cli component-archive signature check-digests
 
-fetch the component descriptor from a oci registry and check digests
-
-### Synopsis
-
-
-		fetch the component descriptor from a oci registry and check digests
-
+fetch the component descriptor from an oci registry and check digests
 
 ```
 component-cli component-archive signature check-digests BASE_URL COMPONENT_NAME VERSION [flags]

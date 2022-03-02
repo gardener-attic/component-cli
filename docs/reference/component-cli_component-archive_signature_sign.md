@@ -1,6 +1,6 @@
 ## component-cli component-archive signature sign
 
-command to sign component-descriptors
+command to sign component descriptors
 
 ### Options
 
