@@ -1,6 +1,6 @@
 ## component-cli component-archive signature
 
-[EXPERIMENTAL] command to work with signatures and digests in component-descriptors
+[EXPERIMENTAL] command to work with signatures and digests in component descriptors
 
 ### Options
 

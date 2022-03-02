@@ -36,5 +36,5 @@ component-cli component-archive signature check-digests BASE_URL COMPONENT_NAME 
 
 ### SEE ALSO
 
-* [component-cli component-archive signature](component-cli_component-archive_signature.md)	 - [EXPERIMENTAL] command to work with signatures and digests in component-descriptors
+* [component-cli component-archive signature](component-cli_component-archive_signature.md)	 - [EXPERIMENTAL] command to work with signatures and digests in component descriptors
 
