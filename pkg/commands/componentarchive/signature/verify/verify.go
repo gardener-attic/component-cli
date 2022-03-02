@@ -86,7 +86,7 @@ func (o *GenericVerifyOptions) Complete(args []string) error {
 
 func (o *GenericVerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be ignored for verification")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will be ignored for verification")
 	o.OciOptions.AddFlags(fs)
 }
 

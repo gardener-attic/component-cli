@@ -111,6 +111,6 @@ func (o *CheckDigestsOptions) Complete(args []string) error {
 }
 
 func (o *CheckDigestsOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be ignored for digest verification")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will be ignored for digest verification")
 	o.OciOptions.AddFlags(fs)
 }
