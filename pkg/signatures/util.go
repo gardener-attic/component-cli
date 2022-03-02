@@ -43,7 +43,7 @@ func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 		}
 		cdsWithHashes = append(cdsWithHashes, cds...)
 
-		hasher, err := cdv2Sign.HasherForName("sha256")
+		hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating hasher: %w", err)
 		}
@@ -54,7 +54,7 @@ func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 		return hashCd, nil
 	}
 
-	hasher, err := cdv2Sign.HasherForName("sha256")
+	hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating hasher: %w", err)
 	}

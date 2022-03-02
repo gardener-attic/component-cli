@@ -113,7 +113,7 @@ func (d *Digester) digestForOciArtifact(ctx context.Context, componentDescriptor
 
 	d.hasher.HashFunction.Reset()
 	if _, err = d.hasher.HashFunction.Write(bytes); err != nil {
-		return nil, fmt.Errorf("failed hashing yaml, %w", err)
+		return nil, fmt.Errorf("failed hashing oci raw manifest, %w", err)
 	}
 
 	return &cdv2.DigestSpec{
