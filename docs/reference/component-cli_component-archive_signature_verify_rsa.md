@@ -1,6 +1,6 @@
 ## component-cli component-archive signature verify rsa
 
-fetch the component descriptor from an oci registry and verify its integrity
+fetch the component descriptor from an oci registry and verify its integrity based on a RSASSA-PKCS1-V1_5-SIGN signature
 
 ```
 component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VERSION [flags]

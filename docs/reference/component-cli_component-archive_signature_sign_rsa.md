@@ -17,7 +17,7 @@ component-cli component-archive signature sign rsa BASE_URL COMPONENT_NAME VERSI
       --private-key string          path to private key file used for signing
       --recursive                   recursively sign and upload all referenced component descriptors
       --registry-config string      path to the dockerconfig.json with the oci registry authentication information
-      --signature-name string       name of the signature to verify
+      --signature-name string       name of the signature
       --skip-access-types strings   comma separated list of access types that will not be digested and signed
       --upload-base-url string      target repository context to upload the signed cd
 ```

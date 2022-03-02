@@ -29,7 +29,7 @@ func NewRSAVerifyCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rsa BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from an oci registry and verify its integrity",
+		Short: "fetch the component descriptor from an oci registry and verify its integrity based on a RSASSA-PKCS1-V1_5-SIGN signature",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
