@@ -18,7 +18,7 @@ import (
 )
 
 type VerifyOptions struct {
-	// PathToPublicKey for RSA signing
+	// PathToPublicKey for RSA verification
 	PathToPublicKey string
 
 	GenericVerifyOptions
@@ -65,7 +65,7 @@ func (o *VerifyOptions) Complete(args []string) error {
 		return err
 	}
 	if o.PathToPublicKey == "" {
-		return errors.New("a path to public key file must be given as --keyfile flag")
+		return errors.New("a path to public key file must be given as flag")
 	}
 
 	return nil

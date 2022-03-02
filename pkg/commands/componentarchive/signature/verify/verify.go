@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// NewSignatureCommand creates a new command to interact with signatures.
+// NewVerifyCommand creates a new command to verify signatures.
 func NewVerifyCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify",
@@ -76,7 +76,7 @@ func (o *GenericVerifyOptions) Complete(args []string) error {
 		return errors.New("a component name must be defined")
 	}
 	if len(o.Version) == 0 {
-		return errors.New("a component's Version must be defined")
+		return errors.New("a component's version must be defined")
 	}
 	if o.SignatureName == "" {
 		return errors.New("a signature name must be provided")
@@ -105,11 +105,11 @@ func (o *GenericVerifyOptions) VerifyWithVerifier(ctx context.Context, log logr.
 	}
 
 	// check componentReferences and resources
-	if err := CheckCd(cd, *repoCtx, ociClient, context.TODO(), o.SkipAccessTypes); err != nil {
+	if err := CheckCdDigests(cd, *repoCtx, ociClient, context.TODO(), o.SkipAccessTypes); err != nil {
 		return fmt.Errorf("failed checking cd: %w", err)
 	}
 
-	// check if digest is signed by author with public key
+	// check if digest is correctly signed
 	if err = cdv2Sign.VerifySignedComponentDescriptor(cd, verifier, o.SignatureName); err != nil {
 		return fmt.Errorf("signature invalid for digest: %w", err)
 	}
@@ -138,7 +138,7 @@ func (o *GenericVerifyOptions) VerifyWithVerifier(ctx context.Context, log logr.
 
 }
 
-func CheckCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, skipAccessTypes []string) error {
+func CheckCdDigests(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, skipAccessTypes []string) error {
 	skipAccessTypesMap := map[string]bool{}
 	for _, v := range skipAccessTypes {
 		skipAccessTypesMap[v] = true
@@ -164,7 +164,7 @@ func CheckCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepositor
 			return fmt.Errorf("failed creating hasher for algorithm %s for referenceCd %s %s: %w", reference.Digest.HashAlgorithm, reference.Name, reference.Version, err)
 		}
 
-		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx, hasherForCdReference, skipAccessTypes)
+		digest, err := recursivelyCheckCdsDigests(childCd, repoContext, ociClient, ctx, hasherForCdReference, skipAccessTypes)
 		if err != nil {
 			return fmt.Errorf("checking of component reference %s:%s failed: %w", reference.ComponentName, reference.Version, err)
 		}
@@ -205,7 +205,7 @@ func CheckCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepositor
 	return nil
 }
 
-func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, hasherForCd *cdv2Sign.Hasher, skipAccessTypes []string) (*cdv2.DigestSpec, error) {
+func recursivelyCheckCdsDigests(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, ctx context.Context, hasherForCd *cdv2Sign.Hasher, skipAccessTypes []string) (*cdv2.DigestSpec, error) {
 	skipAccessTypesMap := map[string]bool{}
 	for _, v := range skipAccessTypes {
 		skipAccessTypesMap[v] = true
@@ -225,18 +225,12 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 			return nil, fmt.Errorf("unable to to fetch component descriptor %s: %w", ociRef, err)
 		}
 
-		hashAlgorithmIdentifier := ""
-		if reference.Digest == nil || reference.Digest.HashAlgorithm == "" {
-			hashAlgorithmIdentifier = cdv2Sign.SHA256
-		} else {
-			hashAlgorithmIdentifier = reference.Digest.HashAlgorithm
-		}
-		hasher, err := cdv2Sign.HasherForName(hashAlgorithmIdentifier)
+		hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating hasher: %w", err)
 		}
 
-		digest, err := recursivelyCheckCds(childCd, repoContext, ociClient, ctx, hasher, skipAccessTypes)
+		digest, err := recursivelyCheckCdsDigests(childCd, repoContext, ociClient, ctx, hasher, skipAccessTypes)
 		if err != nil {
 			return nil, fmt.Errorf("unable to resolve component reference to %s:%s: %w", reference.ComponentName, reference.Version, err)
 		}
@@ -253,13 +247,7 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 			continue
 		}
 
-		hashAlgorithmIdentifier := ""
-		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" {
-			hashAlgorithmIdentifier = cdv2Sign.SHA256
-		} else {
-			hashAlgorithmIdentifier = resource.Digest.HashAlgorithm
-		}
-		hasher, err := cdv2Sign.HasherForName(hashAlgorithmIdentifier)
+		hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating hasher: %w", err)
 		}
@@ -271,9 +259,11 @@ func recursivelyCheckCds(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegis
 			return nil, fmt.Errorf("failed creating digest for resource %s: %w", resource.Name, err)
 		}
 
+		// For better user information, log resource with mismatching digest.
+		// Since we do not trust the digest data in this cd, it is only for information purpose.
+		// The mismatch will be noted in the propagated cd reference digest in the root cd.
 		if resource.Digest != nil && !reflect.DeepEqual(resource.Digest, digest) {
-			log.Info(fmt.Sprintf("digest in cd %+v mismatches with calculated digest %+v ", resource.Digest, digest))
-			return nil, fmt.Errorf("digest %+v in cd %s %s mismatches with calculated digest %+v ", resource.Digest, cd.Name, cd.Version, digest)
+			log.Info(fmt.Sprintf("digest in (untrusted) cd %+v mismatches with calculated digest %+v ", resource.Digest, digest))
 		}
 
 		resource.Digest = digest
