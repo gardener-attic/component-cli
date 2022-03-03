@@ -71,6 +71,9 @@ type ComponentDescriptor struct {
 	Metadata Metadata `json:"meta"`
 	// Spec contains the specification of the component.
 	ComponentSpec `json:"component"`
+
+	// Signatures contains a list of signatures for the ComponentDescriptor
+	Signatures []Signature `json:"signatures,omitempty"`
 }
 
 // ComponentSpec defines a virtual component with
@@ -351,6 +354,10 @@ type SourceRef struct {
 type Resource struct {
 	IdentityObjectMeta `json:",inline"`
 
+	// Digest is the optional digest of the referenced resource.
+	// +optional
+	Digest *DigestSpec `json:"digest,omitempty"`
+
 	// Relation describes the relation of the resource to the component.
 	// Can be a local or external resource
 	Relation ResourceRelation `json:"relation,omitempty"`
@@ -377,6 +384,9 @@ type ComponentReference struct {
 	// ExtraIdentity is the identity of an object.
 	// An additional label with key "name" ist not allowed
 	ExtraIdentity Identity `json:"extraIdentity,omitempty"`
+	// Digest is the optional digest of the referenced component.
+	// +optional
+	Digest *DigestSpec `json:"digest,omitempty"`
 	// Labels defines an optional set of additional labels
 	// describing the object.
 	// +optional
@@ -426,4 +436,39 @@ func (o *ComponentReference) GetIdentity() Identity {
 // GetIdentityDigest returns the digest of the object's identity.
 func (o *ComponentReference) GetIdentityDigest() []byte {
 	return o.GetIdentity().Digest()
+}
+
+// DigestSpec defines the digest and algorithm.
+// +k8s:deepcopy-gen=true
+// +k8s:openapi-gen=true
+type DigestSpec struct {
+	HashAlgorithm          string `json:"hashAlgorithm"`
+	NormalisationAlgorithm string `json:"normalisationAlgorithm"`
+	Value                  string `json:"value"`
+}
+
+// SignatureSpec defines the signature and algorithm.
+// +k8s:deepcopy-gen=true
+// +k8s:openapi-gen=true
+type SignatureSpec struct {
+	Algorithm string `json:"algorithm"`
+	Value     string `json:"value"`
+}
+
+// NormalisationAlgorithm types and versions the algorithm used for digest generation.
+type NormalisationAlgorithm string
+
+const (
+	JsonNormalisationV1 NormalisationAlgorithm = "jsonNormalisation/V1"
+	ManifestDigestV1    NormalisationAlgorithm = "manifestDigest/V1"
+	GenericBlobDigestV1 NormalisationAlgorithm = "genericBlobDigest/V1"
+)
+
+// Signature defines a digest and corresponding signature, identifyable by name.
+// +k8s:deepcopy-gen=true
+// +k8s:openapi-gen=true
+type Signature struct {
+	Name      string        `json:"name"`
+	Digest    DigestSpec    `json:"digest"`
+	Signature SignatureSpec `json:"signature"`
 }
