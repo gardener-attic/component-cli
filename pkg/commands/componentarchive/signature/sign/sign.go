@@ -30,7 +30,7 @@ func NewSignCommand(ctx context.Context) *cobra.Command {
 	}
 
 	cmd.AddCommand(NewRSASignCommand(ctx))
-	cmd.AddCommand(NewSignServerSignCommand(ctx))
+	cmd.AddCommand(NewSigningServerSignCommand(ctx))
 	return cmd
 }
 
