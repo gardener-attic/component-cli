@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package signatures
 
 import (
@@ -8,14 +11,14 @@ import (
 	"net/http"
 	"strings"
 
-	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	"sigs.k8s.io/yaml"
 )
 
 type SigningServerSigner struct {
-	Url      string
-	Username string
-	Password string
+	Url      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 func NewSigningServerSignerFromConfigFile(configFilePath string) (*SigningServerSigner, error) {
@@ -30,7 +33,7 @@ func NewSigningServerSignerFromConfigFile(configFilePath string) (*SigningServer
 	return &signer, nil
 }
 
-func (signer *SigningServerSigner) Sign(componentDescriptor v2.ComponentDescriptor, digest v2.DigestSpec) (*v2.SignatureSpec, error) {
+func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescriptor, digest cdv2.DigestSpec) (*cdv2.SignatureSpec, error) {
 	requestBody := struct {
 		Digest string `json:"digest"`
 	}{
@@ -51,33 +54,32 @@ func (signer *SigningServerSigner) Sign(componentDescriptor v2.ComponentDescript
 	client := http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed sending request to signing server: %w", err)
+		return nil, fmt.Errorf("failed sending request: %w", err)
 	}
 	defer res.Body.Close()
 
 	responseBodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading signing server request body: %w", err)
+		return nil, fmt.Errorf("failed reading response body: %w", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request to signing server failed with response code %d: %s", res.StatusCode, string(responseBodyBytes))
+		return nil, fmt.Errorf("request returned with response code %d: %s", res.StatusCode, string(responseBodyBytes))
 	}
 
 	var responseBody struct {
-		Digest      string `json:"digest"`
-		Signature   string `json:"signature"`
-		Certificate string `json:"certificate"`
+		Digest    string `json:"digest"`
+		Signature string `json:"signature"`
 	}
 	if err := json.Unmarshal(responseBodyBytes, &responseBody); err != nil {
 		return nil, fmt.Errorf("failed unmarshaling response body: %w", err)
 	}
 
-	if responseBody.Digest != fmt.Sprintf("%s:%s", strings.ToLower(digest.HashAlgorithm), digest.Value) || responseBody.Signature == "" || responseBody.Certificate == "" {
+	if responseBody.Digest != fmt.Sprintf("%s:%s", strings.ToLower(digest.HashAlgorithm), digest.Value) || responseBody.Signature == "" {
 		return nil, fmt.Errorf("invalid signing server response: %+v", responseBody)
 	}
 
-	return &v2.SignatureSpec{
+	return &cdv2.SignatureSpec{
 		Algorithm: "SIGN-SERVER-RSASSA-PKCS1-V1_5-SIGN/V1",
 		Value:     responseBody.Signature,
 	}, nil

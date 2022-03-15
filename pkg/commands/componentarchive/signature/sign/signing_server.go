@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package sign
 
 import (
@@ -48,7 +51,7 @@ func NewSigningServerSignCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *SigningServerSignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	signer, err := signatures.NewSignServerFromConfigFile(o.SigningServerConfigPath)
+	signer, err := signatures.NewSigningServerSignerFromConfigFile(o.SigningServerConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed creating signing server signer: %w", err)
 	}
