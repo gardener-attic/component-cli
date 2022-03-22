@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 
 	"github.com/go-logr/logr"
@@ -33,7 +34,7 @@ func NewRSASignCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rsa BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from an oci registry and sign it using RSASSA-PKCS1-V1_5-SIGN",
+		Short: fmt.Sprintf("fetch the component descriptor from an oci registry, sign it using %s, and re-upload", cdv2.SignatureAlgorithmRSAPKCS1v15),
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())

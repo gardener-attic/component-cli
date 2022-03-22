@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 
 	"github.com/gardener/component-cli/pkg/logger"
@@ -35,7 +36,7 @@ func NewX509CertificateVerifyCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "x509 BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
-		Short: "fetch the component descriptor from an oci registry and verify its integrity based on x509 certificates and a RSASSA-PKCS1-V1_5-SIGN signature",
+		Short: fmt.Sprintf("fetch the component descriptor from an oci registry and verify its integrity based on a x509 certificate chain and a %s signature", cdv2.SignatureAlgorithmRSAPKCS1v15),
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := opts.Complete(args); err != nil {
 				fmt.Println(err.Error())
@@ -92,5 +93,5 @@ func (o *X509CertificateVerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GenericVerifyOptions.AddFlags(fs)
 	fs.StringVar(&o.signingCertPath, "signing-cert", "", "path to a file containing the signing certificate file in PEM format")
 	fs.StringVar(&o.intermediateCAsCertsPath, "intermediate-cas-certs", "", "[OPTIONAL] path to a file containing the intermediate CAs certificates in PEM format")
-	fs.StringVar(&o.rootCACertPath, "root-ca-cert", "", "[OPTIONAL] path to a file containing the root CA certificate in PEM format")
+	fs.StringVar(&o.rootCACertPath, "root-ca-cert", "", "[OPTIONAL] path to a file containing the root CA certificate in PEM format. if empty, the system root CA certificate pool is used.")
 }
