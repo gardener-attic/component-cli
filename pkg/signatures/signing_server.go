@@ -5,14 +5,20 @@ package signatures
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/hex"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
+	cdv2signatures "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	"sigs.k8s.io/yaml"
+)
+
+const (
+	AcceptHeader = "Accept"
 )
 
 type SigningServerSigner struct {
@@ -34,21 +40,16 @@ func NewSigningServerSignerFromConfigFile(configFilePath string) (*SigningServer
 }
 
 func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescriptor, digest cdv2.DigestSpec) (*cdv2.SignatureSpec, error) {
-	requestBody := struct {
-		Digest string `json:"digest"`
-	}{
-		Digest: fmt.Sprintf("%s:%s", strings.ToLower(digest.HashAlgorithm), digest.Value),
-	}
-
-	requestBodyBytes, err := json.Marshal(requestBody)
+	decodedHash, err := hex.DecodeString(digest.Value)
 	if err != nil {
-		return nil, fmt.Errorf("failed marshaling request body: %w", err)
+		return nil, fmt.Errorf("failed decoding hash: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign-digest", signer.Url), bytes.NewBuffer(requestBodyBytes))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign", signer.Url), bytes.NewBuffer(decodedHash))
 	if err != nil {
 		return nil, fmt.Errorf("failed building http request: %w", err)
 	}
+	req.Header.Add(AcceptHeader, cdv2.MediaTypePEM)
 	req.SetBasicAuth(signer.Username, signer.Password)
 
 	client := http.Client{}
@@ -67,20 +68,31 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 		return nil, fmt.Errorf("request returned with response code %d: %s", res.StatusCode, string(responseBodyBytes))
 	}
 
-	var responseBody struct {
-		Digest    string `json:"digest"`
-		Signature string `json:"signature"`
-	}
-	if err := json.Unmarshal(responseBodyBytes, &responseBody); err != nil {
-		return nil, fmt.Errorf("failed unmarshaling response body: %w", err)
+	signaturePemBlocks, err := cdv2signatures.GetSignaturePEMBlocks(responseBodyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed getting signature pem block from response: %w", err)
 	}
 
-	if responseBody.Digest != fmt.Sprintf("%s:%s", strings.ToLower(digest.HashAlgorithm), digest.Value) || responseBody.Signature == "" {
-		return nil, fmt.Errorf("invalid signing server response: %+v", responseBody)
+	if len(signaturePemBlocks) != 1 {
+		return nil, fmt.Errorf("expected 1 signature pem block, found %d", len(signaturePemBlocks))
 	}
+	signatureBlock := signaturePemBlocks[0]
+
+	signature := signatureBlock.Bytes
+	if len(signature) == 0 {
+		return nil, errors.New("invalid response: signature block doesn't contain signature")
+	}
+
+	algorithm := signatureBlock.Headers[cdv2.SignaturePEMBlockAlgorithmHeader]
+	if algorithm == "" {
+		return nil, fmt.Errorf("invalid response: %s header is empty", cdv2.SignaturePEMBlockAlgorithmHeader)
+	}
+
+	encodedSignature := pem.EncodeToMemory(signatureBlock)
 
 	return &cdv2.SignatureSpec{
-		Algorithm: "SIGN-SERVER-RSASSA-PKCS1-V1_5-SIGN/V1",
-		Value:     responseBody.Signature,
+		Algorithm: algorithm,
+		Value:     string(encodedSignature),
+		MediaType: cdv2.MediaTypePEM,
 	}, nil
 }
