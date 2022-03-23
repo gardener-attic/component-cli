@@ -4,6 +4,7 @@
 package signatures
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -49,6 +50,19 @@ func CreateAndVerifyX509Certificate(cert, intermediateCAsCerts, rootCACert []byt
 	var roots *x509.CertPool
 	if rootCACert != nil {
 		roots = x509.NewCertPool()
+
+		block, _ := pem.Decode(rootCACert)
+		if block == nil {
+			return nil, errors.New("unable to decode root CA certificate")
+		}
+		parsedCert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse root CA certificate: %w", err)
+		}
+		if !bytes.Equal(parsedCert.RawIssuer, parsedCert.RawSubject) || !parsedCert.IsCA {
+			return nil, errors.New("the given root CA certificate doesn't fulfil the requirements for a root CA certificate (Issuer == Subject && CA == true) ")
+		}
+
 		if ok := roots.AppendCertsFromPEM(rootCACert); !ok {
 			return nil, errors.New("unable to parse root ca certificate")
 		}
@@ -72,8 +86,6 @@ func CreateAndVerifyX509Certificate(cert, intermediateCAsCerts, rootCACert []byt
 	}
 
 	opts := x509.VerifyOptions{
-		// TODO: must we set DNSName option?
-		// DNSName:       "mail.google.com",
 		Roots:         roots,
 		Intermediates: intermediates,
 	}
