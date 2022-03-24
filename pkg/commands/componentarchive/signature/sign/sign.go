@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package sign
 
 import (
@@ -30,6 +33,7 @@ func NewSignCommand(ctx context.Context) *cobra.Command {
 	}
 
 	cmd.AddCommand(NewRSASignCommand(ctx))
+	cmd.AddCommand(NewSigningServerSignCommand(ctx))
 	return cmd
 }
 
@@ -97,9 +101,9 @@ func (o *GenericSignOptions) Complete(args []string) error {
 func (o *GenericSignOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature")
 	fs.StringVar(&o.UploadBaseUrlForSigned, "upload-base-url", "", "target repository context to upload the signed cd")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will not be digested and signed")
-	fs.BoolVar(&o.Force, "force", false, "force overwrite of already existing component descriptors")
-	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "recursively sign and upload all referenced component descriptors")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "[OPTIONAL] comma separated list of access types that will not be digested and signed")
+	fs.BoolVar(&o.Force, "force", false, "[OPTIONAL] force overwrite of already existing component descriptors")
+	fs.BoolVar(&o.RecursiveSigning, "recursive", false, "[OPTIONAL] recursively sign and upload all referenced component descriptors")
 	o.OciOptions.AddFlags(fs)
 }
 

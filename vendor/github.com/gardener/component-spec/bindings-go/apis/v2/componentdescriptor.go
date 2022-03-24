@@ -438,7 +438,7 @@ func (o *ComponentReference) GetIdentityDigest() []byte {
 	return o.GetIdentity().Digest()
 }
 
-// DigestSpec defines the digest and algorithm.
+// DigestSpec defines a digest.
 // +k8s:deepcopy-gen=true
 // +k8s:openapi-gen=true
 type DigestSpec struct {
@@ -447,13 +447,31 @@ type DigestSpec struct {
 	Value                  string `json:"value"`
 }
 
-// SignatureSpec defines the signature and algorithm.
+// SignatureSpec defines a signature.
 // +k8s:deepcopy-gen=true
 // +k8s:openapi-gen=true
 type SignatureSpec struct {
 	Algorithm string `json:"algorithm"`
 	Value     string `json:"value"`
+	MediaType string `json:"mediaType"`
 }
+
+const (
+	// SignaturePEMBlockType defines the type of a signature pem block.
+	SignaturePEMBlockType = "SIGNATURE"
+
+	// SignaturePEMBlockAlgorithmHeader defines the header in a signature pem block where the signature algorithm is defined.
+	SignaturePEMBlockAlgorithmHeader = "Algorithm"
+
+	// MediaTypePEM defines the media type for PEM formatted data.
+	MediaTypePEM = "application/x-pem-file"
+
+	// MediaTypeRSASignature defines the media type for a plain RSA signature.
+	MediaTypeRSASignature = "application/vnd.ocm.signature.rsa"
+
+	// SignatureAlgorithmRSA defines the type for the RSA PKCS #1 v1.5 signature algorithm
+	SignatureAlgorithmRSAPKCS1v15 = "RSASSA-PKCS1-V1_5"
+)
 
 // NormalisationAlgorithm types and versions the algorithm used for digest generation.
 type NormalisationAlgorithm string

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package verify
 
 import (
@@ -32,6 +35,7 @@ func NewVerifyCommand(ctx context.Context) *cobra.Command {
 	}
 
 	cmd.AddCommand(NewRSAVerifyCommand(ctx))
+	cmd.AddCommand(NewX509CertificateVerifyCommand(ctx))
 	return cmd
 }
 
@@ -86,7 +90,7 @@ func (o *GenericVerifyOptions) Complete(args []string) error {
 
 func (o *GenericVerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.SignatureName, "signature-name", "", "name of the signature to verify")
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will be ignored for verification")
+	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "[OPTIONAL] comma separated list of access types that will be ignored for verification")
 	o.OciOptions.AddFlags(fs)
 }
 

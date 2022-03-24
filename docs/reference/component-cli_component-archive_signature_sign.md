@@ -22,5 +22,6 @@ command to sign component descriptors
 ### SEE ALSO
 
 * [component-cli component-archive signature](component-cli_component-archive_signature.md)	 - [EXPERIMENTAL] command to work with signatures and digests in component descriptors
-* [component-cli component-archive signature sign rsa](component-cli_component-archive_signature_sign_rsa.md)	 - fetch the component descriptor from an oci registry and sign it using RSASSA-PKCS1-V1_5-SIGN
+* [component-cli component-archive signature sign rsa](component-cli_component-archive_signature_sign_rsa.md)	 - fetch the component descriptor from an oci registry, sign it using RSASSA-PKCS1-V1_5, and re-upload
+* [component-cli component-archive signature sign signing-server](component-cli_component-archive_signature_sign_signing-server.md)	 - fetch the component descriptor from an oci registry, sign it with a signature provided from a signing server, and re-upload
 

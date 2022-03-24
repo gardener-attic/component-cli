@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors.
+//
+// SPDX-License-Identifier: Apache-2.0
 package verify
 
 import (
@@ -17,7 +20,7 @@ import (
 	"github.com/gardener/component-cli/pkg/logger"
 )
 
-type VerifyOptions struct {
+type RSAVerifyOptions struct {
 	// PathToPublicKey for RSA verification
 	PathToPublicKey string
 
@@ -25,7 +28,7 @@ type VerifyOptions struct {
 }
 
 func NewRSAVerifyCommand(ctx context.Context) *cobra.Command {
-	opts := &VerifyOptions{}
+	opts := &RSAVerifyOptions{}
 	cmd := &cobra.Command{
 		Use:   "rsa BASE_URL COMPONENT_NAME VERSION",
 		Args:  cobra.ExactArgs(3),
@@ -48,7 +51,7 @@ func NewRSAVerifyCommand(ctx context.Context) *cobra.Command {
 	return cmd
 }
 
-func (o *VerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
+func (o *RSAVerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
 	verifier, err := cdv2Sign.CreateRsaVerifierFromKeyFile(o.PathToPublicKey)
 	if err != nil {
 		return fmt.Errorf("failed creating rsa verifier: %w", err)
@@ -60,7 +63,7 @@ func (o *VerifyOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSys
 	return nil
 }
 
-func (o *VerifyOptions) Complete(args []string) error {
+func (o *RSAVerifyOptions) Complete(args []string) error {
 	if err := o.GenericVerifyOptions.Complete(args); err != nil {
 		return err
 	}
@@ -71,7 +74,7 @@ func (o *VerifyOptions) Complete(args []string) error {
 	return nil
 }
 
-func (o *VerifyOptions) AddFlags(fs *pflag.FlagSet) {
+func (o *RSAVerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GenericVerifyOptions.AddFlags(fs)
 	fs.StringVar(&o.PathToPublicKey, "public-key", "", "path to public key file")
 }

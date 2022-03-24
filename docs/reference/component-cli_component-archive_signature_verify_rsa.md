@@ -16,7 +16,7 @@ component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VER
       --public-key string           path to public key file
       --registry-config string      path to the dockerconfig.json with the oci registry authentication information
       --signature-name string       name of the signature to verify
-      --skip-access-types strings   comma separated list of access types that will be ignored for verification
+      --skip-access-types strings   [OPTIONAL] comma separated list of access types that will be ignored for verification
 ```
 
 ### Options inherited from parent commands

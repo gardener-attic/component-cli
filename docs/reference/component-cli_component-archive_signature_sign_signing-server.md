@@ -1,9 +1,9 @@
-## component-cli component-archive signature sign rsa
+## component-cli component-archive signature sign signing-server
 
-fetch the component descriptor from an oci registry, sign it using RSASSA-PKCS1-V1_5, and re-upload
+fetch the component descriptor from an oci registry, sign it with a signature provided from a signing server, and re-upload
 
 ```
-component-cli component-archive signature sign rsa BASE_URL COMPONENT_NAME VERSION [flags]
+component-cli component-archive signature sign signing-server BASE_URL COMPONENT_NAME VERSION [flags]
 ```
 
 ### Options
@@ -11,10 +11,10 @@ component-cli component-archive signature sign rsa BASE_URL COMPONENT_NAME VERSI
 ```
       --allow-plain-http            allows the fallback to http if the oci registry does not support https
       --cc-config string            path to the local concourse config file
+      --config string               config file which contains the signing server configuration
       --force                       [OPTIONAL] force overwrite of already existing component descriptors
-  -h, --help                        help for rsa
+  -h, --help                        help for signing-server
       --insecure-skip-tls-verify    If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
-      --private-key string          path to private key file used for signing
       --recursive                   [OPTIONAL] recursively sign and upload all referenced component descriptors
       --registry-config string      path to the dockerconfig.json with the oci registry authentication information
       --signature-name string       name of the signature
