@@ -129,7 +129,7 @@ func (d *Digester) digestForOciArtifact(ctx context.Context, componentDescriptor
 
 	return &cdv2.DigestSpec{
 		HashAlgorithm:          d.hasher.AlgorithmName,
-		NormalisationAlgorithm: string(cdv2.ManifestDigestV1),
+		NormalisationAlgorithm: string(cdv2.OciArtifactDigestV1),
 		Value:                  hex.EncodeToString((d.hasher.HashFunction.Sum(nil))),
 	}, nil
 }
