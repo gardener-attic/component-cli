@@ -44,11 +44,14 @@ func (d *Digester) DigestForResource(ctx context.Context, cd cdv2.ComponentDescr
 		return nil, nil
 	}
 
-	switch res.Access.Type {
-	case cdv2.OCIRegistryType:
+	switch res.Type {
+	case cdv2.OCIImageType:
 		return d.digestForOciArtifact(ctx, cd, res)
 	case cdv2.LocalOCIBlobType:
 		return d.digestForLocalOciBlob(ctx, cd, res)
+	}
+
+	switch res.Access.Type {
 	case cdv2.S3AccessType:
 		return d.digestForS3Access(ctx, cd, res)
 	case "None":
