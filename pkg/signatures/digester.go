@@ -44,6 +44,11 @@ func (d *Digester) DigestForResource(ctx context.Context, cd cdv2.ComponentDescr
 		return nil, nil
 	}
 
+	// return the digest for a resource that is defined to be ignored for signing
+	if res.Digest != nil && res.Digest.HashAlgorithm == cdv2.NoDigest && res.Digest.NormalisationAlgorithm == cdv2.ExcludeFromSignature && res.Digest.Value == cdv2.NoDigest {
+		return res.Digest, nil
+	}
+
 	switch res.Type {
 	case cdv2.OCIImageType:
 		return d.digestForOciArtifact(ctx, cd, res)
