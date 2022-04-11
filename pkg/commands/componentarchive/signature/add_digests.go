@@ -93,7 +93,12 @@ func (o *AddDigestsOptions) Run(ctx context.Context, log logr.Logger, fs vfs.Fil
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", rootCd.Name, rootCd.Version)] = blobResolver
 
-	cds, err := signatures.RecursivelyAddDigestsToCd(rootCd, *repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
+	skipAccessTypesMap := map[string]bool{}
+	for _, v := range o.SkipAccessTypes {
+		skipAccessTypesMap[v] = true
+	}
+
+	cds, err := signatures.RecursivelyAddDigestsToCd(rootCd, *repoCtx, ociClient, blobResolvers, context.TODO(), skipAccessTypesMap)
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}

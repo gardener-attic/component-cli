@@ -124,7 +124,12 @@ func (o *GenericSignOptions) SignAndUploadWithSigner(ctx context.Context, log lo
 	blobResolvers := map[string]ctf.BlobResolver{}
 	blobResolvers[fmt.Sprintf("%s:%s", cd.Name, cd.Version)] = blobResolver
 
-	digestedCds, err := signatures.RecursivelyAddDigestsToCd(cd, *repoCtx, ociClient, blobResolvers, context.TODO(), o.SkipAccessTypes)
+	skipAccessTypesMap := map[string]bool{}
+	for _, v := range o.SkipAccessTypes {
+		skipAccessTypesMap[v] = true
+	}
+
+	digestedCds, err := signatures.RecursivelyAddDigestsToCd(cd, *repoCtx, ociClient, blobResolvers, context.TODO(), skipAccessTypesMap)
 	if err != nil {
 		return fmt.Errorf("failed adding digests to cd: %w", err)
 	}

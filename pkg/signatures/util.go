@@ -14,6 +14,7 @@ import (
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/components"
+	"github.com/gardener/component-cli/pkg/logger"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
@@ -24,7 +25,7 @@ import (
 	ociCache "github.com/gardener/component-cli/ociclient/cache"
 )
 
-func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context, skipAccessTypes []string) ([]*cdv2.ComponentDescriptor, error) {
+func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRepository, ociClient ociclient.Client, blobResolvers map[string]ctf.BlobResolver, ctx context.Context, skipAccessTypes map[string]bool) ([]*cdv2.ComponentDescriptor, error) {
 	cdsWithHashes := []*cdv2.ComponentDescriptor{}
 
 	cdResolver := func(c context.Context, cd cdv2.ComponentDescriptor, cr cdv2.ComponentReference) (*cdv2.DigestSpec, error) {
@@ -61,7 +62,24 @@ func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 	if err != nil {
 		return nil, fmt.Errorf("failed creating hasher: %w", err)
 	}
-	digester := NewDigester(ociClient, *hasher, skipAccessTypes)
+
+	// set the do not sign digest notation on skip-access-type resources
+	for i, res := range cd.Resources {
+		res := res
+		if _, ok := skipAccessTypes[res.Access.Type]; ok {
+			log := logger.Log.WithValues("componentDescriptor", cd, "resource.name", res.Name, "resource.version", res.Version, "resource.extraIdentity", res.ExtraIdentity)
+			log.Info(fmt.Sprintf("adding %s digest to resource based on skip-access-type", v2.ExcludeFromSignature))
+
+			res.Digest = &v2.DigestSpec{
+				HashAlgorithm:          cdv2.NoDigest,
+				NormalisationAlgorithm: cdv2.ExcludeFromSignature,
+				Value:                  cdv2.NoDigest,
+			}
+			cd.Resources[i] = res
+		}
+	}
+
+	digester := NewDigester(ociClient, *hasher)
 	if err := cdv2Sign.AddDigestsToComponentDescriptor(context.TODO(), cd, cdResolver, digester.DigestForResource); err != nil {
 		return nil, fmt.Errorf("failed adding digests to cd %s:%s: %w", cd.Name, cd.Version, err)
 	}

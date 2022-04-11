@@ -20,30 +20,19 @@ import (
 )
 
 type Digester struct {
-	ociClient       ociclient.Client
-	hasher          signatures.Hasher
-	skipAccessTypes map[string]bool
+	ociClient ociclient.Client
+	hasher    signatures.Hasher
 }
 
-func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher, skipAccessTypes []string) *Digester {
-	skipAccessTypesMap := map[string]bool{}
-	for _, v := range skipAccessTypes {
-		skipAccessTypesMap[v] = true
-	}
+func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher) *Digester {
 	return &Digester{
-		ociClient:       ociClient,
-		hasher:          hasher,
-		skipAccessTypes: skipAccessTypesMap,
+		ociClient: ociClient,
+		hasher:    hasher,
 	}
 
 }
 
 func (d *Digester) DigestForResource(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.DigestSpec, error) {
-	//skip ignored access type
-	if _, ok := d.skipAccessTypes[res.Access.Type]; ok {
-		return nil, nil
-	}
-
 	// return the digest for a resource that is defined to be ignored for signing
 	if res.Digest != nil && res.Digest.HashAlgorithm == cdv2.NoDigest && res.Digest.NormalisationAlgorithm == cdv2.ExcludeFromSignature && res.Digest.Value == cdv2.NoDigest {
 		return res.Digest, nil
