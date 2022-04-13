@@ -70,11 +70,7 @@ func RecursivelyAddDigestsToCd(cd *cdv2.ComponentDescriptor, repoContext cdv2.OC
 			log := logger.Log.WithValues("componentDescriptor", cd, "resource.name", res.Name, "resource.version", res.Version, "resource.extraIdentity", res.ExtraIdentity)
 			log.Info(fmt.Sprintf("adding %s digest to resource based on skip-access-type", v2.ExcludeFromSignature))
 
-			res.Digest = &v2.DigestSpec{
-				HashAlgorithm:          cdv2.NoDigest,
-				NormalisationAlgorithm: cdv2.ExcludeFromSignature,
-				Value:                  cdv2.NoDigest,
-			}
+			res.Digest = cdv2.NewExcludeFromSignatureDigest()
 			cd.Resources[i] = res
 		}
 	}

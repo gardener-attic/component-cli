@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/logger"
@@ -34,7 +35,7 @@ func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher) *Digester
 
 func (d *Digester) DigestForResource(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.DigestSpec, error) {
 	// return the digest for a resource that is defined to be ignored for signing
-	if res.Digest != nil && res.Digest.HashAlgorithm == cdv2.NoDigest && res.Digest.NormalisationAlgorithm == cdv2.ExcludeFromSignature && res.Digest.Value == cdv2.NoDigest {
+	if res.Digest != nil && reflect.DeepEqual(res.Digest, cdv2.NewExcludeFromSignatureDigest()) {
 		return res.Digest, nil
 	}
 
