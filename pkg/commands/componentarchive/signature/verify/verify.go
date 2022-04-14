@@ -171,6 +171,13 @@ func CheckCdDigests(cd *cdv2.ComponentDescriptor, repoContext cdv2.OCIRegistryRe
 
 	}
 	for _, resource := range cd.Resources {
+		if resource.Access == nil || resource.Access.Type == "None" {
+			if resource.Digest != nil {
+				return fmt.Errorf("resource with access nil/access.type none for %s:%s", resource.Name, resource.Version)
+			}
+			continue
+		}
+
 		if resource.Digest == nil || resource.Digest.HashAlgorithm == "" || resource.Digest.NormalisationAlgorithm == "" || resource.Digest.Value == "" {
 			return fmt.Errorf("resource is missing digest %s:%s", resource.Name, resource.Version)
 		}
