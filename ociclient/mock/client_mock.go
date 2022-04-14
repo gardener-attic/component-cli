@@ -9,11 +9,10 @@ import (
 	io "io"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-
 	ociclient "github.com/gardener/component-cli/ociclient"
 	oci "github.com/gardener/component-cli/ociclient/oci"
+	gomock "github.com/golang/mock/gomock"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // MockClient is a mock of Client interface.

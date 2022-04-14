@@ -9,12 +9,11 @@ component-cli component-archive signature check-digests BASE_URL COMPONENT_NAME 
 ### Options
 
 ```
-      --allow-plain-http            allows the fallback to http if the oci registry does not support https
-      --cc-config string            path to the local concourse config file
-  -h, --help                        help for check-digests
-      --insecure-skip-tls-verify    If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
-      --registry-config string      path to the dockerconfig.json with the oci registry authentication information
-      --skip-access-types strings   comma separated list of access types that will be ignored for digest verification
+      --allow-plain-http           allows the fallback to http if the oci registry does not support https
+      --cc-config string           path to the local concourse config file
+  -h, --help                       help for check-digests
+      --insecure-skip-tls-verify   If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
+      --registry-config string     path to the dockerconfig.json with the oci registry authentication information
 ```
 
 ### Options inherited from parent commands
