@@ -7,7 +7,7 @@ require (
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce // indirect
 	github.com/drone/envsubst v1.0.2
-	github.com/gardener/component-spec/bindings-go v0.0.59
+	github.com/gardener/component-spec/bindings-go v0.0.60
 	github.com/gardener/image-vector v0.10.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.4.0

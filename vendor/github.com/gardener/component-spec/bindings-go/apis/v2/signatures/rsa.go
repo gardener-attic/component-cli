@@ -51,6 +51,10 @@ func (s RsaSigner) Sign(componentDescriptor v2.ComponentDescriptor, digest v2.Di
 	if err != nil {
 		return nil, fmt.Errorf("failed decoding hash to bytes")
 	}
+	// ensure length of hash is correct
+	if len(decodedHash) != 32 {
+		return nil, fmt.Errorf("hash to sign has invalid length")
+	}
 	signature, err := rsa.SignPKCS1v15(rand.Reader, &s.privateKey, 0, decodedHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed signing hash, %w", err)
@@ -129,6 +133,10 @@ func (v RsaVerifier) Verify(componentDescriptor v2.ComponentDescriptor, signatur
 	decodedHash, err := hex.DecodeString(signature.Digest.Value)
 	if err != nil {
 		return fmt.Errorf("failed decoding hash %s: %w", signature.Digest.Value, err)
+	}
+	// ensure length of hash is correct
+	if len(decodedHash) != 32 {
+		return fmt.Errorf("hash to verify has invalid length")
 	}
 	if err := rsa.VerifyPKCS1v15(&v.publicKey, 0, decodedHash, signatureBytes); err != nil {
 		return fmt.Errorf("signature verification failed, %w", err)

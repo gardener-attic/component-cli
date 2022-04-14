@@ -40,6 +40,11 @@ func HasherForName(algorithmName string) (*Hasher, error) {
 			HashFunction:  sha256.New(),
 			AlgorithmName: SHA256,
 		}, nil
+	case strings.ToLower(v2.NoDigest):
+		return &Hasher{
+			HashFunction:  nil,
+			AlgorithmName: v2.NoDigest,
+		}, nil
 	}
 	return nil, fmt.Errorf("hash algorithm %s not found/implemented", algorithmName)
 }

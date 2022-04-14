@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 
 	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
@@ -14,29 +15,36 @@ import (
 // Entry is used for normalisation and has to contain one key
 type Entry map[string]interface{}
 
-// AddDigestsToComponentDescriptor adds digest to componentReferences and resources as returned in the resolver functions
+// AddDigestsToComponentDescriptor adds digest to componentReferences and resources as returned in the resolver functions. If a digest already exists, a mismatch against the resolved digest will return an error.
 func AddDigestsToComponentDescriptor(ctx context.Context, cd *v2.ComponentDescriptor,
 	compRefResolver func(context.Context, v2.ComponentDescriptor, v2.ComponentReference) (*v2.DigestSpec, error),
 	resResolver func(context.Context, v2.ComponentDescriptor, v2.Resource) (*v2.DigestSpec, error)) error {
 
 	for i, reference := range cd.ComponentReferences {
-		if reference.Digest == nil || reference.Digest.HashAlgorithm == "" || reference.Digest.NormalisationAlgorithm == "" || reference.Digest.Value == "" {
-			digest, err := compRefResolver(ctx, *cd, reference)
-			if err != nil {
-				return fmt.Errorf("failed resolving componentReference for %s:%s: %w", reference.Name, reference.Version, err)
-			}
-			cd.ComponentReferences[i].Digest = digest
+		digest, err := compRefResolver(ctx, *cd, reference)
+		if err != nil {
+			return fmt.Errorf("failed resolving componentReference for %s:%s: %w", reference.Name, reference.Version, err)
 		}
+		if reference.Digest != nil && !reflect.DeepEqual(reference.Digest, digest) {
+			return fmt.Errorf("calculated cd reference digest mismatches existing digest %s:%s", reference.ComponentName, reference.Version)
+		}
+		cd.ComponentReferences[i].Digest = digest
 	}
 
 	for i, res := range cd.Resources {
-		if res.Digest == nil || res.Digest.HashAlgorithm == "" || res.Digest.NormalisationAlgorithm == "" || res.Digest.Value == "" {
-			digest, err := resResolver(ctx, *cd, res)
-			if err != nil {
-				return fmt.Errorf("failed resolving resource for %s:%s: %w", res.Name, res.Version, err)
-			}
-			cd.Resources[i].Digest = digest
+		// special digest notation indicates to not digest the content
+		if res.Digest != nil && reflect.DeepEqual(res.Digest, v2.NewExcludeFromSignatureDigest()) {
+			continue
 		}
+
+		digest, err := resResolver(ctx, *cd, res)
+		if err != nil {
+			return fmt.Errorf("failed resolving resource for %s:%s: %w", res.Name, res.Version, err)
+		}
+		if res.Digest != nil && !reflect.DeepEqual(res.Digest, digest) {
+			return fmt.Errorf("calculated resource digest mismatches existing digest %s:%s", res.Name, res.Version)
+		}
+		cd.Resources[i].Digest = digest
 	}
 	return nil
 }
@@ -60,7 +68,7 @@ func HashForComponentDescriptor(cd v2.ComponentDescriptor, hash Hasher) (*v2.Dig
 }
 
 func normalizeComponentDescriptor(cd v2.ComponentDescriptor) ([]byte, error) {
-	if err := isNormaliseableUnsafe(cd); err != nil {
+	if err := isNormaliseable(cd); err != nil {
 		return nil, fmt.Errorf("can not normalise component-descriptor %s:%s: %w", cd.Name, cd.Version, err)
 	}
 
@@ -79,6 +87,7 @@ func normalizeComponentDescriptor(cd v2.ComponentDescriptor) ([]byte, error) {
 		}
 
 		componentReference := []Entry{
+			{"componentName": ref.ComponentName},
 			{"name": ref.Name},
 			{"version": ref.Version},
 			{"extraIdentity": extraIdentity},
@@ -96,17 +105,8 @@ func normalizeComponentDescriptor(cd v2.ComponentDescriptor) ([]byte, error) {
 			resource := []Entry{
 				{"name": res.Name},
 				{"version": res.Version},
-				{"extraIdentity": extraIdentity},
-			}
-			resources = append(resources, resource)
-			continue
-		}
-
-		//ignore a resource without digests
-		if res.Digest == nil {
-			resource := []Entry{
-				{"name": res.Name},
-				{"version": res.Version},
+				{"type": res.Type},
+				{"relation": res.Relation},
 				{"extraIdentity": extraIdentity},
 			}
 			resources = append(resources, resource)
@@ -122,6 +122,8 @@ func normalizeComponentDescriptor(cd v2.ComponentDescriptor) ([]byte, error) {
 		resource := []Entry{
 			{"name": res.Name},
 			{"version": res.Version},
+			{"type": res.Type},
+			{"relation": res.Relation},
 			{"extraIdentity": extraIdentity},
 			{"digest": digest},
 		}
@@ -131,6 +133,7 @@ func normalizeComponentDescriptor(cd v2.ComponentDescriptor) ([]byte, error) {
 	componentSpec := []Entry{
 		{"name": cd.ComponentSpec.Name},
 		{"version": cd.ComponentSpec.Version},
+		{"provider": cd.ComponentSpec.Provider},
 		{"componentReferences": componentReferences},
 		{"resources": resources},
 	}
@@ -198,6 +201,10 @@ func deepSort(in interface{}) error {
 		}
 	case string:
 		break
+	case v2.ProviderType:
+		break
+	case v2.ResourceRelation:
+		break
 	default:
 		return fmt.Errorf("unknown type in sorting. This should not happen")
 	}
@@ -220,13 +227,22 @@ func getOnlyValueInEntry(entry Entry) interface{} {
 	return value
 }
 
-// isNormaliseableUnsafe checks if componentReferences contain digest. It does not check resources for containing digests.
+// isNormaliseable checks if componentReferences and resources contain digest.
+// Resources are allowed to omit the digest, if res.access.type == None or res.access == nil.
 // Does NOT verify if the digests are correct
-func isNormaliseableUnsafe(cd v2.ComponentDescriptor) error {
+func isNormaliseable(cd v2.ComponentDescriptor) error {
 	// check for digests on component references
 	for _, reference := range cd.ComponentReferences {
 		if reference.Digest == nil || reference.Digest.HashAlgorithm == "" || reference.Digest.NormalisationAlgorithm == "" || reference.Digest.Value == "" {
 			return fmt.Errorf("missing digest in componentReference for %s:%s", reference.Name, reference.Version)
+		}
+	}
+	for _, res := range cd.Resources {
+		if (res.Access != nil && res.Access.Type != "None") && res.Digest == nil {
+			return fmt.Errorf("missing digest in resource for %s:%s", res.Name, res.Version)
+		}
+		if (res.Access == nil || res.Access.Type == "None") && res.Digest != nil {
+			return fmt.Errorf("digest for resource with emtpy (None) access not allowed %s:%s", res.Name, res.Version)
 		}
 	}
 	return nil
