@@ -109,28 +109,9 @@ func (o *GenericVerifyOptions) VerifyWithVerifier(ctx context.Context, log logr.
 		return fmt.Errorf("failed checking cd: %w", err)
 	}
 
-	// check if digest is correctly signed
+	// check if digest is correctly signed and the hash matches the normalised cd
 	if err = cdv2Sign.VerifySignedComponentDescriptor(cd, verifier, o.SignatureName); err != nil {
 		return fmt.Errorf("signature invalid for digest: %w", err)
-	}
-
-	// check if digest matches the normalised component descriptor
-	hasher, err := cdv2Sign.HasherForName(cdv2Sign.SHA256)
-	if err != nil {
-		return fmt.Errorf("failed creating hasher: %w", err)
-	}
-	hashCd, err := cdv2Sign.HashForComponentDescriptor(*cd, *hasher)
-	if err != nil {
-		return fmt.Errorf("failed hashing cd %s:%s: %w", cd.Name, cd.Version, err)
-	}
-
-	matchingSignature, err := cdv2Sign.SelectSignatureByName(cd, o.SignatureName)
-	if err != nil {
-		return fmt.Errorf("failed selecting signature %s: %w", o.SignatureName, err)
-	}
-
-	if hashCd.HashAlgorithm != matchingSignature.Digest.HashAlgorithm || hashCd.NormalisationAlgorithm != matchingSignature.Digest.NormalisationAlgorithm || hashCd.Value != matchingSignature.Digest.Value {
-		return fmt.Errorf("failed verifiying signature: signed normalised digest does not match calculated digest")
 	}
 
 	log.Info(fmt.Sprintf("Signature %s is valid and digest of normalised cd matches calculated digest", o.SignatureName))
