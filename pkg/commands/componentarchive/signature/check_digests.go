@@ -32,9 +32,6 @@ type CheckDigestsOptions struct {
 	// Version is the component Version in the oci registry.
 	Version string
 
-	// SkipAccessTypes defines the access types that will be ignored for checking digests
-	SkipAccessTypes []string
-
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
 }
@@ -78,7 +75,7 @@ func (o *CheckDigestsOptions) Run(ctx context.Context, log logr.Logger, fs vfs.F
 	}
 
 	// check componentReferences and resources
-	if err := verify.CheckCdDigests(cd, *repoCtx, ociClient, context.TODO(), o.SkipAccessTypes); err != nil {
+	if err := verify.CheckCdDigests(cd, *repoCtx, ociClient, context.TODO()); err != nil {
 		return fmt.Errorf("failed checking cd: %w", err)
 	}
 
@@ -114,6 +111,5 @@ func (o *CheckDigestsOptions) Complete(args []string) error {
 }
 
 func (o *CheckDigestsOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringSliceVar(&o.SkipAccessTypes, "skip-access-types", []string{}, "comma separated list of access types that will be ignored for digest verification")
 	o.OciOptions.AddFlags(fs)
 }

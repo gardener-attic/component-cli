@@ -9,14 +9,13 @@ component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VER
 ### Options
 
 ```
-      --allow-plain-http            allows the fallback to http if the oci registry does not support https
-      --cc-config string            path to the local concourse config file
-  -h, --help                        help for rsa
-      --insecure-skip-tls-verify    If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
-      --public-key string           path to public key file
-      --registry-config string      path to the dockerconfig.json with the oci registry authentication information
-      --signature-name string       name of the signature to verify
-      --skip-access-types strings   [OPTIONAL] comma separated list of access types that will be ignored for verification
+      --allow-plain-http           allows the fallback to http if the oci registry does not support https
+      --cc-config string           path to the local concourse config file
+  -h, --help                       help for rsa
+      --insecure-skip-tls-verify   If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
+      --public-key string          path to public key file
+      --registry-config string     path to the dockerconfig.json with the oci registry authentication information
+      --signature-name string      name of the signature to verify
 ```
 
 ### Options inherited from parent commands

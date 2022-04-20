@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 
 	"github.com/gardener/component-cli/ociclient"
 	"github.com/gardener/component-cli/pkg/logger"
@@ -20,28 +21,22 @@ import (
 )
 
 type Digester struct {
-	ociClient       ociclient.Client
-	hasher          signatures.Hasher
-	skipAccessTypes map[string]bool
+	ociClient ociclient.Client
+	hasher    signatures.Hasher
 }
 
-func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher, skipAccessTypes []string) *Digester {
-	skipAccessTypesMap := map[string]bool{}
-	for _, v := range skipAccessTypes {
-		skipAccessTypesMap[v] = true
-	}
+func NewDigester(ociClient ociclient.Client, hasher signatures.Hasher) *Digester {
 	return &Digester{
-		ociClient:       ociClient,
-		hasher:          hasher,
-		skipAccessTypes: skipAccessTypesMap,
+		ociClient: ociClient,
+		hasher:    hasher,
 	}
 
 }
 
 func (d *Digester) DigestForResource(ctx context.Context, cd cdv2.ComponentDescriptor, res cdv2.Resource) (*cdv2.DigestSpec, error) {
-	//skip ignored access type
-	if _, ok := d.skipAccessTypes[res.Access.Type]; ok {
-		return nil, nil
+	// return the digest for a resource that is defined to be ignored for signing
+	if res.Digest != nil && reflect.DeepEqual(res.Digest, cdv2.NewExcludeFromSignatureDigest()) {
+		return res.Digest, nil
 	}
 
 	switch res.Access.Type {
@@ -121,7 +116,7 @@ func (d *Digester) digestForOciArtifact(ctx context.Context, componentDescriptor
 
 	return &cdv2.DigestSpec{
 		HashAlgorithm:          d.hasher.AlgorithmName,
-		NormalisationAlgorithm: string(cdv2.ManifestDigestV1),
+		NormalisationAlgorithm: string(cdv2.OciArtifactDigestV1),
 		Value:                  hex.EncodeToString((d.hasher.HashFunction.Sum(nil))),
 	}, nil
 }

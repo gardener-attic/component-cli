@@ -18,7 +18,6 @@ component-cli component-archive signature verify x509 BASE_URL COMPONENT_NAME VE
       --root-ca-cert string             [OPTIONAL] path to a file containing the root CA certificate in PEM format. if empty, the system root CA certificate pool is used.
       --signature-name string           name of the signature to verify
       --signing-cert string             path to a file containing the signing certificate file in PEM format
-      --skip-access-types strings       [OPTIONAL] comma separated list of access types that will be ignored for verification
 ```
 
 ### Options inherited from parent commands

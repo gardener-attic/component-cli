@@ -471,15 +471,32 @@ const (
 
 	// SignatureAlgorithmRSA defines the type for the RSA PKCS #1 v1.5 signature algorithm
 	SignatureAlgorithmRSAPKCS1v15 = "RSASSA-PKCS1-V1_5"
+
+	// ExcludeFromSignature used in digest field for normalisationAlgorithm (in combination with NoDigest for hashAlgorithm and value)
+	// to indicate the resource content should not be part of the signature
+	ExcludeFromSignature = "EXCLUDE-FROM-SIGNATURE"
+
+	// NoDigest used in digest field for hashAlgorithm and value (in combination with ExcludeFromSignature for normalisationAlgorithm)
+	// to indicate the resource content should not be part of the signature
+	NoDigest = "NO-DIGEST"
 )
+
+//NewExcludeFromSignatureDigest returns the special digest notation to indicate the resource content should not be part of the signature
+func NewExcludeFromSignatureDigest() *DigestSpec {
+	return &DigestSpec{
+		HashAlgorithm:          NoDigest,
+		NormalisationAlgorithm: ExcludeFromSignature,
+		Value:                  NoDigest,
+	}
+}
 
 // NormalisationAlgorithm types and versions the algorithm used for digest generation.
 type NormalisationAlgorithm string
 
 const (
-	JsonNormalisationV1 NormalisationAlgorithm = "jsonNormalisation/V1"
-	ManifestDigestV1    NormalisationAlgorithm = "manifestDigest/V1"
-	GenericBlobDigestV1 NormalisationAlgorithm = "genericBlobDigest/V1"
+	JsonNormalisationV1 NormalisationAlgorithm = "jsonNormalisation/v1"
+	OciArtifactDigestV1 NormalisationAlgorithm = "ociArtifactDigest/v1"
+	GenericBlobDigestV1 NormalisationAlgorithm = "genericBlobDigest/v1"
 )
 
 // Signature defines a digest and corresponding signature, identifyable by name.
