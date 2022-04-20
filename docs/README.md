@@ -182,7 +182,7 @@ access:
   imageReference: 'ubuntu:${VERSION}'
 ```
 
-With the command `component-cli component-archive resources add [path to component archive] ./resources.yaml -- VARIABLE=v0.0.2` it is now possible to define key-value pairs for the substitution.
+With the command `component-cli component-archive resources add [path to component archive] ./resources.yaml -- VERSION=v0.0.2` it is now possible to define key-value pairs for the substitution.
 
 ## Working with OCI Registries as Component Repositories
 Component archives are typically stored in OCI registries. The component-cli provides commands to interact with these stored components and also resources that are stored in OCI registries (e.g. Docker Images).
@@ -255,7 +255,26 @@ By passing the cli flag `--copy-by-value`, additionally all resources wit `acces
 To verify the integrity of component descriptors, component-cli provides signing functionality. All signing related commands are placed under the `component-cli component-archive signature` command. The most important subcommands are `sign` and `verify`, which again have subcommands to sign and verify component descriptors using different algorithms. For detailed information on how a component descriptor is signed and verified, visit the [Component Spec](https://gardener.github.io/component-spec/).
 
 ### Sign and Verify with RSA
-One possible algorithm to sign and verify component descriptors is RSA. RSA requires a private/public keypair for signing and verification, which can be generated with `openssl`.
+One possible algorithm to sign and verify component descriptors is RSA.
+
+#### Generate Private/Public Keypair
+RSA requires a private/public keypair for signing and verification, which can be generated with the `openssl` cli.
+
+The command
+
+```
+openssl genpkey -algorithm RSA -out ./private-key.pem
+```
+
+generates a new private key in PKCS8 format, which is written to `./private-key.pem`.
+
+After that, the command
+
+```
+openssl rsa -in ./private-key.pem -pubout > public-key.pem
+```
+
+extracts the public key from the private key and writes it to `./public-key.pem`.
 
 #### Sign
 The command `component-cli component-archive signature sign rsa` signs a component descriptor with RSA. 
