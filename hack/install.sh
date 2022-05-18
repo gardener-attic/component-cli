@@ -19,5 +19,5 @@ CGO_ENABLED=0 GOOS=$(go env GOOS) GOARCH=$(go env GOARCH) GO111MODULE=on \
             -X github.com/gardener/component-cli/pkg/version.gitVersion=$EFFECTIVE_VERSION \
             -X github.com/gardener/component-cli/pkg/version.gitTreeState=$([ -z git status --porcelain 2>/dev/null ] && echo clean || echo dirty) \
             -X github.com/gardener/component-cli/pkg/version.gitCommit=$(git rev-parse --verify HEAD) \
-            -X github.com/gardener/component-cli/pkg/version.buildDate=$(date --rfc-3339=seconds | sed 's/ /T/')" \
+            -X github.com/gardener/component-cli/pkg/version.buildDate=$(date +%Y-%m-%dT%T)" \
   ${PROJECT_ROOT}/cmd/...
