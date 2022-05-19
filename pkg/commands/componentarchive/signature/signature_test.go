@@ -245,7 +245,7 @@ var _ = Describe("signature", func() {
 	})
 
 	Context("verify", func() {
-		It("should verify a cd with referenced cd and resource each", func() {
+		It("should verify a digested cd", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
