@@ -130,7 +130,7 @@ func uploadTestCd(cd cdv2.ComponentDescriptor, ref string) {
 
 var _ = Describe("signature", func() {
 	Context("add digest", func() {
-		It("should sign a cd with referenced cd and resource each", func() {
+		It("should add digests to a cd and referenced cd", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
