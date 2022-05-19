@@ -216,7 +216,7 @@ var _ = Describe("signature", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(digestedCds).To(BeNil())
 		})
-		It("should add a exclude-from-signature digest to skip-access-types", func() {
+		It("should add a exclude-from-signature digest for resources that are excluded from calculation via skip-access-types", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
