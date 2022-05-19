@@ -264,7 +264,7 @@ var _ = Describe("signature", func() {
 			err = verify.CheckCdDigests(digestedParentCd, *repoCtx, client, context.TODO())
 			Expect(err).ToNot(HaveOccurred())
 		})
-		It("should succeed with resource in different location", func() {
+		It("should verify a digested cd if resource location changes but equal resource content", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
