@@ -400,7 +400,7 @@ var _ = Describe("signature", func() {
 			err = verify.CheckCdDigests(digestedParentCd, *repoCtx, client, context.TODO())
 			Expect(err).To(HaveOccurred())
 		})
-		It("should fail verify with exclude-from-signature manipulation", func() {
+		It("should fail to verify a digested cd if a resource is excluded from calculation afterwards via exclude from signature digest", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
