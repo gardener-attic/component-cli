@@ -176,7 +176,7 @@ var _ = Describe("signature", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(digestedCds).To(BeNil())
 		})
-		It("should fail signing if existing parent cd resource digest mismatch", func() {
+		It("should fail to add digests if preexisting digest in parent cd resource mismatches calculated digest", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
