@@ -2,10 +2,11 @@ package signature_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
-	v2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2Sign "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
 	"github.com/gardener/component-spec/bindings-go/ctf"
 
@@ -32,12 +33,12 @@ func getParentCd() cdv2.ComponentDescriptor {
 				Version: "v0.1.0",
 			},
 			Provider: cdv2.InternalProvider,
-			ComponentReferences: []v2.ComponentReference{
+			ComponentReferences: []cdv2.ComponentReference{
 				{
 					Name:          "test-component-child",
 					ComponentName: "github.com/component-cli/test-component-child",
 					Version:       "v0.1.0",
-					ExtraIdentity: v2.Identity{
+					ExtraIdentity: cdv2.Identity{
 						"refkey": "refName",
 					},
 				},
@@ -129,6 +130,9 @@ func uploadTestCd(cd cdv2.ComponentDescriptor, ref string) {
 }
 
 var _ = Describe("signature", func() {
+	fakeSha256 := sha256.Sum256([]byte("fake"))
+	fakedDigest := hex.EncodeToString(fakeSha256[:])
+
 	Context("add digest", func() {
 		It("should add digests to a cd and referenced cd", func() {
 			parentCd := getParentCd()
@@ -164,7 +168,7 @@ var _ = Describe("signature", func() {
 			parentCd.ComponentReferences[0].Digest = &cdv2.DigestSpec{
 				HashAlgorithm:          "FAKE",
 				NormalisationAlgorithm: "FAKE",
-				Value:                  "FAKE",
+				Value:                  fakedDigest,
 			}
 
 			ref := fmt.Sprintf("%s/%s", testenv.Addr, "cd/0")
@@ -184,7 +188,7 @@ var _ = Describe("signature", func() {
 			parentCd.Resources[0].Digest = &cdv2.DigestSpec{
 				HashAlgorithm:          "FAKE",
 				NormalisationAlgorithm: "FAKE",
-				Value:                  "FAKE",
+				Value:                  fakedDigest,
 			}
 
 			ref := fmt.Sprintf("%s/%s", testenv.Addr, "cd/0")
@@ -366,7 +370,7 @@ var _ = Describe("signature", func() {
 			digestedParentCd := digestedCds[1]
 
 			//manipulate digest of component descriptor
-			digestedParentCd.ComponentReferences[0].Digest.Value = "faked"
+			digestedParentCd.ComponentReferences[0].Digest.Value = fakedDigest
 
 			repoCtx := cdv2.NewOCIRegistryRepository(ref, "")
 			err = verify.CheckCdDigests(digestedParentCd, *repoCtx, client, context.TODO())
