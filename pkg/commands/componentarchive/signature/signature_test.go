@@ -156,7 +156,7 @@ var _ = Describe("signature", func() {
 			Expect(digestedParentCd.ComponentReferences[0].Digest).ToNot(Equal(cdv2.NewExcludeFromSignatureDigest()))
 		})
 
-		It("should fail signing if existing cd reference digest mismatch", func() {
+		It("should fail to add digests if preexisting digest in component ref mismatches calculated digest", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
