@@ -325,7 +325,7 @@ var _ = Describe("signature", func() {
 			err = verify.CheckCdDigests(digestedParentCd, *repoCtx, client, context.TODO())
 			Expect(err).To(HaveOccurred())
 		})
-		It("should fail verify with manipulated resource in parent", func() {
+		It("should fail to verify a digested cd with manipulated resource in parent", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
