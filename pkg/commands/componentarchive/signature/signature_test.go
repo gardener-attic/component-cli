@@ -372,7 +372,7 @@ var _ = Describe("signature", func() {
 			err = verify.CheckCdDigests(digestedParentCd, *repoCtx, client, context.TODO())
 			Expect(err).To(HaveOccurred())
 		})
-		It("should fail verify with access type manipulation", func() {
+		It("should fail to verify a digested cd if a resource is excluded from calculation afterwards via access type none", func() {
 			parentCd := getParentCd()
 			childCd := getChildCd()
 
