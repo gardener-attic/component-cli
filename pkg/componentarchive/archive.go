@@ -149,7 +149,7 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 		return nil, fmt.Errorf("unable to default component descriptor: %w", err)
 	}
 
-	if err = cdvalidation.Validate(cd); err != nil {
+	if err := cdvalidation.Validate(cd); err != nil {
 		return nil, fmt.Errorf("invalid component descriptor: %w", err)
 	}
 
