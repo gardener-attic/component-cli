@@ -15,10 +15,11 @@ import (
 	. "github.com/onsi/gomega"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 
+	. "github.com/onsi/ginkgo"
+
 	"github.com/gardener/component-cli/pkg/commands/componentarchive/signature/verify"
 	"github.com/gardener/component-cli/pkg/signatures"
 	"github.com/gardener/component-cli/pkg/testutils"
-	. "github.com/onsi/ginkgo"
 )
 
 func getParentCd() cdv2.ComponentDescriptor {
