@@ -58,11 +58,14 @@ func (o *BuilderOptions) Validate() error {
 		return errors.New("a component archive path must be defined")
 	}
 
-	if len(o.Name) != 0 {
-		if len(o.Version) == 0 {
-			return errors.New("a version has to be provided for a minimal component descriptor")
-		}
+	if len(o.Name) == 0 {
+		return errors.New("a name has to be provided for a minimal component descriptor")
 	}
+
+	if len(o.Version) == 0 {
+		return errors.New("a version has to be provided for a minimal component descriptor")
+	}
+
 	if len(o.ComponentNameMapping) != 0 {
 		if o.ComponentNameMapping != string(cdv2.OCIRegistryURLPathMapping) &&
 			o.ComponentNameMapping != string(cdv2.OCIRegistryDigestMapping) {
