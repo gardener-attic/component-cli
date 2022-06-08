@@ -24,9 +24,9 @@ import (
 )
 
 type X509CertificateVerifyOptions struct {
-	rootCACertPath           string
+	rootCACertPath          string
 	intermediateCACertsPath string
-	certPath          string
+	certPath                string
 
 	GenericVerifyOptions
 }
