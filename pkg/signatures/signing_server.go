@@ -83,9 +83,9 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 		return nil, errors.New("invalid response: signature block doesn't contain signature")
 	}
 
-	algorithm := signatureBlock.Headers[cdv2.SignaturePEMBlockAlgorithmHeader]
+	algorithm := signatureBlock.Headers[cdv2.SignatureAlgorithmHeader]
 	if algorithm == "" {
-		return nil, fmt.Errorf("invalid response: %s header is empty", cdv2.SignaturePEMBlockAlgorithmHeader)
+		return nil, fmt.Errorf("invalid response: %s header is empty", cdv2.SignatureAlgorithmHeader)
 	}
 
 	encodedSignature := pem.EncodeToMemory(signatureBlock)
