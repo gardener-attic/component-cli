@@ -150,7 +150,7 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 	}
 
 	if err := cdvalidation.Validate(cd); err != nil {
-		return nil, fmt.Errorf("invalid component descriptor: %w", err)
+		return nil, fmt.Errorf("unable to validate component descriptor: %w", err)
 	}
 
 	data, err := yaml.Marshal(cd)
