@@ -1,15 +1,15 @@
-## component-cli component-archive signature add-digests
+## component-cli component-archive signatures add-digests
 
 fetch the component descriptor from an oci registry and add digests
 
 ### Synopsis
 
 
-		fetch the component descriptor from an oci registry and add digests. Optionally resolve and digest the referenced component descriptors.
+		fetch the component descriptor from an oci registry and add digests. optionally resolve and digest the referenced component descriptors.
 
 
 ```
-component-cli component-archive signature add-digests BASE_URL COMPONENT_NAME VERSION [flags]
+component-cli component-archive signatures add-digests BASE_URL COMPONENT_NAME VERSION [flags]
 ```
 
 ### Options
@@ -39,5 +39,5 @@ component-cli component-archive signature add-digests BASE_URL COMPONENT_NAME VE
 
 ### SEE ALSO
 
-* [component-cli component-archive signature](component-cli_component-archive_signature.md)	 - [EXPERIMENTAL] command to work with signatures and digests in component descriptors
+* [component-cli component-archive signatures](component-cli_component-archive_signatures.md)	 - command to work with signatures and digests in component descriptors
 

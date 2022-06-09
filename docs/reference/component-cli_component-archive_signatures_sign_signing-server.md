@@ -1,9 +1,9 @@
-## component-cli component-archive signature sign signing-server
+## component-cli component-archive signatures sign signing-server
 
 fetch the component descriptor from an oci registry, sign it with a signature provided from a signing server, and re-upload
 
 ```
-component-cli component-archive signature sign signing-server BASE_URL COMPONENT_NAME VERSION [flags]
+component-cli component-archive signatures sign signing-server BASE_URL COMPONENT_NAME VERSION [flags]
 ```
 
 ### Options
@@ -35,5 +35,5 @@ component-cli component-archive signature sign signing-server BASE_URL COMPONENT
 
 ### SEE ALSO
 
-* [component-cli component-archive signature sign](component-cli_component-archive_signature_sign.md)	 - command to sign component descriptors
+* [component-cli component-archive signatures sign](component-cli_component-archive_signatures_sign.md)	 - command to sign component descriptors
 

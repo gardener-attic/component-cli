@@ -1,9 +1,9 @@
-## component-cli component-archive signature verify rsa
+## component-cli component-archive signatures check-digests
 
-fetch the component descriptor from an oci registry and verify its integrity based on a RSASSA-PKCS1-V1_5-SIGN signature
+fetch the component descriptor from an oci registry and check digests
 
 ```
-component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VERSION [flags]
+component-cli component-archive signatures check-digests BASE_URL COMPONENT_NAME VERSION [flags]
 ```
 
 ### Options
@@ -11,11 +11,9 @@ component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VER
 ```
       --allow-plain-http           allows the fallback to http if the oci registry does not support https
       --cc-config string           path to the local concourse config file
-  -h, --help                       help for rsa
+  -h, --help                       help for check-digests
       --insecure-skip-tls-verify   If true, the server's certificate will not be checked for validity. This will make your HTTPS connections insecure
-      --public-key string          path to public key file
       --registry-config string     path to the dockerconfig.json with the oci registry authentication information
-      --signature-name string      name of the signature to verify
 ```
 
 ### Options inherited from parent commands
@@ -31,5 +29,5 @@ component-cli component-archive signature verify rsa BASE_URL COMPONENT_NAME VER
 
 ### SEE ALSO
 
-* [component-cli component-archive signature verify](component-cli_component-archive_signature_verify.md)	 - command to verify the signature of a component descriptor
+* [component-cli component-archive signatures](component-cli_component-archive_signatures.md)	 - command to work with signatures and digests in component descriptors
 

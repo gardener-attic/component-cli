@@ -17,7 +17,7 @@ func NewSignaturesCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "signatures",
 		Aliases: []string{"signature"},
-		Short:   "[EXPERIMENTAL] command to work with signatures and digests in component descriptors",
+		Short:   "command to work with signatures and digests in component descriptors",
 	}
 
 	cmd.AddCommand(NewAddDigestsCommand(ctx))
