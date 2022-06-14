@@ -5,6 +5,8 @@ package signatures
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -14,28 +16,41 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2signatures "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
-	"sigs.k8s.io/yaml"
 )
 
 const (
-	AcceptHeader = "Accept"
+	// http header
+	AcceptHeader             = "Accept"
+	HashAlgorithmHeader      = "X-Hash-Algorithm"
+	SignatureAlgorithmHeader = "X-Signature-Algorithm"
 )
 
 type SigningServerSigner struct {
-	Url      string `json:"url"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	ServerURL  string
+	ClientCert *tls.Certificate
+	RootCACert []byte
 }
 
-func NewSigningServerSignerFromConfigFile(configFilePath string) (*SigningServerSigner, error) {
-	configBytes, err := ioutil.ReadFile(configFilePath)
+func NewSigningServerSigner(serverURL, clientCertPath, privateKeyPath, rootCACertPath string) (*SigningServerSigner, error) {
+	clientCert, err := tls.LoadX509KeyPair(clientCertPath, privateKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read config file: %w", err)
+		return nil, fmt.Errorf("unable to load client certificate: %w", err)
 	}
-	var signer SigningServerSigner
-	if err := yaml.Unmarshal(configBytes, &signer); err != nil {
-		return nil, fmt.Errorf("unable to parse config yaml: %w", err)
+
+	var rootCACert []byte
+	if rootCACertPath != "" {
+		rootCACert, err = ioutil.ReadFile(rootCACertPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read root ca certificate file: %w", err)
+		}
 	}
+
+	signer := SigningServerSigner{
+		ServerURL:  serverURL,
+		ClientCert: &clientCert,
+		RootCACert: rootCACert,
+	}
+
 	return &signer, nil
 }
 
@@ -45,14 +60,30 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 		return nil, fmt.Errorf("unable to hex decode hash: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign", signer.Url), bytes.NewBuffer(decodedHash))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign", signer.ServerURL), bytes.NewBuffer(decodedHash))
 	if err != nil {
 		return nil, fmt.Errorf("unable to build http request: %w", err)
 	}
 	req.Header.Add(AcceptHeader, cdv2.MediaTypePEM)
-	req.SetBasicAuth(signer.Username, signer.Password)
+	req.Header.Add(HashAlgorithmHeader, digest.HashAlgorithm)
+	req.Header.Add(SignatureAlgorithmHeader, cdv2.RSAPKCS1v15)
 
-	client := http.Client{}
+	caCertPool := x509.NewCertPool()
+	if len(signer.RootCACert) > 0 {
+		if ok := caCertPool.AppendCertsFromPEM(signer.RootCACert); !ok {
+			return nil, fmt.Errorf("unable to append root ca certificate to cert pool")
+		}
+	}
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:      caCertPool,
+				Certificates: []tls.Certificate{*signer.ClientCert},
+			},
+		},
+	}
+
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to send http request: %w", err)

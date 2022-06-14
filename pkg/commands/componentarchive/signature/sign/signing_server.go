@@ -20,8 +20,10 @@ import (
 )
 
 type SigningServerSignOptions struct {
-	// SigningServerConfigPath path to the config file containing signing server configuration
-	SigningServerConfigPath string
+	ServerURL      string
+	ClientCertPath string
+	PrivateKeyPath string
+	RootCACertPath string
 
 	GenericSignOptions
 }
@@ -51,7 +53,7 @@ func NewSigningServerSignCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *SigningServerSignOptions) Run(ctx context.Context, log logr.Logger, fs vfs.FileSystem) error {
-	signer, err := signatures.NewSigningServerSignerFromConfigFile(o.SigningServerConfigPath)
+	signer, err := signatures.NewSigningServerSigner(o.ServerURL, o.ClientCertPath, o.PrivateKeyPath, o.RootCACertPath)
 	if err != nil {
 		return fmt.Errorf("unable to create signing server signer: %w", err)
 	}
@@ -63,8 +65,16 @@ func (o *SigningServerSignOptions) Complete(args []string) error {
 		return err
 	}
 
-	if o.SigningServerConfigPath == "" {
-		return errors.New("a config file which contains the signing server configuration must be given as flag")
+	if o.ServerURL == "" {
+		return errors.New("a server url must be provided")
+	}
+
+	if o.ClientCertPath == "" {
+		return errors.New("a path to a client certificate file must be provided")
+	}
+
+	if o.PrivateKeyPath == "" {
+		return errors.New("a path to a private key file must be provided")
 	}
 
 	return nil
@@ -72,5 +82,8 @@ func (o *SigningServerSignOptions) Complete(args []string) error {
 
 func (o *SigningServerSignOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GenericSignOptions.AddFlags(fs)
-	fs.StringVar(&o.SigningServerConfigPath, "config", "", "config file which contains the signing server configuration")
+	fs.StringVar(&o.ServerURL, "server-url", "", "url where the signing server is running, e.g. https://localhost:8080")
+	fs.StringVar(&o.ClientCertPath, "client-cert", "", "path to a file containing the client certificate in PEM format for authenticating to the server")
+	fs.StringVar(&o.PrivateKeyPath, "private-key", "", "path to a file containing the private key for the provided client certificate in PEM format")
+	fs.StringVar(&o.RootCACertPath, "root-ca-cert", "", "[OPTIONAL] path to a file containing the root ca certificate in PEM format. if empty, the system root ca certificate pool is used")
 }
