@@ -83,7 +83,7 @@ func (o *X509CertificateVerifyOptions) Complete(args []string) error {
 	}
 
 	if o.certPath == "" {
-		return errors.New("a path to a certificate file must be given as flag")
+		return errors.New("a path to a certificate file must be provided")
 	}
 
 	return nil
