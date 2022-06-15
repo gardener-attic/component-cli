@@ -26,29 +26,30 @@ const (
 )
 
 type SigningServerSigner struct {
-	ServerURL  string
-	ClientCert *tls.Certificate
-	RootCACert []byte
+	ServerURL   string
+	ClientCert  *tls.Certificate
+	RootCACerts []byte
 }
 
-func NewSigningServerSigner(serverURL, clientCertPath, privateKeyPath, rootCACertPath string) (*SigningServerSigner, error) {
-	clientCert, err := tls.LoadX509KeyPair(clientCertPath, privateKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load client certificate: %w", err)
-	}
-
-	var rootCACert []byte
-	if rootCACertPath != "" {
-		rootCACert, err = ioutil.ReadFile(rootCACertPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read root ca certificate file: %w", err)
-		}
-	}
-
+func NewSigningServerSigner(serverURL, clientCertPath, privateKeyPath, rootCACertsPath string) (*SigningServerSigner, error) {
 	signer := SigningServerSigner{
-		ServerURL:  serverURL,
-		ClientCert: &clientCert,
-		RootCACert: rootCACert,
+		ServerURL: serverURL,
+	}
+
+	if clientCertPath != "" {
+		clientCert, err := tls.LoadX509KeyPair(clientCertPath, privateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to load client certificate: %w", err)
+		}
+		signer.ClientCert = &clientCert
+	}
+
+	if rootCACertsPath != "" {
+		rootCACerts, err := ioutil.ReadFile(rootCACertsPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read root ca certificates file: %w", err)
+		}
+		signer.RootCACerts = rootCACerts
 	}
 
 	return &signer, nil
@@ -68,18 +69,24 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 	req.Header.Add(HashAlgorithmHeader, digest.HashAlgorithm)
 	req.Header.Add(SignatureAlgorithmHeader, cdv2.RSAPKCS1v15)
 
-	caCertPool := x509.NewCertPool()
-	if len(signer.RootCACert) > 0 {
-		if ok := caCertPool.AppendCertsFromPEM(signer.RootCACert); !ok {
-			return nil, fmt.Errorf("unable to append root ca certificate to cert pool")
+	var certPool *x509.CertPool
+	if len(signer.RootCACerts) > 0 {
+		certPool = x509.NewCertPool()
+		if ok := certPool.AppendCertsFromPEM(signer.RootCACerts); !ok {
+			return nil, fmt.Errorf("unable to append root ca certificates to cert pool")
 		}
+	}
+
+	clientCerts := []tls.Certificate{}
+	if signer.ClientCert != nil {
+		clientCerts = append(clientCerts, *signer.ClientCert)
 	}
 
 	client := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				RootCAs:      caCertPool,
-				Certificates: []tls.Certificate{*signer.ClientCert},
+				RootCAs:      certPool,
+				Certificates: clientCerts,
 			},
 		},
 	}
