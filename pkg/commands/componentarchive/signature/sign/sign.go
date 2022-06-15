@@ -21,6 +21,7 @@ import (
 
 	ociopts "github.com/gardener/component-cli/ociclient/options"
 	"github.com/gardener/component-cli/pkg/commands/constants"
+	"github.com/gardener/component-cli/pkg/components"
 	"github.com/gardener/component-cli/pkg/logger"
 	"github.com/gardener/component-cli/pkg/signatures"
 )
@@ -62,6 +63,8 @@ type GenericSignOptions struct {
 
 	// OciOptions contains all exposed options to configure the oci client.
 	OciOptions ociopts.Options
+
+	SignedRef string
 }
 
 //Complete validates the arguments and flags from the command line
@@ -95,6 +98,13 @@ func (o *GenericSignOptions) Complete(args []string) error {
 	if o.SignatureName == "" {
 		return errors.New("a signature name must be provided")
 	}
+
+	signedRef, err := components.OCIRef(cdv2.NewOCIRegistryRepository(o.UploadBaseUrlForSigned, ""), o.ComponentName, o.Version)
+	if err != nil {
+		return fmt.Errorf("invalid reference for signed component descriptor: %w", err)
+	}
+	o.SignedRef = signedRef
+
 	return nil
 }
 
@@ -171,5 +181,7 @@ func (o *GenericSignOptions) SignAndUploadWithSigner(ctx context.Context, log lo
 			return fmt.Errorf("unable to upload component descriptor: %w", err)
 		}
 	}
+
+	log.Info(fmt.Sprintf("Successfully uploaded signed component descriptor at %s", o.SignedRef))
 	return nil
 }
