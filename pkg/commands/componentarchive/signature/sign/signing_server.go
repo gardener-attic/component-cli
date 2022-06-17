@@ -20,9 +20,9 @@ import (
 )
 
 type SigningServerSignOptions struct {
-	ServerURL      string
-	ClientCertPath string
-	PrivateKeyPath string
+	ServerURL       string
+	ClientCertPath  string
+	PrivateKeyPath  string
 	RootCACertsPath string
 
 	GenericSignOptions
