@@ -61,13 +61,11 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 		return nil, fmt.Errorf("unable to hex decode hash: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign", signer.ServerURL), bytes.NewBuffer(decodedHash))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign/rsassa-pkcs1-v1_5?hashAlgorithm=%s", signer.ServerURL, digest.HashAlgorithm), bytes.NewBuffer(decodedHash))
 	if err != nil {
 		return nil, fmt.Errorf("unable to build http request: %w", err)
 	}
 	req.Header.Add(AcceptHeader, cdv2.MediaTypePEM)
-	req.Header.Add(HashAlgorithmHeader, digest.HashAlgorithm)
-	req.Header.Add(SignatureAlgorithmHeader, cdv2.RSAPKCS1v15)
 
 	var certPool *x509.CertPool
 	if len(signer.RootCACerts) > 0 {
@@ -77,8 +75,9 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 		}
 	}
 
-	clientCerts := []tls.Certificate{}
+	var clientCerts []tls.Certificate
 	if signer.ClientCert != nil {
+		clientCerts = []tls.Certificate{}
 		clientCerts = append(clientCerts, *signer.ClientCert)
 	}
 
