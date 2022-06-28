@@ -17,7 +17,7 @@ require (
 	github.com/mandelsoft/vfs v0.0.0-20210530103237-5249dc39ce91
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
-	github.com/opencontainers/distribution-spec v1.0.0-rc1
+	github.com/opencontainers/distribution-spec v1.0.1
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.7.1
