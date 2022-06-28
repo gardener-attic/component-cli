@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #### BUILDER ####
-FROM eu.gcr.io/gardener-project/3rd/golang:1.16.7 AS builder
+FROM eu.gcr.io/gardener-project/3rd/golang:1.18.1 AS builder
 
 WORKDIR /go/src/github.com/gardener/component-cli
 COPY . .
@@ -13,7 +13,7 @@ ARG EFFECTIVE_VERSION
 RUN make install EFFECTIVE_VERSION=$EFFECTIVE_VERSION
 
 #### BASE ####
-FROM alpine:3.15.4 AS base
+FROM alpine:3.16 AS base
 
 RUN apk add --no-cache ca-certificates
 
