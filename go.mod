@@ -3,7 +3,7 @@ module github.com/gardener/component-cli
 go 1.18
 
 require (
-	github.com/containerd/containerd v1.5.5
+	github.com/containerd/containerd v1.5.13
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/drone/envsubst v1.0.2
 	github.com/gardener/component-spec/bindings-go v0.0.65
@@ -19,7 +19,7 @@ require (
 	github.com/onsi/gomega v1.13.0
 	github.com/opencontainers/distribution-spec v1.0.0-rc1
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/image-spec v1.0.1
+	github.com/opencontainers/image-spec v1.0.2
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.2.0
@@ -70,11 +70,11 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
 	golang.org/x/text v0.3.6 // indirect
-	golang.org/x/tools v0.1.2 // indirect
+	golang.org/x/tools v0.1.5 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	google.golang.org/grpc v1.38.0 // indirect
-	google.golang.org/protobuf v1.26.0 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
