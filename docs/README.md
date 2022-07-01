@@ -15,7 +15,7 @@ __Index__:
   - [Push a Component Archive](#push-a-component-archive)
   - [Pull a Component Descriptor](#pull-a-component-descriptor)
   - [Copy a Component Archive](#copy-a-component-archive)
-- [Creating Signatures](#creating-signatures)
+- [Signing](#signing)
   - [Sign with RSA Private Key](#sign-with-rsa-private-key)
   - [Sign with Signing Server](#sign-with-signing-server)
 - [Verifying Signatures](#verifying-signatures)
@@ -253,7 +253,7 @@ The previous command will copy the defined component and recursively also all re
 
 By passing the cli flag `--copy-by-value`, additionally all resources wit `accessType: ociRegistry` (e.g. Docker Images) will be copied to the target location. Therefore, if your component archives only describe local blobs and oci artifacts as resources, the whole application can be copied in a self contained way between different registries. 
 
-## Creating Signatures
+## Signing
 The signing functionality of component-cli allows to sign a component descriptor based delivery during the build process, and later verify the integrity of the delivery during the deploy process. All signing related commands are placed under the `component-cli component-archive signatures` command. The most important subcommands are `sign` and `verify`, which again have subcommands to sign and verify component descriptors using different algorithms. For detailed information on how a component descriptor is signed and verified, visit the [Component Spec](https://gardener.github.io/component-spec/).
 
 ![signing flow](signing-flow.png)
@@ -352,5 +352,5 @@ component-cli ca signature verify x509 eu.gcr.io/test github.com/test/component 
 
 The command first verifies the certificate validity. Then, it will recursively fetch the resources and calculate the digests for the component that should be verified. In the end is checked that the calculated digest matches the signed digest in the signature that is selected with the parameter `--signature-name`.
 
-If self-signed certificates are used, additional ca certificates can be passed in via the parameters `intermediate-ca-certs` and `root-ca-cert`. If `--root-ca-cert` isn't set, the system default ca certificate pool is used.
+If self-signed certificates are used, additional ca certificates can be passed in via the parameters `--intermediate-ca-certs` and `--root-ca-cert`. If `--root-ca-cert` isn't set, the system default ca certificate pool is used.
 
