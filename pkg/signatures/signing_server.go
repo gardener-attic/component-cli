@@ -77,7 +77,6 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 
 	var clientCerts []tls.Certificate
 	if signer.ClientCert != nil {
-		clientCerts = []tls.Certificate{}
 		clientCerts = append(clientCerts, *signer.ClientCert)
 	}
 
