@@ -199,7 +199,7 @@ func (o *CopyOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.ConvertToRelativeOCIReferences, "relative-urls", false, "converts all copied oci artifacts to relative urls")
 	fs.StringSliceVar(&o.ReplaceOCIRefs, "replace-oci-ref", []string{}, "list of replace expressions in the format left:right. For every resource with accessType == "+cdv2.OCIRegistryType+", all occurences of 'left' in the target ref are replaced with 'right' before the upload")
 	fs.Uint64Var(&o.MaxRetries, "max-retries", 0, "maximum number of retries for copying a component descriptor")
-	fs.DurationVar(&o.BackoffFactor, "backoff-factor", 1*time.Second, "a backoff factor to apply between retry attempts. if backoff-factor is 1s, then the timeout will be [1s, 2s, 4s, …]")
+	fs.DurationVar(&o.BackoffFactor, "backoff-factor", 1*time.Second, "a backoff factor to apply between retry attempts. if backoff-factor is 1s, then the timeout will be calculated using the following formula: backoff = 1s * 2^retries [1s, 2s, 4s, …]")
 	o.OciOptions.AddFlags(fs)
 }
 
