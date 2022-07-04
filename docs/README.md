@@ -16,7 +16,11 @@ __Index__:
   - [Pull a Component Descriptor](#pull-a-component-descriptor)
   - [Copy a Component Archive](#copy-a-component-archive)
 - [Signing](#signing)
-  - [Sign and Verify with RSA](#sign-and-verify-with-rsa)
+  - [Sign with RSA Private Key](#sign-with-rsa-private-key)
+  - [Sign with Signing Server](#sign-with-signing-server)
+- [Verifying Signatures](#verifying-signatures)
+  - [Verify with RSA Public Key](#verify-with-rsa-public-key)
+  - [Verify with X509 Certificate](#verify-with-x509-certificate)
 
 ## Create a Component Archive
 In the beginning a component archive must be created. A component archive is a directory that contains the component descriptor at `/component-descriptor.yaml` and all resource blobs at `/blobs/<blobname>`.
@@ -250,11 +254,11 @@ The previous command will copy the defined component and recursively also all re
 By passing the cli flag `--copy-by-value`, additionally all resources wit `accessType: ociRegistry` (e.g. Docker Images) will be copied to the target location. Therefore, if your component archives only describe local blobs and oci artifacts as resources, the whole application can be copied in a self contained way between different registries. 
 
 ## Signing
-> (!) This is currently an experimental feature
+The signing functionality of component-cli allows to sign a component descriptor based delivery during the build process, and later verify the integrity of the delivery during the deploy process. All signing related commands are placed under the `component-cli component-archive signatures` command. The most important subcommands are `sign` and `verify`, which again have subcommands to sign and verify component descriptors using different algorithms. For detailed information on how a component descriptor is signed and verified, visit the [Component Spec](https://gardener.github.io/component-spec/).
 
-To verify the integrity of component descriptors, component-cli provides signing functionality. All signing related commands are placed under the `component-cli component-archive signature` command. The most important subcommands are `sign` and `verify`, which again have subcommands to sign and verify component descriptors using different algorithms. For detailed information on how a component descriptor is signed and verified, visit the [Component Spec](https://gardener.github.io/component-spec/).
+![signing flow](signing-flow.png)
 
-### Sign and Verify with RSA
+### Sign with RSA Private Key
 One possible algorithm to sign and verify component descriptors is RSA.
 
 #### Generate Private/Public Keypair
@@ -277,10 +281,10 @@ openssl rsa -in ./private-key.pem -pubout > public-key.pem
 extracts the public key from the private key and writes it to `./public-key.pem`.
 
 #### Sign
-The command `component-cli component-archive signature sign rsa` signs a component descriptor with RSA. 
+The command `component-cli component-archive signatures sign rsa` signs a component descriptor with RSA. 
 
 ```shell script
-component-cli ca signature sign rsa eu.gcr.io/unsigned github.com/test-component v0.1.0 --upload-base-url eu.gcr.io/signed --recursive --signature-name test-signature --private-key ./private-key.pem
+component-cli ca signatures sign rsa eu.gcr.io/unsigned github.com/test-component v0.1.0 --upload-base-url eu.gcr.io/signed --recursive --signature-name test-signature --private-key ./private-key.pem
 ```
 
 The previous command would recursively download the targeted component descriptor and all referenced components, sign them, and re-upload them to the new component repository defined by the parameter `--upload-base-url`. To overwrite the existing component descriptors with the signed ones, set `--upload-base-url` to the unsigned component repository URL and set the `--force` flag.
@@ -300,21 +304,53 @@ signatures:
     value: c349a4aee7061e6553f0a5e9df840328a2018168c6b2a1475d10955e2114afb3
   signature:
     algorithm: RSASSA-PKCS1-V1_5
-    mediaType: application/vnd.ocm.signature.rsa
-    value: b0f556e19d78e5b9bfbb1ee9145920d477ab12ee2f556e78b309613131295af78d83ef37f4b24ce7e5f814f04bb564a6dc9b697259ed7462a22a46aaf56bad90ca13e7f94a56018744aef21137cd45e8e83311510bea2bc8b46786d2c0ba0c2c00d6e8038ff9a869bf3bab06167cd5b749eba9f8676c47ac767b5b886ee3765bf31bed4ccdafe63ecc492a17862d056597f3831aa7fa78ca4eab9707f789afe147a34486d86df06635b654af29dfb430991bb61aa7a2a995fa1ea0c73fc1af7c4f8bd390dd4345eec002974dc251df962766dd97dafc77b9d7d8b10b3bedd4fb4939e38f092ed4c39fc4bb26a06e750ed661a4aa883060de794b3a5d8dff0f9b
+    mediaType: application/x-pem-file
+    value: |
+      -----BEGIN SIGNATURE-----
+      Signature Algorithm: RSASSA-PKCS1-V1_5
+
+      YiUMiPovgaXwnBSdAYr4UrfUhcM4N9BlzxAchzTJ1xpIYRYUqOJbE0xbmXpgn2+/097Y3wVoSjgi1JbJn9axM4YoK09lVPB4HVDntM4LqVdziNJMXV1pf2G+igS8SjzSrfMhWVJuVRVaLvQEvssW3sYiCVfgayIFoBJhkM+Y7us0/7MB4j9I+0butjbYeDMItw1Z3cYcCRexgSJZaNaRnajL7vZF2WCJM17tKFa0ncw45895YamRp/ZCf+oypZWCwWDSLETSD5jfzYdWuOdrR1eRENMrMPDQEZu6ihZNl6WLQYCKlYLPlepf7CFCQkVC8LvoZGV63QbLR/l+WX4J4Q==
+      -----END SIGNATURE-----
 ```
 
 The RSA private key that is used for signing is defined by the parameter `--private-key`. It must point to a file which contains the private key in PEM format. 
 
-The parameter `--signature-name` defines the symbolic name under which the signature is written to the component descriptor. It  allows to differentiate multiple signatures.
+The parameter `--signature-name` defines the symbolic name under which the signature is written to the component descriptor. It  allows to differentiate if multiple signatures exists in a component descriptor.
 
-#### Verify
-The command `component-cli component-archive signature verify rsa` allows you to verify an existing RSA signature inside of a component descriptor. 
+### Sign with Signing Server
+Alternatively to generating the signature on the client, the signature can also be generated by a server. This enables scenarios, where keys and certificates are centrally handled and not individually by all the clients themselves. A prerequisite for this scenario is a running [signing server](https://github.com/gardener/signing-server) instance.
+
+To sign a component descriptor using a signing server, run the following command:
 
 ```shell script
-component-cli ca signature verify rsa eu.gcr.io/signed github.com/test-component v0.1.0 --signature-name test-signature --public-key ./public-key.pem
+component-cli ca signatures sign signing-server eu.gcr.io/unsigned github.com/test-component v0.1.0 --upload-base-url eu.gcr.io/signed --recursive --signature-name test-signature --server-url https://localhost:8080 --root-ca-certs ./root-ca-certs.pem
 ```
 
-It will recursively fetch the resources and calculate the digests for the component that should be verified. In the end is checked that the calculated digest matches the signed digest in the signature that is selected with the parameter `--signature-name`. 
+Most of the parameters are equal to [signing with an RSA private key](#sign-with-rsa-private-key), you can go there for an explanation of the parameters. The argument `--server-url` defines the base url where the signing server instance is running. If the server uses HTTPS with a self-signed certificate, the additional root ca certificates for validating the server certificate can be passed in via the argument `--root-ca-certs`.
+
+If the signing server has enable client certificate authentication, use the parameter `--client-cert` to pass in a valid client certificate file.
+
+## Verifying Signatures
+
+### Verify with RSA Public Key
+The command `component-cli component-archive signatures verify rsa` allows you to verify an existing RSA signature inside of a component descriptor.
+
+```shell script
+component-cli ca signatures verify rsa eu.gcr.io/signed github.com/test-component v0.1.0 --signature-name test-signature --public-key ./public-key.pem
+```
+
+It will recursively fetch the resources and calculate the digests for the component that should be verified. In the end is checked that the calculated digest matches the signed digest in the signature that is selected with the parameter `--signature-name`.
 
 The RSA public key that is used for verifying is defined by the parameter `--public-key`. It must point to a file which contains the public key in PEM format.
+
+### Verify with X509 Certificate
+Alternatively a RSA signature can also be validated using x509 certificates.
+
+```
+component-cli ca signature verify x509 eu.gcr.io/test github.com/test/component 0.1.0 --cert ./cert.pem --signature-name test-signature
+```
+
+The command first verifies the certificate validity. Then, it will recursively fetch the resources and calculate the digests for the component that should be verified. In the end is checked that the calculated digest matches the signed digest in the signature that is selected with the parameter `--signature-name`.
+
+If self-signed certificates are used, additional ca certificates can be passed in via the parameters `--intermediate-ca-certs` and `--root-ca-cert`. If `--root-ca-cert` isn't set, the system default ca certificate pool is used.
+

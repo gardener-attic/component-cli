@@ -76,7 +76,7 @@ func (o *CheckDigestsOptions) Run(ctx context.Context, log logr.Logger, fs vfs.F
 
 	// check componentReferences and resources
 	if err := verify.CheckCdDigests(cd, *repoCtx, ociClient, context.TODO()); err != nil {
-		return fmt.Errorf("failed checking cd: %w", err)
+		return fmt.Errorf("unable to check component descriptor digests: %w", err)
 	}
 
 	return nil
@@ -99,13 +99,13 @@ func (o *CheckDigestsOptions) Complete(args []string) error {
 	}
 
 	if len(o.BaseUrl) == 0 {
-		return errors.New("the base url must be defined")
+		return errors.New("a base url must be provided")
 	}
 	if len(o.ComponentName) == 0 {
-		return errors.New("a component name must be defined")
+		return errors.New("a component name must be provided")
 	}
 	if len(o.Version) == 0 {
-		return errors.New("a component's Version must be defined")
+		return errors.New("a component version must be provided")
 	}
 	return nil
 }

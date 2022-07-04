@@ -55,7 +55,7 @@ func (o *BuilderOptions) Default() {
 // Validate validates the component archive builder options.
 func (o *BuilderOptions) Validate() error {
 	if len(o.ComponentArchivePath) == 0 {
-		return errors.New("a component archive path must be defined")
+		return errors.New("a component archive path must be provided")
 	}
 
 	if len(o.Name) != 0 {
@@ -147,6 +147,10 @@ func (o *BuilderOptions) Build(fs vfs.FileSystem) (*ctf.ComponentArchive, error)
 	if err := cdv2.DefaultComponent(cd); err != nil {
 		utils.PrintPrettyYaml(cd, true)
 		return nil, fmt.Errorf("unable to default component descriptor: %w", err)
+	}
+
+	if err := cdvalidation.Validate(cd); err != nil {
+		return nil, fmt.Errorf("unable to validate component descriptor: %w", err)
 	}
 
 	data, err := yaml.Marshal(cd)

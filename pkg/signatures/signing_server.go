@@ -5,6 +5,8 @@ package signatures
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -14,54 +16,88 @@ import (
 
 	cdv2 "github.com/gardener/component-spec/bindings-go/apis/v2"
 	cdv2signatures "github.com/gardener/component-spec/bindings-go/apis/v2/signatures"
-	"sigs.k8s.io/yaml"
 )
 
 const (
-	AcceptHeader = "Accept"
+	// http header
+	AcceptHeader             = "Accept"
+	HashAlgorithmHeader      = "X-Hash-Algorithm"
+	SignatureAlgorithmHeader = "X-Signature-Algorithm"
 )
 
 type SigningServerSigner struct {
-	Url      string `json:"url"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	ServerURL   string
+	ClientCert  *tls.Certificate
+	RootCACerts []byte
 }
 
-func NewSigningServerSignerFromConfigFile(configFilePath string) (*SigningServerSigner, error) {
-	configBytes, err := ioutil.ReadFile(configFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading config file: %w", err)
+func NewSigningServerSigner(serverURL, clientCertPath, privateKeyPath, rootCACertsPath string) (*SigningServerSigner, error) {
+	signer := SigningServerSigner{
+		ServerURL: serverURL,
 	}
-	var signer SigningServerSigner
-	if err := yaml.Unmarshal(configBytes, &signer); err != nil {
-		return nil, fmt.Errorf("failed parsing config yaml: %w", err)
+
+	if clientCertPath != "" {
+		clientCert, err := tls.LoadX509KeyPair(clientCertPath, privateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to load client certificate: %w", err)
+		}
+		signer.ClientCert = &clientCert
 	}
+
+	if rootCACertsPath != "" {
+		rootCACerts, err := ioutil.ReadFile(rootCACertsPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read root ca certificates file: %w", err)
+		}
+		signer.RootCACerts = rootCACerts
+	}
+
 	return &signer, nil
 }
 
 func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescriptor, digest cdv2.DigestSpec) (*cdv2.SignatureSpec, error) {
 	decodedHash, err := hex.DecodeString(digest.Value)
 	if err != nil {
-		return nil, fmt.Errorf("failed decoding hash: %w", err)
+		return nil, fmt.Errorf("unable to hex decode hash: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign", signer.Url), bytes.NewBuffer(decodedHash))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/sign/rsassa-pkcs1-v1_5?hashAlgorithm=%s", signer.ServerURL, digest.HashAlgorithm), bytes.NewBuffer(decodedHash))
 	if err != nil {
-		return nil, fmt.Errorf("failed building http request: %w", err)
+		return nil, fmt.Errorf("unable to build http request: %w", err)
 	}
 	req.Header.Add(AcceptHeader, cdv2.MediaTypePEM)
-	req.SetBasicAuth(signer.Username, signer.Password)
 
-	client := http.Client{}
+	var certPool *x509.CertPool
+	if len(signer.RootCACerts) > 0 {
+		certPool = x509.NewCertPool()
+		if ok := certPool.AppendCertsFromPEM(signer.RootCACerts); !ok {
+			return nil, fmt.Errorf("unable to append root ca certificates to cert pool")
+		}
+	}
+
+	var clientCerts []tls.Certificate
+	if signer.ClientCert != nil {
+		clientCerts = append(clientCerts, *signer.ClientCert)
+	}
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:      certPool,
+				Certificates: clientCerts,
+			},
+		},
+	}
+
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed sending request: %w", err)
+		return nil, fmt.Errorf("unable to send http request: %w", err)
 	}
 	defer res.Body.Close()
 
 	responseBodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading response body: %w", err)
+		return nil, fmt.Errorf("unable to read response body: %w", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -83,9 +119,9 @@ func (signer *SigningServerSigner) Sign(componentDescriptor cdv2.ComponentDescri
 		return nil, errors.New("invalid response: signature block doesn't contain signature")
 	}
 
-	algorithm := signatureBlock.Headers[cdv2.SignaturePEMBlockAlgorithmHeader]
+	algorithm := signatureBlock.Headers[cdv2.SignatureAlgorithmHeader]
 	if algorithm == "" {
-		return nil, fmt.Errorf("invalid response: %s header is empty", cdv2.SignaturePEMBlockAlgorithmHeader)
+		return nil, fmt.Errorf("invalid response: %s header is empty", cdv2.SignatureAlgorithmHeader)
 	}
 
 	encodedSignature := pem.EncodeToMemory(signatureBlock)
