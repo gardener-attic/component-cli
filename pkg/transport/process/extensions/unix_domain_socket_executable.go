@@ -71,6 +71,11 @@ func (e *unixDomainSocketExecutable) Process(ctx context.Context, r io.Reader, w
 	if err != nil {
 		return fmt.Errorf("unable to connect to processor: %w", err)
 	}
+	defer func() {
+		if err := os.Remove(e.addr); err != nil {
+			fmt.Fprintf(os.Stderr, "unable to remove %s: %s", e.addr, err.Error())
+		}
+	}()
 
 	if _, err := io.Copy(conn, r); err != nil {
 		return fmt.Errorf("unable to write input: %w", err)
@@ -92,15 +97,6 @@ func (e *unixDomainSocketExecutable) Process(ctx context.Context, r io.Reader, w
 	// extension servers must implement ordinary shutdown (!)
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("unable to wait for processor: %w", err)
-	}
-
-	// remove socket file if server hasn't already cleaned up
-	if _, err := os.Stat(e.addr); err == nil {
-		if err := os.Remove(e.addr); err != nil {
-			return fmt.Errorf("unable to remove %s: %w", e.addr, err)
-		}
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("unable to get file stats for %s: %w", e.addr, err)
 	}
 
 	return nil
