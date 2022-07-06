@@ -20,7 +20,7 @@ component-cli component-archive remote copy COMPONENT_NAME VERSION --from SOURCE
 
 ```
       --allow-plain-http                    allows the fallback to http if the oci registry does not support https
-      --backoff-factor duration             a backoff factor to apply between retry attempts. if backoff-factor is 1s, then the timeout will be calculated using the following formula: backoff = 1s * 2^retries [1s, 2s, 4s, …] (default 1s)
+      --backoff-factor duration             a backoff factor to apply between retry attempts: backoff = backoff-factor * 2^retries. e.g. if backoff-factor is 1s, then the timeouts will be [1s, 2s, 4s, …] (default 1s)
       --cc-config string                    path to the local concourse config file
       --copy-by-value                       [EXPERIMENTAL] copies all referenced oci images and artifacts by value and not by reference.
       --force                               Forces the tool to overwrite already existing component descriptors.
