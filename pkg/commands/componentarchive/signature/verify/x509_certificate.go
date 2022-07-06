@@ -91,7 +91,6 @@ func (o *X509CertificateVerifyOptions) Complete(args []string) error {
 
 func (o *X509CertificateVerifyOptions) AddFlags(fs *pflag.FlagSet) {
 	o.GenericVerifyOptions.AddFlags(fs)
-	fs.StringVar(&o.certPath, "signing-cert", "", "(deprecated: use --cert instead) path to a file containing the signing certificate file in PEM format")
 	fs.StringVar(&o.certPath, "cert", "", "path to a file containing the certificate file in PEM format")
 	fs.StringVar(&o.intermediateCACertsPath, "intermediate-ca-certs", "", "[OPTIONAL] path to a file containing the concatenation of any intermediate ca certificates in PEM format")
 	fs.StringVar(&o.rootCACertPath, "root-ca-cert", "", "[OPTIONAL] path to a file containing the root ca certificate in PEM format. if empty, the system root ca certificate pool is used")
