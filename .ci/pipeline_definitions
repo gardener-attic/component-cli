@@ -54,6 +54,12 @@ component-cli:
               target: 'cli'
               tag_as_latest: true
               image: eu.gcr.io/gardener-project/component/cli
+              resource_labels:
+              - name: 'cloud.gardener.cnudie/dso/scanning-hints/binary_id/v1'
+                value:
+                  comment: >
+                    This image is not exposed to the outside world.
+                  policy: 'skip'
       steps:
         update-release:
           execute: 'update_release.py'
