@@ -138,7 +138,7 @@ func (o *GenericSignOptions) SignAndUploadWithSigner(ctx context.Context, log lo
 		blobResolver = archive.BlobResolver
 		_repoCtx, err := components.GetOCIRepositoryContext(cd.GetEffectiveRepositoryContext())
 		if err != nil {
-			return fmt.Errorf("unable to: %w", err)
+			return fmt.Errorf("unable to create repository context: %w", err)
 		}
 		repoCtx = &_repoCtx
 	} else {
