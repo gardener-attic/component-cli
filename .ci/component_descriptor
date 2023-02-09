@@ -39,26 +39,6 @@ COMPONENT_DESCRIPTOR_FILE_PATH="$COMPONENT_ARCHIVE_PATH/component-descriptor.yam
 mkdir -p "$COMPONENT_ARCHIVE_PATH"
 cp "$BASE_DEFINITION_PATH" "$COMPONENT_DESCRIPTOR_FILE_PATH"
 
-build_matrix=("linux,amd64" "darwin,amd64" "darwin,arm64" "windows,amd64")
-
-for i in "${build_matrix[@]}"; do
-  IFS=',' read os arch <<< "${i}"
-
-  echo "> Add $os/$arch"
-  ARTIFACT_PATH="$(pwd)/dist/componentcli-${os}-${arch}.gz"
-  cat <<EOF | $COMPONENT_CLI ca resources add "$COMPONENT_ARCHIVE_PATH" -
-name: cli-binary-${os}-${arch}
-type: executable
-extraIdentity:
-  os: ${os}
-  arch: ${arch}
-relation: local
-input:
-  type: file
-  path: ${ARTIFACT_PATH}
-EOF
-
-done
 
 # add component references
 image_vector_component_name="github.com/gardener/image-vector"
