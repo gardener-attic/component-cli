@@ -17,8 +17,6 @@ package v2
 import (
 	"encoding/json"
 	"errors"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const SchemaVersion = "v2"
@@ -96,7 +94,7 @@ type ComponentSpec struct {
 	// Resources defines all resources that are created by the component and by a third party.
 	Resources []Resource `json:"resources"`
 	//CreationTime defines the datetime the component was created
-	CreationTime metav1.Time `json:"creationTime,omitempty"`
+	CreationTime string `json:"creationTime,omitempty"`
 }
 
 // ObjectMeta defines a object that is uniquely identified by its name and version.
