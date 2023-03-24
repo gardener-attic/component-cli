@@ -39,7 +39,6 @@ type Metadata struct {
 // +k8s:openapi-gen=true
 type ProviderType string
 
-
 // ResourceRelation describes the type of a resource.
 // Defines whether the component is created by a third party or internally.
 // +k8s:deepcopy-gen=true
@@ -475,7 +474,7 @@ const (
 	NoDigest = "NO-DIGEST"
 )
 
-//NewExcludeFromSignatureDigest returns the special digest notation to indicate the resource content should not be part of the signature
+// NewExcludeFromSignatureDigest returns the special digest notation to indicate the resource content should not be part of the signature
 func NewExcludeFromSignatureDigest() *DigestSpec {
 	return &DigestSpec{
 		HashAlgorithm:          NoDigest,
