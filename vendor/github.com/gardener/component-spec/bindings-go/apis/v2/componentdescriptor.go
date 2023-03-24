@@ -33,20 +33,12 @@ type Metadata struct {
 	Version string `json:"schemaVersion"`
 }
 
-// ProviderType describes the provider type of component in the origin's context.
-// Defines whether the component is created by a third party or internally.
+// ProviderType describes the provider of component in the origin's context.
+// For example the name of an organisation or company.
 // +k8s:deepcopy-gen=true
 // +k8s:openapi-gen=true
 type ProviderType string
 
-const (
-	// InternalProvider defines a internal provider type
-	// which describes a internally maintained component in the origin's context.
-	InternalProvider ProviderType = "internal"
-	// ExternalProvider defines a external provider type
-	// which describes a component maintained by a third party vendor in the origin's context.
-	ExternalProvider ProviderType = "external"
-)
 
 // ResourceRelation describes the type of a resource.
 // Defines whether the component is created by a third party or internally.
