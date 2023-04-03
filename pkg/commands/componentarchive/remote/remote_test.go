@@ -155,7 +155,7 @@ var _ = Describe("Remote", func() {
 		cd := &cdv2.ComponentDescriptor{}
 		cd.Name = "example.com/component"
 		cd.Version = "v0.0.0"
-		cd.Provider = cdv2.InternalProvider
+		cd.Provider = "internal"
 		Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
 
 		blobContent := "blob test\n"
@@ -255,7 +255,7 @@ var _ = Describe("Remote", func() {
 			cd := &cdv2.ComponentDescriptor{}
 			cd.Name = "example.com/my-test-component"
 			cd.Version = "v0.0.1"
-			cd.Provider = cdv2.InternalProvider
+			cd.Provider = "internal"
 			Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
 
 			remoteOCIImage := cdv2.Resource{}
@@ -330,7 +330,7 @@ var _ = Describe("Remote", func() {
 			cd := &cdv2.ComponentDescriptor{}
 			cd.Name = "example.com/my-test-component"
 			cd.Version = "v0.0.1"
-			cd.Provider = cdv2.InternalProvider
+			cd.Provider = "internal"
 			Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
 
 			registryAccessImage := cdv2.Resource{}
@@ -416,7 +416,7 @@ var _ = Describe("Remote", func() {
 			cd := &cdv2.ComponentDescriptor{}
 			cd.Name = "example.com/my-test-component"
 			cd.Version = "v0.0.1"
-			cd.Provider = cdv2.InternalProvider
+			cd.Provider = "internal"
 
 			Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
 
@@ -485,7 +485,7 @@ var _ = Describe("Remote", func() {
 			cd := &cdv2.ComponentDescriptor{}
 			cd.Name = "example.com/my-test-component"
 			cd.Version = "v0.0.1"
-			cd.Provider = cdv2.InternalProvider
+			cd.Provider = "internal"
 
 			Expect(cdv2.InjectRepositoryContext(cd, cdv2.NewOCIRegistryRepository(srcRepoCtxURL, "")))
 

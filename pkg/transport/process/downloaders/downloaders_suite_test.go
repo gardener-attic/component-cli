@@ -96,7 +96,7 @@ func uploadTestComponent() {
 				Name:    "github.com/component-cli/test-component",
 				Version: "0.1.0",
 			},
-			Provider: cdv2.InternalProvider,
+			Provider: "internal",
 			RepositoryContexts: []*cdv2.UnstructuredTypedObject{
 				&repoCtx,
 			},

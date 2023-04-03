@@ -125,7 +125,7 @@ var _ = Describe("Components", func() {
 								Name:    "github.com/gardener/component-cli",
 								Version: "v0.2.0",
 							},
-							Provider:           cdv2.InternalProvider,
+							Provider:           "internal",
 							RepositoryContexts: []*cdv2.UnstructuredTypedObject{&repoCtx},
 						},
 					}
