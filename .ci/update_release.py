@@ -33,6 +33,7 @@ gh_release = github_repo_helper.repository.release_from_tag(version_file_content
 output_path = pathlib.Path(output_dir).resolve()
 output_files = list(output_path.glob('*.gz'))
 for output_file in output_files:
+    print(f'Attaching file {output_file!s} to the GitHub release')
     gh_release.upload_asset(
         content_type='application/gzip',
         name=output_file.name,
