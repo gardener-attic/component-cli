@@ -15,9 +15,9 @@ component-cli:
 
     steps:
       verify:
-        image: 'golang:1.16.7'
+        image: 'golang:1.18.9'
       build:
-        image: 'golang:1.16.7'
+        image: 'golang:1.18.9'
         execute: 'build'
         output_dir: 'out'
         timeout: '5m'
