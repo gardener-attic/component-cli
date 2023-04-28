@@ -179,6 +179,52 @@ func BytesString(bytes uint64, accuracy int) string {
 	return fmt.Sprintf("%s %s", stringValue, unit)
 }
 
+func FilterTARArchive(inputReader io.Reader, outputWriter io.Writer, removePatterns []string) error {
+	if inputReader == nil {
+		return errors.New("inputReader must not be nil")
+	}
+
+	if outputWriter == nil {
+		return errors.New("outputWriter must not be nil")
+	}
+
+	tr := tar.NewReader(inputReader)
+	tw := tar.NewWriter(outputWriter)
+	defer tw.Close()
+
+NEXT_FILE:
+	for {
+		header, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("unable to read header: %w", err)
+		}
+
+		for _, removePattern := range removePatterns {
+			removeFile, err := filepath.Match(removePattern, header.Name)
+			if err != nil {
+				return fmt.Errorf("unable to match filename against pattern: %w", err)
+			}
+
+			if removeFile {
+				continue NEXT_FILE
+			}
+		}
+
+		if err := tw.WriteHeader(header); err != nil {
+			return fmt.Errorf("unable to write header: %w", err)
+		}
+
+		if _, err = io.Copy(tw, tr); err != nil {
+			return fmt.Errorf("unable to write file: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // WriteFileToTARArchive writes a new file with name=filename and content=inputReader to outputWriter
 func WriteFileToTARArchive(filename string, inputReader io.Reader, outputWriter *tar.Writer) error {
 	if filename == "" {
