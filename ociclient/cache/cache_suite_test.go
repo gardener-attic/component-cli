@@ -68,7 +68,7 @@ var _ = Describe("Cache", func() {
 
 			_, err = c.Get(desc)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(ErrNotFound))
+			Expect(err).To(Equal(ErrInvalidBlob))
 		})
 
 		It("should detect tampered data (size shortcut) and remove the tempered blob", func() {
@@ -87,7 +87,7 @@ var _ = Describe("Cache", func() {
 
 			_, err = c.Get(desc)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(ErrNotFound))
+			Expect(err).To(Equal(ErrInvalidBlob))
 		})
 
 		Context("metrics", func() {
