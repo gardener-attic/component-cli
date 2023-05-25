@@ -1,3 +1,9 @@
+# Deprecation Note
+
+`component-cli` is deprecated and will see no further maintenance. It is superseded by
+[ocm-cli](https://github.com/open-component-model/ocm).
+
+
 # Component CLI
 This repository contains a cli tool to work with component archives as defined by the [Component Spec](https://gardener.github.io/component-spec/).
 
