@@ -6,7 +6,7 @@ require (
 	github.com/containerd/containerd v1.6.6
 	github.com/docker/cli v20.10.0-rc1+incompatible
 	github.com/drone/envsubst v1.0.2
-	github.com/gardener/component-spec/bindings-go v0.0.90
+	github.com/gardener/component-spec/bindings-go v0.0.94
 	github.com/gardener/image-vector v0.10.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.3
